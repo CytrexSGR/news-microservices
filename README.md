@@ -142,3 +142,4 @@ For questions or onboarding help, consult the runbooks under `docs/` or reach ou
 
 > This project was built using vibe coding — human vision and AI implementation working as equals.
 
+
