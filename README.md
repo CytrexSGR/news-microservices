@@ -1,137 +1,168 @@
-# News MCP – Microservices Platform
+# News MCP — Modular News Intelligence Platform
 
 ![Services](https://img.shields.io/badge/services-34-blue)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688)
 ![React](https://img.shields.io/badge/React-18-61DAFB)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 
-News MCP is a modular news intelligence platform composed of independent FastAPI services, a React/Vite frontend, and an event-driven backbone built on RabbitMQ. The repository contains everything required to run the full stack locally (Docker Compose) or in Kubernetes (manifests + Tilt).
+A production-grade news intelligence platform that transforms raw RSS/Atom feeds into structured, searchable intelligence through automated NLP pipelines, entity resolution, knowledge graphs, and real-time clustering.
+
+Built as a microservices architecture with 34 independently deployable services, event-driven communication via RabbitMQ, and a React frontend for exploration and administration.
 
 ---
 
-## 📚 **Documentation**
+## Architecture
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Complete system architecture overview
-- **[docs/](docs/)** — API docs, guides, service documentation
-- **[docs/guides/](docs/guides/)** — Deployment, security, scaling guides
+```
+RSS/Atom Feeds ──► Feed Ingestion ──► Content Analysis (Multi-LLM) ──► Intelligence Layer
+     (61+)          Circuit Breaker      Sentiment, Entities,            Clustering,
+                    Celery Workers       Topics, Summaries               Deduplication
+                         │                      │                            │
+                         ▼                      ▼                            ▼
+                    PostgreSQL            Knowledge Graph              Search & Analytics
+                    (80+ tables)          Neo4j + Wikidata             Real-time Indexing
+                         │                      │                            │
+                         └──────────── RabbitMQ Event Bus ───────────────────┘
+                                      (12 Exchanges)
+```
 
----
+## Key Features
 
-## Features at a Glance
+### Intelligence Pipeline
+- **Multi-LLM Content Analysis** — Pluggable providers (OpenAI, Anthropic, Ollama) for sentiment, entity extraction, topic classification, and summarization
+- **Entity Canonicalization** — 5-stage deduplication: exact match, fuzzy matching, semantic similarity, Wikidata enrichment, batch reprocessing
+- **Knowledge Graph** — Neo4j-backed entity relationships with automated ingestion from the analysis pipeline
+- **Intelligence Clustering** — DBSCAN-based story grouping with time-decay ranking across 21,000+ clusters
+- **Narrative Detection** — Cross-article narrative thread identification and tracking
 
-- **Authentication & Authorization** – JWT access/refresh tokens, API keys, RBAC (`services/auth-service`)
-- **Feed Ingestion** – High-throughput RSS/Atom ingestion with circuit breakers, Celery-powered background jobs, and UUID data model (`services/feed-service`)
-- **Content Analysis** – Multi-LLM pipeline (OpenAI/Anthropic/Ollama) with sentiment, entity, topic and summary extraction plus Prometheus metrics (`services/content-analysis-service`)
-- **LLM Orchestration** – DIA (Dynamic Intelligence Augmentation) system with two-stage LLM planning for AI-powered content verification (`services/llm-orchestrator-service`)
-- **Entity Canonicalization** – 5-stage deduplication pipeline with fuzzy/semantic matching, Wikidata enrichment, and batch reprocessing (`services/entity-canonicalization-service`)
-- **Knowledge Graph** – Neo4j-backed entity relationship graph with RabbitMQ ingestion, analytics APIs, and manual enrichment workflow (`services/knowledge-graph-service`)
-- **Research Automation** – Perplexity AI integration, research templates, cost tracking (`services/research-service`)
-- **OSINT Monitoring** – 50+ investigation templates, APScheduler-driven monitoring, anomaly hooks (`services/osint-service`)
-- **Notifications** – Email/webhook delivery, preference management, RabbitMQ consumer for system events (`services/notification-service`)
-- **Search & Analytics** – Real-time indexing, saved searches, trend analytics, metrics APIs (`services/search-service`, `services/analytics-service`)
-- **Orchestration & Scraping** – Scheduler for feed/analysis jobs and scraping workers for full-content extraction (`services/scheduler-service`, `services/scraping-service`)
-- **Frontend** – React 18 + Vite app with Knowledge Graph Admin dashboard, shared UI/state/API packages (`frontend/`)
+### Data Collection
+- **Feed Ingestion** — High-throughput RSS/Atom with circuit breakers, retry logic, and Celery workers
+- **Full-Content Scraping** — Headless browser extraction for paywalled or truncated articles
+- **OSINT Monitoring** — 50+ investigation templates, scheduled monitoring, anomaly detection hooks
 
-Shared tooling lives in `shared/news-mcp-common` (auth, database, event, observability helpers).
+### Research & Analysis
+- **Research Automation** — Perplexity AI integration with templates and cost tracking
+- **LLM Orchestration** — DIA (Dynamic Intelligence Augmentation) with two-stage planning for AI-powered verification
+- **Geolocation Extraction** — Geographic entity resolution and mapping
 
----
+### Platform
+- **8 MCP Servers** — Model Context Protocol interfaces (200+ tools) for AI agent integration
+- **React Frontend** — Knowledge graph admin, entity management, trading signals dashboard
+- **Auth & RBAC** — JWT access/refresh tokens, API keys, role-based access control
+- **Observability** — Prometheus metrics, Grafana dashboards, Loki log aggregation
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python 3.11+, FastAPI, Celery, SQLAlchemy |
+| Frontend | React 18, TypeScript, Vite |
+| Database | PostgreSQL (80+ tables), Neo4j (Knowledge Graph) |
+| Messaging | RabbitMQ (12 exchanges, event-driven) |
+| Cache | Redis |
+| AI/ML | OpenAI, Anthropic, Ollama, Perplexity |
+| Orchestration | Docker Compose, Kubernetes (Tilt) |
+| Monitoring | Prometheus, Grafana, Loki |
 
 ## Getting Started
 
-### 1. Prerequisites
+### Prerequisites
 
-- Docker / Docker Compose
-- Python 3.11+ (for local tooling)
-- Node.js 18+ (for frontend development)
+- Docker & Docker Compose
+- Python 3.11+ (for local development)
+- Node.js 18+ (for frontend)
 
-### 2. Clone and bootstrap
+### Quick Start
 
 ```bash
-git clone <repo-url> news-microservices
+git clone https://github.com/CytrexSGR/news-microservices.git
 cd news-microservices
-
-# Optional: install Tilt for live-reload K8s workflows
-curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
+cp .env.example .env    # Add your API keys (OpenAI, Anthropic, etc.)
+docker compose up --build
 ```
 
-### 3. Run the stack (Docker Compose)
+### Access Points
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Auth API | http://localhost:8100 |
+| Feed API | http://localhost:8101 |
+| Content Analysis API | http://localhost:8114 |
+| Knowledge Graph API | http://localhost:8111 |
+| Search API | http://localhost:8106 |
+| Analytics API | http://localhost:8107 |
+| RabbitMQ Management | http://localhost:15672 |
+| Neo4j Browser | http://localhost:7474 |
+
+### Configuration
+
+Copy `.env.example` to `.env` and configure:
 
 ```bash
-# Bring up infrastructure + services + frontend
-docker-compose up --build
+# Required for content analysis
+OPENAI_API_KEY=sk-...        # or use Ollama for local LLMs
+ANTHROPIC_API_KEY=sk-ant-... # optional, for multi-provider
 
-# Access points
-Frontend: http://localhost:3000
-Auth API: http://localhost:8100
-Feed API: http://localhost:8101
-Content Analysis V2 API: http://localhost:8114
-Research API: http://localhost:8103
-OSINT API: http://localhost:8104
-Notification API: http://localhost:8105
-Search API: http://localhost:8106
-Analytics API: http://localhost:8107
-Scheduler API: http://localhost:8108
-LLM Orchestrator API: http://localhost:8109
-Knowledge Graph API: http://localhost:8111
-Entity Canonicalization API: http://localhost:8112
-RabbitMQ UI: http://localhost:15672  (guest/guest)
-Neo4j Browser: http://localhost:7474  (neo4j/neo4j_password)
+# Required for research automation
+PERPLEXITY_API_KEY=pplx-...  # optional
+
+# Database (defaults work with Docker Compose)
+DATABASE_URL=postgresql+asyncpg://news_user:your_db_password@postgres:5432/news_mcp
 ```
-
-Compose mounts source directories for hot reload. Stop with `docker-compose down`.
-
-### 4. Development workflows
-
-- **Backend**: activate the service `venv`, run `pytest`, or start FastAPI with `uvicorn` for debugging.
-- **Frontend**: `cd frontend && npm install && npm run dev`.
-- **Tilt**: run `tilt up` to orchestrate builds and live reload across services (requires Docker/Kubernetes context).
-- **Testing**: each service contains a `tests/` folder; integration tests live under `tests/` at repo root.
-
----
 
 ## Project Structure
 
 ```
 news-microservices/
-├── docker-compose.yml          # Local runtime (services + infra + frontend)
-├── k8s/                        # Base & overlay manifests for Kubernetes
-├── services/                   # FastAPI microservices (auth, feed, analysis, etc.)
-├── frontend/                   # React/Turborepo workspace
-├── shared/                     # Shared Python packages (events, auth, utils)
-├── docs/                       # Architecture, status, deployment, runbooks
-├── scripts/                    # Maintenance and data pipeline scripts
+├── services/                   # 34 FastAPI microservices
+│   ├── auth-service/           #   JWT auth, API keys, RBAC
+│   ├── feed-service/           #   RSS/Atom ingestion, Celery workers
+│   ├── content-analysis-v3/    #   Multi-LLM NLP pipeline
+│   ├── entity-canonicalization-service/  # 5-stage entity dedup
+│   ├── knowledge-graph-service/#   Neo4j graph management
+│   ├── intelligence-service/   #   Clustering, deduplication
+│   ├── search-service/         #   Full-text search, indexing
+│   ├── analytics-service/      #   Trend analytics, metrics
+│   ├── research-service/       #   Perplexity AI integration
+│   ├── osint-service/          #   OSINT monitoring, templates
+│   ├── narrative-service/      #   Cross-article narrative detection
+│   ├── mcp-*-server/           #   8 MCP protocol servers
+│   └── ...                     #   + scheduler, scraping, notifications, etc.
+├── frontend/                   # React 18 + Vite
+├── shared/                     # Shared Python packages (auth, events, DB)
+├── gateway/                    # API gateway configuration
+├── k8s/                        # Kubernetes manifests
+├── monitoring/                 # Prometheus, Grafana configs
+├── scripts/                    # Maintenance & data pipeline scripts
 ├── tests/                      # Cross-service integration tests
-├── Makefile                    # Common tasks (lint, test, build, deploy)
-└── Tiltfile                    # Tilt development configuration
+├── docker-compose.yml          # Full stack (34 services + infra)
+├── Makefile                    # lint, test, build, deploy
+└── Tiltfile                    # Live-reload K8s development
 ```
 
-Key documentation:
-- `docs/ARCHITECTURE_DIAGRAM.md` – current system topology
-- `docs/EVENT_DRIVEN_ARCHITECTURE.md` – RabbitMQ producers/consumers
-- `docs/DATABASE_ARCHITECTURE.md` – data ownership and migration plan
-- `docs/PROJECT_STATUS.md` – latest project health summary
+## Documentation
 
----
-
-## Deployment Notes
-
-- **Secrets**: sample `.env` files exist in each service. Replace with environment-specific secrets for production.
-- **Observability**: Prometheus, Grafana, and Loki configurations are available via optional Compose services; OpenTelemetry hooks can be enabled per service.
-- **Scaling**: Kubernetes manifests define Deployments, HPAs, and Traefik ingress routes. Content Analysis and Search services are event-driven and horizontally scalable.
-- **Backups**: refer to `docs/DEPLOYMENT_GUIDE.md` and `docs/DATABASE_ARCHITECTURE.md` for PostgreSQL backup procedures.
-
----
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Full system architecture, data flows, database schema
+- **[docs/guides/](docs/guides/)** — Deployment, security, scaling, backup guides
+- **[docs/services/](docs/services/)** — Per-service documentation
+- **[docs/api/](docs/api/)** — API references
+- **[docs/architecture/](docs/architecture/)** — Design decisions, event-driven patterns
 
 ## Contributing
 
-1. Branch from `main` and keep changes focused.
-2. Run linting & tests (`make lint`, `make test`) before opening a PR.
-3. Update documentation when you introduce new components or flows.
+1. Fork the repository
+2. Create a feature branch
+3. Run linting & tests: `make lint && make test`
+4. Submit a pull request
 
-For questions or onboarding help, consult the runbooks under `docs/` or reach out to the platform team.
+See individual service READMEs for service-specific development instructions.
 
+## License
 
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
@@ -141,5 +172,3 @@ For questions or onboarding help, consult the runbooks under `docs/` or reach ou
 **[Claude Code](https://claude.ai/code)** (Anthropic) — Implementation Partner
 
 > This project was built using vibe coding — human vision and AI implementation working as equals.
-
-
