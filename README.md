@@ -90,6 +90,10 @@ A production-grade news intelligence platform that ingests RSS/Atom feeds, runs 
 - **Analytics Service** — Metrics APIs, production-optimized queries, Alembic migrations
 - **FMP Market Data** — Financial Modeling Prep integration for market context enrichment
 
+### Workflow Automation
+- **n8n Integration** — Visual workflow engine for feed orchestration, content pipelines, and scheduled jobs
+- **MediaStack Workflows** — Automated news discovery via n8n → MediaStack API → feed ingestion
+
 ### Platform & Integration
 - **8 MCP Servers** — 200+ tools via Model Context Protocol for AI agent integration (intelligence, search, analytics, knowledge graph, content, core, integration, orchestration)
 - **React Frontend** — Knowledge graph admin, entity management, trading signals, strategy debugger
@@ -107,6 +111,7 @@ A production-grade news intelligence platform that ingests RSS/Atom feeds, runs 
 | Messaging | RabbitMQ (12 exchanges, event-driven) |
 | Cache | Redis |
 | AI/ML | OpenAI, Anthropic, Ollama, Perplexity, UMAP, HDBSCAN |
+| Workflow Automation | n8n (visual workflow engine) |
 | Orchestration | Docker Compose, Kubernetes (Tilt) |
 | Monitoring | Prometheus, Grafana, Loki |
 
@@ -187,6 +192,7 @@ DATABASE_URL=postgresql+asyncpg://news_user:your_db_password@postgres:5432/news_
 | Analytics | http://localhost:8107 |
 | RabbitMQ Management | http://localhost:15672 |
 | Neo4j Browser | http://localhost:7474 |
+| n8n Workflow Editor | http://localhost:5678 |
 
 ## Project Structure
 
