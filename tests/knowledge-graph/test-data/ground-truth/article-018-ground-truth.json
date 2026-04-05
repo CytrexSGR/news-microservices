@@ -1,0 +1,10 @@
+{
+  "article_id": "article-018",
+  "ground_truth_relationships": [],
+  "expected_metrics": {
+    "total_relationships_min": 0,
+    "total_relationships_max": 0,
+    "false_positives_max": 0
+  },
+  "notes": "NEGATIVE EXAMPLE: Technical specifications without narrative context. No relationships possible."
+}

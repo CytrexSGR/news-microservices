@@ -1,0 +1,85 @@
+{
+  "article_id": "article-006",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Microsoft Corporation", "located_in", "Redmond"],
+      "evidence": "Microsoft Corporation, headquartered in Redmond, Washington",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicit headquarters location"
+    },
+    {
+      "triplet": ["Lina Khan", "works_for", "Federal Trade Commission"],
+      "evidence": "The Federal Trade Commission, led by Chair Lina Khan",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicit leadership role"
+    },
+    {
+      "triplet": ["Bobby Kotick", "works_for", "Activision Blizzard"],
+      "evidence": "Bobby Kotick, CEO of Activision Blizzard since 2008",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicit CEO relationship"
+    },
+    {
+      "triplet": ["Sarah Cardell", "works_for", "Competition and Markets Authority"],
+      "evidence": "with Chief Executive Sarah Cardell stating",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicit CE role"
+    },
+    {
+      "triplet": ["Phil Spencer", "works_for", "Microsoft"],
+      "evidence": "Phil Spencer, who leads Microsoft's gaming division Xbox",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Division leadership"
+    },
+    {
+      "triplet": ["Margrethe Vestager", "works_for", "European Commission"],
+      "evidence": "under Commissioner Margrethe Vestager's supervision",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Commissioner role"
+    },
+    {
+      "triplet": ["Joost van Dreunen", "works_for", "DFC Intelligence"],
+      "evidence": "Gaming industry analyst Joost van Dreunen of DFC Intelligence",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Analyst affiliation"
+    },
+    {
+      "triplet": ["King Digital Entertainment", "owns", "Candy Crush"],
+      "evidence": "King Digital Entertainment, the maker of Candy Crush",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Product ownership"
+    },
+    {
+      "triplet": ["Activision Blizzard", "owns", "King Digital Entertainment"],
+      "evidence": "a subsidiary of Activision Blizzard acquired in 2016",
+      "confidence_expectation": "high",
+      "mandatory": false,
+      "notes": "Subsidiary relationship - tests corporate hierarchy"
+    },
+    {
+      "triplet": ["Goldman Sachs", "partner_of", "Microsoft"],
+      "evidence": "Goldman Sachs, which advised Microsoft on the transaction",
+      "confidence_expectation": "medium",
+      "mandatory": false,
+      "notes": "Advisory relationship - tests business partnerships"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 8,
+    "total_relationships_max": 12,
+    "avg_confidence_min": 0.75,
+    "precision_min": 0.75,
+    "recall_min": 0.60,
+    "false_positives_max": 3,
+    "notes": "Complex M&A scenario with multiple regulatory bodies. Entity normalization critical (Microsoft vs Microsoft Corporation). May extract additional relationships from regulatory actions (ruled_against, etc.)"
+  },
+  "notes": "COMPLEX EXAMPLE: Tests entity normalization, corporate hierarchies, multiple organizational relationships, and business partnerships. System must handle 'Microsoft' and 'Microsoft Corporation' as same entity."
+}

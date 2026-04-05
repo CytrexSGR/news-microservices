@@ -1,0 +1,611 @@
+openapi: 3.1.0
+info:
+  title: OSS (Ontology Suggestion System) Service API
+  version: 1.0.0
+  description: |
+    Ontology Suggestion System for News MCP platform.
+
+    Analyzes the Neo4j knowledge graph to detect patterns and inconsistencies,
+    then generates structured ontology change proposals for human review.
+
+    ## Core Functionality
+    1. **Pattern Detection** - Identifies recurring entity/relationship types
+    2. **Inconsistency Detection** - Finds data quality issues
+    3. **Proposal Generation** - Creates evidence-based change proposals
+    4. **Automated Submission** - Submits proposals to Ontology Proposals Service
+    5. **Scheduled Analysis** - Runs analysis cycles at configurable intervals
+
+    ## Analysis Cycle
+    ```
+    START (Scheduled or Manual)
+      ↓
+    Pattern Detection (Entity & Relationship Types)
+      ↓
+    Inconsistency Detection (ISO codes, Duplicates, Missing Properties, etc.)
+      ↓
+    Confidence Filtering (threshold: 0.7 default)
+      ↓
+    Proposal Submission (to Ontology Proposals Service)
+      ↓
+    END (return AnalysisResult)
+    ```
+
+    ## Key Concepts
+    - **Confidence**: 0.0-1.0 score indicating proposal reliability
+    - **Severity**: CRITICAL | HIGH | MEDIUM | LOW
+    - **Change Type**: NEW_ENTITY_TYPE, NEW_RELATIONSHIP_TYPE, FLAG_INCONSISTENCY, etc.
+    - **Impact Analysis**: Affected entities, migration complexity, effort estimates
+
+  contact:
+    name: API Support
+    email: support@newsmcp.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8110
+    description: Development server (root)
+  - url: http://localhost:8110/api/v1
+    description: API v1 base URL
+  - url: https://api.newsmcp.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Service health and status monitoring
+  - name: Analysis
+    description: Analysis operations - pattern detection and proposal generation
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: |
+        Check service health status including Neo4j connectivity.
+        Used by monitoring systems and load balancers.
+      tags:
+        - Health
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                service: OSS Service
+                version: 1.0.0
+                timestamp: "2025-11-24T14:30:22Z"
+                neo4j: connected
+                proposals_api: "http://ontology-proposals-service:8109"
+        '503':
+          description: Service unhealthy (Neo4j disconnected)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /:
+    get:
+      summary: Root endpoint
+      description: Get service information and documentation links
+      tags:
+        - Health
+      operationId: rootEndpoint
+      security: []
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceInfo'
+              example:
+                service: "OSS Service"
+                version: "1.0.0"
+                status: "running"
+                docs: "/docs"
+                description: "Ontology Suggestion System - Learns from knowledge graph to suggest improvements"
+
+  /api/v1/analysis/run:
+    post:
+      summary: Trigger analysis cycle
+      description: |
+        Trigger a manual OSS analysis cycle. This operation:
+        1. Detects patterns in the knowledge graph
+        2. Identifies data quality inconsistencies
+        3. Generates proposals for ontology improvements
+        4. Submits proposals to the Ontology Proposals Service
+
+        The analysis runs sequentially and returns detailed metrics about
+        patterns found, proposals generated, and submission results.
+
+        Note: This does NOT affect the scheduled analysis job. Both run independently.
+      tags:
+        - Analysis
+      operationId: triggerAnalysis
+      security: []
+      responses:
+        '200':
+          description: Analysis cycle completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+              example:
+                cycle_id: "cycle_20251124_143022_abc12345"
+                started_at: "2025-11-24T14:30:22Z"
+                completed_at: "2025-11-24T14:30:45Z"
+                patterns_detected: 5
+                inconsistencies_detected: 3
+                proposals_generated: 6
+                proposals_submitted: 6
+                errors: []
+                warnings: []
+                proposals:
+                  - proposal_id: "OSS_20251124_143022_abc12345"
+                    change_type: "NEW_ENTITY_TYPE"
+                    severity: "HIGH"
+                    title: "Frequent entity type pattern: CyberAttackGroup"
+                    occurrence_count: 47
+                    confidence: 0.92
+        '500':
+          description: Analysis cycle failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+              example:
+                cycle_id: "cycle_20251124_143022_abc12345"
+                started_at: "2025-11-24T14:30:22Z"
+                completed_at: "2025-11-24T14:30:45Z"
+                patterns_detected: 0
+                inconsistencies_detected: 0
+                proposals_generated: 0
+                proposals_submitted: 0
+                errors:
+                  - "Neo4j connection failed: Connection refused"
+                warnings: []
+                proposals: []
+
+  /api/v1/analysis/status:
+    get:
+      summary: Get service status and configuration
+      description: |
+        Retrieve current service status and configuration parameters.
+        Shows Neo4j connectivity, API endpoints, and analysis settings.
+      tags:
+        - Analysis
+      operationId: getStatus
+      security: []
+      responses:
+        '200':
+          description: Service status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+              example:
+                service: "OSS Service"
+                version: "1.0.0"
+                status: "operational"
+                neo4j_connected: true
+                proposals_api: "http://ontology-proposals-service:8109"
+                analysis_interval_seconds: 3600
+                min_pattern_occurrences: 10
+                confidence_threshold: 0.7
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - version
+        - timestamp
+        - neo4j
+        - proposals_api
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Overall service health status
+        service:
+          type: string
+          example: "OSS Service"
+          description: Service name
+        version:
+          type: string
+          example: "1.0.0"
+          description: Service version
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-11-24T14:30:22Z"
+          description: Response timestamp
+        neo4j:
+          type: string
+          enum: [connected, disconnected]
+          description: Neo4j database connection status
+        proposals_api:
+          type: string
+          example: "http://ontology-proposals-service:8109"
+          description: Ontology Proposals Service URL
+
+    ServiceInfo:
+      type: object
+      required:
+        - service
+        - version
+        - status
+        - docs
+        - description
+      properties:
+        service:
+          type: string
+          example: "OSS Service"
+          description: Service name
+        version:
+          type: string
+          example: "1.0.0"
+          description: Service version
+        status:
+          type: string
+          example: "running"
+          description: Service status
+        docs:
+          type: string
+          example: "/docs"
+          description: Link to API documentation
+        description:
+          type: string
+          example: "Ontology Suggestion System - Learns from knowledge graph to suggest improvements"
+          description: Service description
+
+    StatusResponse:
+      type: object
+      required:
+        - service
+        - version
+        - status
+        - neo4j_connected
+        - proposals_api
+        - analysis_interval_seconds
+        - min_pattern_occurrences
+        - confidence_threshold
+      properties:
+        service:
+          type: string
+          example: "OSS Service"
+          description: Service name
+        version:
+          type: string
+          example: "1.0.0"
+          description: Service version
+        status:
+          type: string
+          example: "operational"
+          description: Service operational status
+        neo4j_connected:
+          type: boolean
+          example: true
+          description: Neo4j database connection status
+        proposals_api:
+          type: string
+          example: "http://ontology-proposals-service:8109"
+          description: Ontology Proposals Service URL
+        analysis_interval_seconds:
+          type: integer
+          example: 3600
+          description: Scheduled analysis interval in seconds
+        min_pattern_occurrences:
+          type: integer
+          example: 10
+          description: Minimum occurrences to consider a pattern
+        confidence_threshold:
+          type: number
+          format: float
+          example: 0.7
+          description: Minimum confidence threshold (0.0-1.0) to generate proposal
+
+    AnalysisResult:
+      type: object
+      required:
+        - cycle_id
+        - started_at
+        - completed_at
+        - patterns_detected
+        - inconsistencies_detected
+        - proposals_generated
+        - proposals_submitted
+        - errors
+        - warnings
+        - proposals
+      properties:
+        cycle_id:
+          type: string
+          example: "cycle_20251124_143022_abc12345"
+          description: Unique identifier for this analysis cycle
+        started_at:
+          type: string
+          format: date-time
+          example: "2025-11-24T14:30:22Z"
+          description: Analysis cycle start timestamp
+        completed_at:
+          type: string
+          format: date-time
+          example: "2025-11-24T14:30:45Z"
+          description: Analysis cycle end timestamp
+        patterns_detected:
+          type: integer
+          example: 5
+          description: Number of patterns detected (entity types + relationship types)
+        inconsistencies_detected:
+          type: integer
+          example: 3
+          description: Number of inconsistencies detected
+        proposals_generated:
+          type: integer
+          example: 6
+          description: Number of proposals generated (after confidence filtering)
+        proposals_submitted:
+          type: integer
+          example: 6
+          description: Number of proposals successfully submitted to API
+        errors:
+          type: array
+          items:
+            type: string
+          example: []
+          description: Error messages (if any)
+        warnings:
+          type: array
+          items:
+            type: string
+          example: []
+          description: Warning messages (if any)
+        proposals:
+          type: array
+          items:
+            $ref: '#/components/schemas/OntologyChangeProposal'
+          description: Array of generated proposals
+
+    OntologyChangeProposal:
+      type: object
+      required:
+        - proposal_id
+        - change_type
+        - severity
+        - title
+        - description
+        - confidence
+        - impact_analysis
+      properties:
+        proposal_id:
+          type: string
+          example: "OSS_20251124_143022_abc12345"
+          description: Unique proposal identifier (format: OSS_YYYYMMDD_HHMMSS_UUID)
+        change_type:
+          type: string
+          enum:
+            - NEW_ENTITY_TYPE
+            - NEW_RELATIONSHIP_TYPE
+            - MODIFY_ENTITY_PROPERTIES
+            - MODIFY_RELATIONSHIP_PROPERTIES
+            - FLAG_INCONSISTENCY
+            - SUGGEST_CONSTRAINT
+            - SUGGEST_INDEX
+            - DEPRECATE_ENTITY
+            - DEPRECATE_RELATIONSHIP
+            - MERGE_ENTITIES
+          example: "NEW_ENTITY_TYPE"
+          description: Type of ontology change being proposed
+        severity:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          example: "HIGH"
+          description: Severity or urgency of this proposal
+        title:
+          type: string
+          example: "Frequent entity type pattern: CyberAttackGroup"
+          description: Short, descriptive title
+        description:
+          type: string
+          example: "Detected 47 Entity nodes with entity_type='CyberAttackGroup'..."
+          description: Detailed explanation of what is being proposed and why
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evidence'
+          description: Examples from the graph supporting this proposal
+        pattern_query:
+          type: string
+          example: "MATCH (n:Entity) WHERE n.entity_type = 'CyberAttackGroup' RETURN n LIMIT 10"
+          description: Cypher query that identified this pattern
+        occurrence_count:
+          type: integer
+          example: 47
+          description: How many times this pattern occurs in current data
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.92
+          description: OSS confidence in this proposal (0.0-1.0)
+        confidence_factors:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            frequency: 0.9
+            consistency: 0.95
+          description: Breakdown of confidence calculation
+        impact_analysis:
+          $ref: '#/components/schemas/ImpactAnalysis'
+          description: Analysis of potential impact of this change
+        validation_checks:
+          type: array
+          items:
+            type: string
+          example:
+            - "No conflicting entity types found"
+            - "Properties are consistent across nodes"
+          description: Validation checks performed
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+            - pattern-detection
+            - entity-type
+            - cyberattackgroup
+          description: Tags for categorization
+        oss_version:
+          type: string
+          example: "1.0.0"
+          description: Version of OSS that generated this proposal
+        related_proposals:
+          type: array
+          items:
+            type: string
+          description: IDs of related proposals
+
+    Evidence:
+      type: object
+      required:
+        - example_id
+        - example_type
+      properties:
+        example_id:
+          type: string
+          example: "12345"
+          description: ID of example entity/relationship from Neo4j
+        example_type:
+          type: string
+          enum: [NODE, RELATIONSHIP, PATTERN]
+          example: "NODE"
+          description: Type of example
+        properties:
+          type: object
+          additionalProperties: true
+          example:
+            entity_id: "AQ"
+            name: "Al-Qaeda"
+          description: Relevant properties of the example
+        context:
+          type: string
+          example: "Example node with type 'CyberAttackGroup'"
+          description: Contextual explanation of why this is evidence
+        frequency:
+          type: integer
+          example: 47
+          description: How many times this pattern occurs in the graph
+
+    ImpactAnalysis:
+      type: object
+      required:
+        - breaking_change
+        - migration_complexity
+      properties:
+        affected_entities_count:
+          type: integer
+          example: 47
+          description: Number of existing entities affected by this change
+        affected_relationships_count:
+          type: integer
+          example: 0
+          description: Number of existing relationships affected
+        breaking_change:
+          type: boolean
+          example: false
+          description: Whether this is a breaking change requiring migration
+        migration_complexity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+          example: "MEDIUM"
+          description: Migration complexity level
+        estimated_effort_hours:
+          type: number
+          format: float
+          example: 4.0
+          description: Estimated implementation effort in hours
+        benefits:
+          type: array
+          items:
+            type: string
+          example:
+            - "Better data organization"
+            - "Improved query performance"
+          description: Expected benefits of implementing this change
+        risks:
+          type: array
+          items:
+            type: string
+          example:
+            - "Need to migrate 47 existing nodes"
+            - "May require updating ingestion logic"
+          description: Potential risks or downsides
+
+  responses:
+    HealthResponse:
+      description: Service health status
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HealthResponse'
+
+    AnalysisResultResponse:
+      description: Analysis cycle result
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AnalysisResult'
+
+    StatusResponse:
+      description: Service status and configuration
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StatusResponse'
+
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Invalid parameter value"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Resource not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Internal server error"
+              type:
+                type: string
+                example: "internal_error"

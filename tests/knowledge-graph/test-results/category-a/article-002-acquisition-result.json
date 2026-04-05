@@ -1,0 +1,109 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "6446e5f2-2a52-42a7-895c-a307c8aca7c0",
+    "entities": [
+      {
+        "id": "6243010e-5222-41bb-9329-d6fae2a98add",
+        "text": "Adobe Inc.",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "1f1c0430-77b1-41ca-ac9c-aeed0a0bf8bf",
+        "text": "Figma Inc.",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "ce2ba8cb-5205-4178-a5a1-0a60b8c8a1f9",
+        "text": "Dylan Field",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "d45b7a93-b1a0-4421-afcc-23123ac91981",
+        "text": "David Wadhwani",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "5c132822-7c51-4351-8726-57c5da83eaf4",
+        "text": "San Francisco",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "ee24787e-fd79-4af9-9724-a089541484aa",
+        "text": "2012",
+        "type": "DATE",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "21d97073-8362-40c7-a0a0-834297a6d2bf",
+        "text": "4 million",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "c393ba7c-9fc0-40a4-b40c-f306d4a1c990",
+        "text": "Shantanu Narayen",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "e64e3550-3ffb-4b23-afa3-b8eb51acfe1d",
+        "text": "2024",
+        "type": "DATE",
+        "confidence": 0.9,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Adobe Inc.",
+        "entity2": "Figma Inc.",
+        "type": "related_to",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Figma Inc.",
+        "entity2": "Dylan Field",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Dylan Field",
+        "entity2": "Adobe Inc.",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Figma Inc.",
+        "entity2": "San Francisco",
+        "type": "located_in",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Shantanu Narayen",
+        "entity2": "Adobe Inc.",
+        "type": "member_of",
+        "confidence": 0.9
+      }
+    ],
+    "entity_count": 9,
+    "relationship_count": 5,
+    "processing_time_ms": 6689,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:06:42.557324"
+}

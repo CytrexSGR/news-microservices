@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tension Heatmap | News Intelligence</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    .header {
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .header h1 { font-size: 1.5rem; }
+    .controls { display: flex; gap: 15px; align-items: center; }
+    .select-box {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 8px 15px;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+    .select-box option { background: #1a1a2e; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      background: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+    }
+    .container { max-width: 1600px; margin: 0 auto; padding: 25px; }
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+    }
+    .heatmap-container {
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 25px;
+      overflow-x: auto;
+    }
+    .heatmap-title { font-size: 1.2rem; margin-bottom: 20px; text-align: center; }
+    .heatmap {
+      display: grid;
+      gap: 4px;
+      min-width: 800px;
+    }
+    .heatmap-row {
+      display: contents;
+    }
+    .heatmap-cell {
+      aspect-ratio: 1;
+      min-width: 40px;
+      min-height: 40px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    .heatmap-cell:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: 10;
+    }
+    .heatmap-label {
+      background: rgba(255,255,255,0.1);
+      padding: 8px;
+      font-size: 0.75rem;
+      text-align: center;
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .heatmap-label.row-label {
+      text-align: right;
+      padding-right: 15px;
+    }
+    .tooltip {
+      position: fixed;
+      background: rgba(0,0,0,0.9);
+      padding: 12px 15px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      pointer-events: none;
+      z-index: 1000;
+      max-width: 250px;
+      display: none;
+    }
+    .tooltip.visible { display: block; }
+    .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 25px; }
+    .metric {
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+    .metric-value { font-size: 2rem; font-weight: 700; }
+    .metric-label { color: rgba(255,255,255,0.6); margin-top: 5px; font-size: 0.9rem; }
+    .tension-critical { color: #f44336; }
+    .tension-high { color: #ff9800; }
+    .tension-medium { color: #ffc107; }
+    .tension-low { color: #4caf50; }
+    .loading { opacity: 0.5; }
+    @media (max-width: 768px) {
+      .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔥 Tension Heatmap</h1>
+    <div class="controls">
+      <select id="viewMode" class="select-box" onchange="loadData()">
+        <option value="entity-frame">Entity × Frame</option>
+        <option value="entity-entity">Entity × Entity</option>
+      </select>
+      <select id="limit" class="select-box" onchange="loadData()">
+        <option value="10">Top 10</option>
+        <option value="15" selected>Top 15</option>
+        <option value="20">Top 20</option>
+      </select>
+      <span class="status">
+        <span style="width:8px;height:8px;border-radius:50%;background:#4caf50;"></span>
+        <span id="statusText">LIVE</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="metrics-row">
+      <div class="metric">
+        <div class="metric-value tension-critical" id="criticalCount">-</div>
+        <div class="metric-label">Critical (>0.9)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value tension-high" id="highCount">-</div>
+        <div class="metric-label">High (0.7-0.9)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value tension-medium" id="mediumCount">-</div>
+        <div class="metric-label">Medium (0.4-0.7)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value tension-low" id="lowCount">-</div>
+        <div class="metric-label">Low (<0.4)</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-color" style="background: #1a472a;"></div>
+        <span>0.0 - 0.2</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #4caf50;"></div>
+        <span>0.2 - 0.4</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #ffc107;"></div>
+        <span>0.4 - 0.6</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #ff9800;"></div>
+        <span>0.6 - 0.8</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #f44336;"></div>
+        <span>0.8 - 1.0</span>
+      </div>
+    </div>
+
+    <div class="heatmap-container">
+      <div class="heatmap-title" id="heatmapTitle">Entity × Frame Tension Heatmap</div>
+      <div class="heatmap" id="heatmap">Loading...</div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+    const API_BASE = window.location.hostname === 'localhost'
+      ? 'http://localhost:8111/api/v1/graph'
+      : '/api/v1/graph';
+
+    function getTensionColor(tension) {
+      if (tension >= 0.8) return '#f44336';
+      if (tension >= 0.6) return '#ff9800';
+      if (tension >= 0.4) return '#ffc107';
+      if (tension >= 0.2) return '#4caf50';
+      return '#1a472a';
+    }
+
+    async function loadData() {
+      const viewMode = document.getElementById('viewMode').value;
+      const limit = parseInt(document.getElementById('limit').value);
+
+      document.body.classList.add('loading');
+
+      try {
+        if (viewMode === 'entity-frame') {
+          await loadEntityFrameHeatmap(limit);
+        } else {
+          await loadEntityEntityHeatmap(limit);
+        }
+      } catch (error) {
+        console.error('Load error:', error);
+        document.getElementById('heatmap').innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);">Error loading data</div>';
+      } finally {
+        document.body.classList.remove('loading');
+      }
+    }
+
+    async function loadEntityFrameHeatmap(limit) {
+      document.getElementById('heatmapTitle').textContent = 'Entity × Frame Tension Heatmap';
+
+      // Get top entities and frame distribution
+      const [entitiesRes, framesRes] = await Promise.all([
+        fetch(`${API_BASE}/narratives/top-entities?limit=${limit}`),
+        fetch(`${API_BASE}/narratives/distribution`)
+      ]);
+
+      const entities = await entitiesRes.json();
+      const frames = await framesRes.json();
+
+      const entityList = Array.isArray(entities) ? entities.slice(0, limit) : [];
+      const frameList = Array.isArray(frames) ? frames.slice(0, 8) : [];
+
+      // Fetch framing data for each entity
+      const framingData = await Promise.all(
+        entityList.map(e =>
+          fetch(`${API_BASE}/narratives/entity-framing/${encodeURIComponent(e.entity_name)}`)
+            .then(r => r.json())
+            .catch(() => ({ frames: [] }))
+        )
+      );
+
+      // Build heatmap matrix
+      const matrix = [];
+      let criticalCount = 0, highCount = 0, mediumCount = 0, lowCount = 0;
+
+      entityList.forEach((entity, i) => {
+        const framing = framingData[i];
+        const frameMap = {};
+        (framing.frames || []).forEach(f => {
+          frameMap[f.frame_type] = f.avg_tension || 0;
+        });
+
+        const row = frameList.map(f => {
+          const tension = frameMap[f.frame_type] || 0;
+          if (tension >= 0.9) criticalCount++;
+          else if (tension >= 0.7) highCount++;
+          else if (tension >= 0.4) mediumCount++;
+          else lowCount++;
+          return {
+            tension,
+            entity: entity.entity_name,
+            frame: f.frame_type
+          };
+        });
+        matrix.push({ entity: entity.entity_name, cells: row });
+      });
+
+      updateMetrics(criticalCount, highCount, mediumCount, lowCount);
+      renderHeatmap(matrix, frameList.map(f => f.frame_type), 'entity');
+    }
+
+    async function loadEntityEntityHeatmap(limit) {
+      document.getElementById('heatmapTitle').textContent = 'Entity × Entity Co-occurrence Tension';
+
+      const [entitiesRes, cooccurRes] = await Promise.all([
+        fetch(`${API_BASE}/narratives/top-entities?limit=${limit}`),
+        fetch(`${API_BASE}/narratives/cooccurrence?min_shared=3&limit=500`)
+      ]);
+
+      const entities = await entitiesRes.json();
+      const cooccurrences = await cooccurRes.json();
+
+      const entityList = Array.isArray(entities) ? entities.slice(0, limit) : [];
+      const cooccurList = Array.isArray(cooccurrences) ? cooccurrences : [];
+
+      // Build co-occurrence lookup
+      const tensionMap = {};
+      cooccurList.forEach(c => {
+        const key1 = `${c.entity_a || c.entity1}|${c.entity_b || c.entity2}`;
+        const key2 = `${c.entity_b || c.entity2}|${c.entity_a || c.entity1}`;
+        tensionMap[key1] = c.avg_tension || 0;
+        tensionMap[key2] = c.avg_tension || 0;
+      });
+
+      const entityNames = entityList.map(e => e.entity_name);
+      const matrix = [];
+      let criticalCount = 0, highCount = 0, mediumCount = 0, lowCount = 0;
+
+      entityNames.forEach(e1 => {
+        const row = entityNames.map(e2 => {
+          if (e1 === e2) return { tension: 0, entity1: e1, entity2: e2, self: true };
+          const key = `${e1}|${e2}`;
+          const tension = tensionMap[key] || 0;
+          if (tension >= 0.9) criticalCount++;
+          else if (tension >= 0.7) highCount++;
+          else if (tension >= 0.4) mediumCount++;
+          else lowCount++;
+          return { tension, entity1: e1, entity2: e2 };
+        });
+        matrix.push({ entity: e1, cells: row });
+      });
+
+      updateMetrics(criticalCount, highCount, mediumCount, lowCount);
+      renderHeatmap(matrix, entityNames, 'entity-entity');
+    }
+
+    function updateMetrics(critical, high, medium, low) {
+      document.getElementById('criticalCount').textContent = critical;
+      document.getElementById('highCount').textContent = high;
+      document.getElementById('mediumCount').textContent = medium;
+      document.getElementById('lowCount').textContent = low;
+    }
+
+    function renderHeatmap(matrix, columnLabels, mode) {
+      const heatmap = document.getElementById('heatmap');
+      const cols = columnLabels.length + 1;
+
+      heatmap.style.gridTemplateColumns = `120px repeat(${columnLabels.length}, 1fr)`;
+
+      let html = '<div class="heatmap-label"></div>';
+      columnLabels.forEach(label => {
+        html += `<div class="heatmap-label">${label}</div>`;
+      });
+
+      matrix.forEach(row => {
+        html += `<div class="heatmap-label row-label">${row.entity}</div>`;
+        row.cells.forEach(cell => {
+          const color = cell.self ? 'rgba(255,255,255,0.05)' : getTensionColor(cell.tension);
+          const text = cell.self ? '-' : cell.tension.toFixed(2);
+          const tooltipData = cell.self ? '' : JSON.stringify(cell);
+          html += `
+            <div class="heatmap-cell"
+                 style="background: ${color};"
+                 data-tooltip='${tooltipData}'
+                 onmouseenter="showTooltip(event, this)"
+                 onmouseleave="hideTooltip()">
+              ${text}
+            </div>
+          `;
+        });
+      });
+
+      heatmap.innerHTML = html;
+    }
+
+    function showTooltip(event, element) {
+      const data = element.dataset.tooltip;
+      if (!data) return;
+
+      const cell = JSON.parse(data);
+      const tooltip = document.getElementById('tooltip');
+
+      let content = '';
+      if (cell.entity && cell.frame) {
+        content = `
+          <strong>${cell.entity}</strong><br>
+          Frame: ${cell.frame}<br>
+          Tension: <strong style="color:${getTensionColor(cell.tension)}">${cell.tension.toFixed(3)}</strong>
+        `;
+      } else if (cell.entity1 && cell.entity2) {
+        content = `
+          <strong>${cell.entity1}</strong> ↔ <strong>${cell.entity2}</strong><br>
+          Tension: <strong style="color:${getTensionColor(cell.tension)}">${cell.tension.toFixed(3)}</strong>
+        `;
+      }
+
+      tooltip.innerHTML = content;
+      tooltip.classList.add('visible');
+      tooltip.style.left = event.pageX + 15 + 'px';
+      tooltip.style.top = event.pageY + 15 + 'px';
+    }
+
+    function hideTooltip() {
+      document.getElementById('tooltip').classList.remove('visible');
+    }
+
+    // Initial load
+    loadData();
+
+    // Refresh every 5 minutes
+    setInterval(loadData, 5 * 60 * 1000);
+  </script>
+</body>
+</html>

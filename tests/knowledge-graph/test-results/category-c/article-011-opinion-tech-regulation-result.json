@@ -1,0 +1,217 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "7a5f8114-0b92-4ab0-bfb2-a7e49bac1fcd",
+    "entities": [
+      {
+        "id": "21160c02-2412-4d57-8d0c-5e9c5b1b4483",
+        "text": "Silicon Valley",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "ae93241a-d289-41fc-bb4e-8ce9bce997d9",
+        "text": "Mark Zuckerberg",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "f30a10f4-e58b-4e43-8304-fbf61ca57c4c",
+        "text": "Meta",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "b9783225-5d27-4ec7-bfe1-03b2fce91aa3",
+        "text": "Elon Musk",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "53f926e7-b1e0-4cf5-87b3-e429a2aa8587",
+        "text": "Twitter",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "3f935d29-a7c0-4603-b0a5-7de7b15ea1ba",
+        "text": "Sundar Pichai",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "b2faebe0-5931-471c-897f-2d2538cbade6",
+        "text": "Google",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "7f798962-6977-4d49-8b01-79d080c4e58c",
+        "text": "Tim Cook",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "1148f885-242f-44d5-8400-d240eab96329",
+        "text": "Apple",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "cf8f32f7-4f9f-4c34-9983-ee461a9905b7",
+        "text": "Senator Amy Klobuchar",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "621b7d28-e30f-4b15-a7c0-1a0efa313b81",
+        "text": "Antitrust Subcommittee",
+        "type": "ORGANIZATION",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "ff2e2f3f-ea6e-4c91-8e3c-2a5e3506a7bd",
+        "text": "Lina Khan",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "662f0ff8-943d-419b-a5b3-710f65aefb50",
+        "text": "FTC",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "a6fb3659-bdf3-4710-b146-d95fbced7366",
+        "text": "European regulators",
+        "type": "ORGANIZATION",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "39033a8b-a2bb-4eac-968c-8b621354eda8",
+        "text": "Margrethe Vestager",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "8d658e43-7642-4ab2-bad2-01bc07c99b82",
+        "text": "European Commission",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "4e42662e-c5f5-483a-bdf4-3f2650128ae5",
+        "text": "Satya Nadella",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "680372ac-1353-40a0-b941-de6f928ace22",
+        "text": "Microsoft",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "ad372d85-8111-49e0-8d6f-7ec50c5b483e",
+        "text": "Sam Altman",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "e4f1f496-074c-4e6e-b2c8-c35e103610b4",
+        "text": "OpenAI",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "0e483ddf-0b00-4543-aacf-f2d7fd351d30",
+        "text": "AI",
+        "type": "PRODUCT",
+        "confidence": 0.8,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Mark Zuckerberg",
+        "entity2": "Meta",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Elon Musk",
+        "entity2": "Twitter",
+        "type": "owns",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Sundar Pichai",
+        "entity2": "Google",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Tim Cook",
+        "entity2": "Apple",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Lina Khan",
+        "entity2": "FTC",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Margrethe Vestager",
+        "entity2": "European Commission",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Satya Nadella",
+        "entity2": "Microsoft",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Sam Altman",
+        "entity2": "OpenAI",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "OpenAI",
+        "entity2": "AI",
+        "type": "related_to",
+        "confidence": 0.8
+      }
+    ],
+    "entity_count": 21,
+    "relationship_count": 9,
+    "processing_time_ms": 17717,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:09:41.828077"
+}

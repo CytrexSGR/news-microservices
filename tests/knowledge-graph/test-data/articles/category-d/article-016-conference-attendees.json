@@ -1,0 +1,15 @@
+{
+  "article_id": "article-016",
+  "category": "D",
+  "title": "Tech Summit 2025 Attendee List",
+  "content": "The following speakers are confirmed for Tech Summit 2025 in Las Vegas: Mark Johnson (Microsoft), Lisa Chen (Google), Robert Smith (Amazon), Maria Garcia (Meta), David Lee (Apple), and Sarah Williams (Tesla). The conference will take place at the Convention Center in Las Vegas, Nevada from March 15-17, 2025. Other attendees include representatives from Oracle, IBM, Cisco, Intel, and NVIDIA.",
+  "source": "Conference Organizer",
+  "published_at": "2025-02-01",
+  "metadata": {
+    "word_count": 73,
+    "expected_entities": 15,
+    "expected_relationships": 0,
+    "difficulty": "negative_example",
+    "notes": "Pure attendee list with company affiliations in parentheses - NO actual relationships stated"
+  }
+}

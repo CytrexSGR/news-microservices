@@ -1,0 +1,82 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "29965d7e-de14-46ba-b1bb-1d8276316d7c",
+    "entities": [
+      {
+        "id": "4ce8ee11-efe8-4aaa-a9ee-1a983f0ec0ca",
+        "text": "Microsoft",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 3
+      },
+      {
+        "id": "d7cb9a08-2322-4141-9bea-3a065e7ce8c7",
+        "text": "Sarah Chen",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "d1689e1d-1aec-4f97-8730-db452cc0b593",
+        "text": "Google",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "333627a1-924e-4f8a-85bf-8139724910fe",
+        "text": "Redmond",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "1d0c7f79-863f-4507-8ee8-dd5a59a67dfc",
+        "text": "Washington",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "1242c7a7-1e70-4fe6-9463-ef9d2553a154",
+        "text": "Satya Nadella",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Sarah Chen",
+        "entity2": "Microsoft",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Sarah Chen",
+        "entity2": "Google",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Sarah Chen",
+        "entity2": "Satya Nadella",
+        "type": "related_to",
+        "confidence": 0.85
+      },
+      {
+        "entity1": "Microsoft",
+        "entity2": "Redmond",
+        "type": "located_in",
+        "confidence": 0.9
+      }
+    ],
+    "entity_count": 6,
+    "relationship_count": 4,
+    "processing_time_ms": 5594,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:06:34.838548"
+}

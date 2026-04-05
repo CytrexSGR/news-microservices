@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # All infrastructure services (same as main docker-compose.yml)
+  postgres:
+    image: postgres:15-alpine
+    container_name: news-postgres-test
+    environment:
+      POSTGRES_DB: news_mcp_test
+      POSTGRES_USER: news_user_test
+      POSTGRES_PASSWORD: news_secret_test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U news_user_test -d news_mcp_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: news-redis-test
+    command: redis-server --requirepass redis_secret_test
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: news-rabbitmq-test
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: rabbit_secret_test
+      RABBITMQ_DEFAULT_VHOST: news_mcp_test
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  # E2E Test Runner
+  e2e-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: news-e2e-tests
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: news_user_test
+      POSTGRES_PASSWORD: news_secret_test
+      POSTGRES_DB: news_mcp_test
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_secret_test
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: admin
+      RABBITMQ_PASS: rabbit_secret_test
+      RABBITMQ_VHOST: news_mcp_test
+      TEST_MODE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - .:/app/tests
+      - ./reports:/app/reports
+    networks:
+      - test-network
+    command: >
+      bash -c "
+        echo 'Waiting for services to be ready...' &&
+        sleep 10 &&
+        echo 'Running E2E tests...' &&
+        pytest -v --tb=short --maxfail=5 \
+          --html=reports/e2e-report.html \
+          --self-contained-html \
+          --cov=. \
+          --cov-report=html:reports/coverage \
+          --cov-report=term-missing
+      "
+
+  # Load Test Runner (Locust)
+  load-tests-locust:
+    image: locustio/locust:latest
+    container_name: news-load-tests-locust
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./load:/mnt/locust
+    command: -f /mnt/locust/locustfile.py --host=http://auth-service:8000
+    networks:
+      - test-network
+    profiles:
+      - load-testing
+
+  # Load Test Runner (K6)
+  load-tests-k6:
+    image: grafana/k6:latest
+    container_name: news-load-tests-k6
+    volumes:
+      - ./load:/scripts
+      - ./reports:/reports
+    command: run /scripts/k6_script.js --out json=/reports/k6-results.json
+    networks:
+      - test-network
+    profiles:
+      - load-testing
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  postgres_test_data:
+  redis_test_data:
+  rabbitmq_test_data:

@@ -1,0 +1,18 @@
+# Ontology Proposals Service Dependencies
+
+# Core Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+pydantic==2.8.0
+pydantic-settings==2.4.0
+
+# Database
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+neo4j==5.25.0
+
+# Logging
+structlog==24.4.0
+
+# Utilities
+python-dateutil==2.8.2

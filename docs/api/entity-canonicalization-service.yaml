@@ -1,0 +1,888 @@
+openapi: 3.1.0
+info:
+  title: Entity Canonicalization Service API
+  version: 2.0.0
+  description: |
+    Multi-stage entity deduplication and canonicalization service.
+    Handles entity name normalization across the news platform.
+
+    # Key Features
+    - **Exact Matching**: Fast cache lookups (<1ms)
+    - **Fuzzy Matching**: String similarity with RapidFuzz (50-150ms)
+    - **Wikidata Integration**: External entity linking (disabled by default)
+    - **Batch Processing**: Process up to 100 entities per request
+    - **Prometheus Metrics**: Real-time performance monitoring
+
+    # Performance Targets
+    - Cache Hit: <10ms
+    - Fuzzy Match: 50-150ms
+    - Batch (100 entities): <3 seconds
+    - Memory: 1.24 GiB (stable)
+
+  contact:
+    name: API Support
+    url: http://localhost:8112/docs
+
+  x-lifecycle:
+    status: production
+    stability: stable
+    maintenance-status: active
+    last-update: 2025-11-24
+    memory-status: healthy-post-phase3-migration
+
+servers:
+  - url: http://localhost:8112/api/v1/canonicalization
+    description: Local development
+    variables:
+      port:
+        default: '8112'
+
+  - url: https://api.news-mcp.local/api/v1/canonicalization
+    description: Production environment
+
+tags:
+  - name: Entity Canonicalization
+    description: Core canonicalization operations
+
+  - name: Analytics
+    description: Statistics and monitoring endpoints
+
+  - name: Batch Processing
+    description: Async batch reprocessing operations
+
+paths:
+  /canonicalize:
+    post:
+      tags:
+        - Entity Canonicalization
+      summary: Canonicalize single entity
+      description: |
+        Multi-stage canonicalization pipeline for a single entity.
+
+        **Pipeline (in order):**
+        1. Exact match in alias store (cache) → ~1ms
+        2. Fuzzy string matching against candidates → ~80ms
+        3. Wikidata entity lookup → ~1500ms (disabled by default)
+        4. Create new canonical form → <5ms
+
+        **Response time estimates:**
+        - Cache hit: 1-5ms
+        - Fuzzy match: 50-150ms
+        - Wikidata lookup: 500-2000ms (if enabled)
+
+      operationId: canonicalize_entity
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanonicalizeRequest'
+            examples:
+              location:
+                summary: Location entity
+                value:
+                  entity_name: "München"
+                  entity_type: "LOCATION"
+                  language: "de"
+
+              organization:
+                summary: Organization entity
+                value:
+                  entity_name: "Tesla"
+                  entity_type: "ORGANIZATION"
+                  language: "en"
+
+              person:
+                summary: Person entity
+                value:
+                  entity_name: "Obama"
+                  entity_type: "PERSON"
+                  language: "en"
+
+      responses:
+        '200':
+          description: Successful canonicalization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanonicalizeResponse'
+              examples:
+                fuzzy_match:
+                  summary: Fuzzy string match
+                  value:
+                    canonical_name: "Munich"
+                    canonical_id: "Q1726"
+                    aliases: ["München", "Munich", "Muenchen"]
+                    confidence: 0.95
+                    source: "fuzzy"
+                    entity_type: "LOCATION"
+                    processing_time_ms: 87.5
+
+                exact_match:
+                  summary: Exact alias match (cache hit)
+                  value:
+                    canonical_name: "Tesla Inc."
+                    canonical_id: "Q31253"
+                    aliases: ["Tesla", "Tesla Motors", "TSLA"]
+                    confidence: 1.0
+                    source: "exact"
+                    entity_type: "ORGANIZATION"
+                    processing_time_ms: 2.3
+
+                wikidata_match:
+                  summary: Wikidata entity match
+                  value:
+                    canonical_name: "United States"
+                    canonical_id: "Q30"
+                    aliases: ["USA", "US", "United States of America"]
+                    confidence: 0.85
+                    source: "wikidata"
+                    entity_type: "LOCATION"
+                    processing_time_ms: 1245.0
+
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              example:
+                detail:
+                  - loc: ["body", "entity_name"]
+                    msg: "ensure this value has at least 1 characters"
+                    type: "value_error.any_str.min_length"
+
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "Database connection failed"
+
+      x-performance:
+        typical-latency-ms: 80
+        p95-latency-ms: 300
+        p99-latency-ms: 1000
+        throughput-rps: 500
+        cache-hit-rate: 0.89
+
+
+  /canonicalize/batch:
+    post:
+      tags:
+        - Entity Canonicalization
+      summary: Canonicalize multiple entities
+      description: |
+        Batch canonicalization for efficiency.
+
+        **Optimization:** Entities processed sequentially within same type.
+        This allows candidate reuse (get_candidate_names caches across batch).
+
+        **Constraints:**
+        - Max 100 entities per batch
+        - Partial failures return successful results + error details
+        - Batch TTL: 30 seconds (configurable)
+
+        **Performance:** 10 entities in ~200ms, 100 entities in ~3 seconds
+
+      operationId: canonicalize_entities_batch
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanonicalizeBatchRequest'
+            examples:
+              standard:
+                summary: Multi-type batch
+                value:
+                  entities:
+                    - entity_name: "USA"
+                      entity_type: "LOCATION"
+                      language: "en"
+                    - entity_name: "Tesla"
+                      entity_type: "ORGANIZATION"
+                      language: "en"
+                    - entity_name: "Obama"
+                      entity_type: "PERSON"
+                      language: "en"
+
+              same_type:
+                summary: Same entity type (optimized)
+                value:
+                  entities:
+                    - entity_name: "München"
+                      entity_type: "LOCATION"
+                      language: "de"
+                    - entity_name: "Berlin"
+                      entity_type: "LOCATION"
+                      language: "de"
+                    - entity_name: "Paris"
+                      entity_type: "LOCATION"
+                      language: "de"
+
+      responses:
+        '200':
+          description: Batch canonicalization completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanonicalizeBatchResponse'
+              example:
+                results:
+                  - canonical_name: "United States"
+                    canonical_id: "Q30"
+                    aliases: ["USA"]
+                    confidence: 0.85
+                    source: "wikidata"
+                    entity_type: "LOCATION"
+                  - canonical_name: "Tesla Inc."
+                    canonical_id: "Q31253"
+                    aliases: ["Tesla"]
+                    confidence: 0.98
+                    source: "exact"
+                    entity_type: "ORGANIZATION"
+                total_processed: 2
+                total_time_ms: 245.3
+
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+      x-performance:
+        typical-latency-ms: 150
+        p95-latency-ms: 2000
+        batch-size-optimal: 20
+        batch-size-max: 100
+
+
+  /aliases/{canonical_name}/{entity_type}:
+    get:
+      tags:
+        - Entity Canonicalization
+      summary: Get entity aliases
+      description: Retrieve all known aliases for a canonical entity.
+      operationId: get_entity_aliases
+
+      parameters:
+        - name: canonical_name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+          description: Canonical entity name
+          example: "Munich"
+
+        - name: entity_type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: ["PERSON", "ORGANIZATION", "LOCATION", "EVENT", "PRODUCT", "MISC"]
+          description: Entity type
+          example: "LOCATION"
+
+      responses:
+        '200':
+          description: Alias list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canonical_name:
+                    type: string
+                    example: "Munich"
+                  entity_type:
+                    type: string
+                    example: "LOCATION"
+                  aliases:
+                    type: array
+                    items:
+                      type: string
+                    example: ["München", "Munich", "Muenchen"]
+                  total:
+                    type: integer
+                    example: 3
+
+        '404':
+          description: Entity not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+
+  /statistics:
+    get:
+      tags:
+        - Analytics
+      summary: Get canonicalization statistics
+      description: |
+        Basic canonicalization statistics.
+
+        **Metrics:**
+        - total_canonical_entities: Unique canonical forms stored
+        - total_aliases: Distinct alias mappings
+        - wikidata_linked: Entities with Q-IDs
+        - coverage_percentage: (aliases / entities) × 100
+        - cache_hit_rate: Recent cache hit ratio
+
+      operationId: get_statistics
+      responses:
+        '200':
+          description: Statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanonicalizationStats'
+              example:
+                total_canonical_entities: 6488
+                total_aliases: 8325
+                wikidata_linked: 3892
+                coverage_percentage: 128.3
+                cache_hit_rate: 0.89
+
+      x-performance:
+        latency-ms: 2
+
+
+  /statistics/detailed:
+    get:
+      tags:
+        - Analytics
+      summary: Get detailed canonicalization statistics
+      description: |
+        Comprehensive statistics for admin dashboard.
+
+        **Includes:**
+        - Entity type distribution (PERSON, ORGANIZATION, etc.)
+        - Top deduplicated entities (by alias count)
+        - Source breakdown (exact, fuzzy, wikidata, semantic, new)
+        - Wikidata coverage percentage
+        - Deduplication ratio
+        - Cost savings estimates (API calls saved)
+
+      operationId: get_detailed_statistics
+      responses:
+        '200':
+          description: Detailed statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedCanonicalizationStats'
+              example:
+                total_canonical_entities: 6488
+                total_aliases: 8325
+                wikidata_linked: 3892
+                wikidata_coverage_percent: 60.0
+                deduplication_ratio: 1.28
+                source_breakdown:
+                  exact: 4520
+                  fuzzy: 1840
+                  semantic: 0
+                  wikidata: 892
+                  new: 236
+                entity_type_distribution:
+                  PERSON: 1520
+                  ORGANIZATION: 2850
+                  LOCATION: 1240
+                  EVENT: 498
+                  PRODUCT: 380
+                entities_without_qid: 2596
+                avg_cache_hit_time_ms: 2.3
+                cache_hit_rate: 0.89
+                total_api_calls_saved: 47850
+                estimated_cost_savings_monthly: 40.50
+
+      x-performance:
+        latency-ms: 5
+
+
+  /reprocessing/start:
+    post:
+      tags:
+        - Batch Processing
+      summary: Start batch reprocessing job
+      description: |
+        Initiate async batch reprocessing to find and merge duplicate entities.
+
+        **Pipeline:**
+        1. Analyzing - Load all entities, compute pairwise similarity
+        2. Fuzzy Matching - Validate duplicate candidates
+        3. Semantic Matching - (Optional) Use embeddings
+        4. Wikidata Lookup - Check for shared Q-IDs
+        5. Merging - Redirect aliases, delete duplicates
+        6. Updating - Rebuild statistics
+
+        **Dry Run:** Test without making changes (recommended first run)
+
+      operationId: start_batch_reprocessing
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartReprocessingRequest'
+            examples:
+              dry_run:
+                summary: Dry run (safe)
+                value:
+                  dry_run: true
+
+              execute:
+                summary: Execute with changes
+                value:
+                  dry_run: false
+
+      responses:
+        '200':
+          description: Reprocessing job started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReprocessingStatus'
+              example:
+                status: "running"
+                progress_percent: 0
+                current_phase: "analyzing"
+                started_at: "2025-11-24T10:30:00Z"
+                stats:
+                  total_entities: 6488
+                  processed_entities: 0
+                  duplicates_found: 0
+                  entities_merged: 0
+                  qids_added: 0
+                  errors: 0
+
+        '400':
+          description: Job already running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "Reprocessing job already running"
+
+      x-async: true
+      x-background-task: celery
+
+
+  /reprocessing/status:
+    get:
+      tags:
+        - Batch Processing
+      summary: Get batch reprocessing status
+      description: Poll current reprocessing job status.
+      operationId: get_reprocessing_status
+
+      responses:
+        '200':
+          description: Status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReprocessingStatus'
+              examples:
+                running:
+                  summary: Job in progress
+                  value:
+                    status: "running"
+                    progress_percent: 42.5
+                    current_phase: "fuzzy_matching"
+                    stats:
+                      total_entities: 6488
+                      processed_entities: 2756
+                      duplicates_found: 85
+                      entities_merged: 32
+                      qids_added: 18
+                      errors: 0
+
+                completed:
+                  summary: Job completed
+                  value:
+                    status: "completed"
+                    progress_percent: 100
+                    current_phase: "updating"
+                    completed_at: "2025-11-24T10:35:45Z"
+                    stats:
+                      total_entities: 6488
+                      processed_entities: 6488
+                      duplicates_found: 240
+                      entities_merged: 85
+                      qids_added: 120
+                      errors: 0
+
+
+components:
+  schemas:
+    CanonicalizeRequest:
+      type: object
+      required:
+        - entity_name
+        - entity_type
+      properties:
+        entity_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Entity name to canonicalize
+          example: "München"
+
+        entity_type:
+          type: string
+          enum:
+            - PERSON
+            - ORGANIZATION
+            - LOCATION
+            - EVENT
+            - PRODUCT
+            - MISC
+          description: Entity type from extraction
+          example: "LOCATION"
+
+        language:
+          type: string
+          default: "de"
+          description: Language code for Wikidata search
+          example: "de"
+
+    CanonicalizeResponse:
+      type: object
+      required:
+        - canonical_name
+        - confidence
+        - source
+        - entity_type
+      properties:
+        canonical_name:
+          type: string
+          description: Canonical entity name
+          example: "Munich"
+
+        canonical_id:
+          type: string
+          nullable: true
+          description: Wikidata Q-ID (optional)
+          example: "Q1726"
+
+        aliases:
+          type: array
+          items:
+            type: string
+          description: Known aliases for this entity
+          example: ["München", "Munich", "Muenchen"]
+
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Canonicalization confidence score
+          example: 0.95
+
+        source:
+          type: string
+          enum: ["exact", "fuzzy", "semantic", "wikidata", "new"]
+          description: Source of canonicalization
+          example: "fuzzy"
+
+        entity_type:
+          type: string
+          example: "LOCATION"
+
+        processing_time_ms:
+          type: number
+          format: float
+          nullable: true
+          description: Processing time in milliseconds
+          example: 87.5
+
+    CanonicalizeBatchRequest:
+      type: object
+      required:
+        - entities
+      properties:
+        entities:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/CanonicalizeRequest'
+
+    CanonicalizeBatchResponse:
+      type: object
+      required:
+        - results
+        - total_processed
+        - total_time_ms
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CanonicalizeResponse'
+
+        total_processed:
+          type: integer
+          example: 3
+
+        total_time_ms:
+          type: number
+          format: float
+          example: 245.3
+
+    CanonicalizationStats:
+      type: object
+      required:
+        - total_canonical_entities
+        - total_aliases
+        - wikidata_linked
+        - coverage_percentage
+      properties:
+        total_canonical_entities:
+          type: integer
+          example: 6488
+
+        total_aliases:
+          type: integer
+          example: 8325
+
+        wikidata_linked:
+          type: integer
+          example: 3892
+
+        coverage_percentage:
+          type: number
+          format: float
+          example: 128.3
+
+        cache_hit_rate:
+          type: number
+          format: float
+          nullable: true
+          example: 0.89
+
+    DetailedCanonicalizationStats:
+      type: object
+      required:
+        - total_canonical_entities
+        - total_aliases
+        - wikidata_linked
+        - wikidata_coverage_percent
+        - deduplication_ratio
+        - source_breakdown
+        - entity_type_distribution
+        - entities_without_qid
+        - total_api_calls_saved
+        - estimated_cost_savings_monthly
+      properties:
+        total_canonical_entities:
+          type: integer
+          example: 6488
+
+        total_aliases:
+          type: integer
+          example: 8325
+
+        wikidata_linked:
+          type: integer
+          example: 3892
+
+        wikidata_coverage_percent:
+          type: number
+          format: float
+          example: 60.0
+
+        deduplication_ratio:
+          type: number
+          format: float
+          example: 1.28
+
+        source_breakdown:
+          type: object
+          required: [exact, fuzzy, semantic, wikidata, new]
+          properties:
+            exact:
+              type: integer
+              example: 4520
+            fuzzy:
+              type: integer
+              example: 1840
+            semantic:
+              type: integer
+              example: 0
+            wikidata:
+              type: integer
+              example: 892
+            new:
+              type: integer
+              example: 236
+
+        entity_type_distribution:
+          type: object
+          example:
+            PERSON: 1520
+            ORGANIZATION: 2850
+            LOCATION: 1240
+            EVENT: 498
+            PRODUCT: 380
+
+        top_entities_by_aliases:
+          type: array
+          items:
+            type: object
+            properties:
+              canonical_name:
+                type: string
+              canonical_id:
+                type: string
+                nullable: true
+              entity_type:
+                type: string
+              alias_count:
+                type: integer
+              wikidata_linked:
+                type: boolean
+
+        entities_without_qid:
+          type: integer
+          example: 2596
+
+        avg_cache_hit_time_ms:
+          type: number
+          format: float
+          nullable: true
+          example: 2.3
+
+        cache_hit_rate:
+          type: number
+          format: float
+          nullable: true
+          example: 0.89
+
+        total_api_calls_saved:
+          type: integer
+          example: 47850
+
+        estimated_cost_savings_monthly:
+          type: number
+          format: float
+          example: 40.50
+
+    StartReprocessingRequest:
+      type: object
+      required:
+        - dry_run
+      properties:
+        dry_run:
+          type: boolean
+          default: false
+          description: If true, analyze without making changes
+          example: true
+
+    ReprocessingStatus:
+      type: object
+      required:
+        - status
+        - progress_percent
+        - stats
+      properties:
+        status:
+          type: string
+          enum: ["idle", "running", "completed", "failed"]
+          example: "running"
+
+        progress_percent:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          example: 42.5
+
+        current_phase:
+          type: string
+          enum: ["analyzing", "fuzzy_matching", "semantic_matching", "wikidata_lookup", "merging", "updating"]
+          nullable: true
+          example: "fuzzy_matching"
+
+        stats:
+          type: object
+          required:
+            - total_entities
+            - processed_entities
+            - duplicates_found
+            - entities_merged
+            - qids_added
+            - errors
+          properties:
+            total_entities:
+              type: integer
+            processed_entities:
+              type: integer
+            duplicates_found:
+              type: integer
+            entities_merged:
+              type: integer
+            qids_added:
+              type: integer
+            errors:
+              type: integer
+
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+        error_message:
+          type: string
+          nullable: true
+
+        dry_run:
+          type: boolean
+          default: false
+
+    ValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+              msg:
+                type: string
+              type:
+                type: string
+
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          example: "Internal server error"

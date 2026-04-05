@@ -1,0 +1,138 @@
+# Environment files (SECRETS!)
+.env
+**/.env
+services/*/.env
+*.env
+.env.*
+
+# Docker volumes and data
+**/data/
+volumes/
+postgres-data/
+redis-data/
+minio-data/
+rabbitmq-data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.backup
+
+# Logs
+*.log
+logs/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+/tmp/
+*.tmp
+*.temp
+
+# Database
+*.sqlite
+*.db
+
+# Node (if any frontend services)
+node_modules/
+yarn.lock
+
+# Frontend build artifacts
+frontend/dist/
+frontend/.vite/
+frontend/build/
+frontend/apps/main-app/chrome/
+frontend.backup.old-*/
+
+# Frontend cache
+frontend/.cache/
+
+# CRITICAL: package.json and package-lock.json MUST be tracked!
+# Do NOT add package.json or package-lock.json to gitignore
+
+# Nested .git directories (PREVENT nested repos!)
+**/.git/
+!.git/
+
+# Monitoring
+prometheus_data/
+grafana_data/
+loki_data/
+
+# Alembic
+**/versions/*.pyc
+
+# Test coverage
+.coverage
+coverage.xml
+*.cover
+
+# Jupyter Notebooks (if any)
+.ipynb_checkpoints/
+*.ipynb
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Poetry
+poetry.lock
+\n# Claude Flow Metrics (auto-generated)\n.claude-flow/metrics/
+
+# n8n Context Bundles (too large for git - regenerate with create_context_bundles.py)
+claude_context_bundles/
+
+# Task 004 Cleanup - Additional patterns to prevent clutter
+# Temporary directories
+scratch/
+temp/
+
+# Debug and test scripts in root (should be in scripts/ or tests/ instead)
+/debug_*.py
+/test_*.py
+
+# Generated reports (can be regenerated)
+reports/*.json
+reports/*.md
+!reports/.gitkeep
+
+# Backup archives
+*.tar.gz
+*.zip
+*.7z
+certs/
+docs/n8n/TELEGRAM_CREDENTIALS.md

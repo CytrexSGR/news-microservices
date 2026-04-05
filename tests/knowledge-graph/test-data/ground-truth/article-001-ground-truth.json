@@ -1,0 +1,47 @@
+{
+  "article_id": "article-001",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Sarah Chen", "works_for", "Microsoft Corporation"],
+      "evidence": "Sarah Chen has been appointed as the new head of its AI division",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicitly stated appointment"
+    },
+    {
+      "triplet": ["Sarah Chen", "located_in", "Redmond"],
+      "evidence": "will be based at Microsoft's headquarters in Redmond, Washington",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Clear location statement"
+    },
+    {
+      "triplet": ["Microsoft", "located_in", "Redmond"],
+      "evidence": "Microsoft's headquarters in Redmond, Washington",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Headquarters location"
+    },
+    {
+      "triplet": ["Sarah Chen", "works_for", "Google"],
+      "evidence": "previously served as Vice President of Research at Google",
+      "confidence_expectation": "medium",
+      "mandatory": false,
+      "notes": "Past employment, might be filtered as 'previously'"
+    },
+    {
+      "triplet": ["Satya Nadella", "works_for", "Microsoft"],
+      "evidence": "Microsoft CEO Satya Nadella stated",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO role explicitly mentioned"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 3,
+    "total_relationships_max": 5,
+    "avg_confidence_min": 0.85,
+    "false_positives_max": 0
+  },
+  "notes": "Very straightforward corporate announcement. Should achieve >90% precision."
+}

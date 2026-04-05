@@ -1,0 +1,103 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "137769b0-822e-4d01-b8d5-d82e27d3bed1",
+    "entities": [
+      {
+        "id": "f9bd1f2d-5f04-49ea-80b9-a341c570052d",
+        "text": "UK",
+        "type": "LOCATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "e2db30f6-7b8c-4b58-821a-925ac58e0eff",
+        "text": "Apple",
+        "type": "ORGANIZATION",
+        "confidence": 0.98,
+        "mention_count": 3
+      },
+      {
+        "id": "7bbc0048-344c-4f87-94b0-6ea43806b956",
+        "text": "Apple Inc.",
+        "type": "ORGANIZATION",
+        "confidence": 0.99,
+        "mention_count": 2
+      },
+      {
+        "id": "abc1ad87-fffe-4086-a615-b84d28a5758f",
+        "text": "London",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "9872b9c8-4db0-4a8c-87e0-d26ccc85feea",
+        "text": "Epic Games",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "a16d9848-c9fb-4f0b-bb8a-c87f291bf025",
+        "text": "Cupertino",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "0d8220de-2fcb-4164-865c-d315bbbd8824",
+        "text": "California",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "165dc366-643f-4296-bbcc-3c1806b804a1",
+        "text": "Competition Appeal Tribunal",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "6b55a311-53fc-4a79-86e4-dff79cb48cda",
+        "text": "2020",
+        "type": "DATE",
+        "confidence": 0.9,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Apple Inc.",
+        "entity2": "Cupertino",
+        "type": "located_in",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Apple Inc.",
+        "entity2": "UK",
+        "type": "located_in",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Epic Games",
+        "entity2": "Apple Inc.",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Apple Inc.",
+        "entity2": "Competition Appeal Tribunal",
+        "type": "works_for",
+        "confidence": 0.8
+      }
+    ],
+    "entity_count": 9,
+    "relationship_count": 4,
+    "processing_time_ms": 7343,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:06:50.929040"
+}

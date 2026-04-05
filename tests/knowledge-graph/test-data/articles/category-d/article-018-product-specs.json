@@ -1,0 +1,15 @@
+{
+  "article_id": "article-018",
+  "category": "D",
+  "title": "iPhone 15 Pro Technical Specifications",
+  "content": "Display: 6.1-inch Super Retina XDR. Processor: A17 Pro chip. Storage options: 128GB, 256GB, 512GB, 1TB. Camera: 48MP main, 12MP ultra-wide, 12MP telephoto. Battery: Up to 23 hours video playback. Connectivity: 5G, Wi-Fi 6E, Bluetooth 5.3. Dimensions: 146.6 x 70.6 x 8.25mm. Weight: 187 grams. Colors: Natural Titanium, Blue Titanium, White Titanium, Black Titanium.",
+  "source": "Product Datasheet",
+  "published_at": "2025-09-12",
+  "metadata": {
+    "word_count": 65,
+    "expected_entities": 3,
+    "expected_relationships": 0,
+    "difficulty": "negative_example",
+    "notes": "Technical specifications - no narrative, no relationships"
+  }
+}

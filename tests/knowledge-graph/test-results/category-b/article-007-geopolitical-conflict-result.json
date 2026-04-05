@@ -1,0 +1,266 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "7a5449ed-808e-45df-baca-7b5d3c69776f",
+    "entities": [
+      {
+        "id": "5b795d15-6f17-44f5-960a-fdaa76dc873e",
+        "text": "Ukraine",
+        "type": "LOCATION",
+        "confidence": 0.95,
+        "mention_count": 3
+      },
+      {
+        "id": "e103f5c6-036c-4355-877a-459bfa70d813",
+        "text": "NATO",
+        "type": "ORGANIZATION",
+        "confidence": 0.98,
+        "mention_count": 4
+      },
+      {
+        "id": "25aaa7fa-0c8d-44ab-9c83-2cdfe9ccd311",
+        "text": "Volodymyr Zelenskyy",
+        "type": "PERSON",
+        "confidence": 0.97,
+        "mention_count": 3
+      },
+      {
+        "id": "a23a1b7d-94cc-4861-b96b-b83669b62217",
+        "text": "Jens Stoltenberg",
+        "type": "PERSON",
+        "confidence": 0.96,
+        "mention_count": 1
+      },
+      {
+        "id": "4cd6a0a3-0b46-4f96-b60f-b42c83999140",
+        "text": "Brussels",
+        "type": "LOCATION",
+        "confidence": 0.92,
+        "mention_count": 1
+      },
+      {
+        "id": "8d8db690-3803-4bd6-a605-59b52ad1cd85",
+        "text": "Finland",
+        "type": "LOCATION",
+        "confidence": 0.94,
+        "mention_count": 2
+      },
+      {
+        "id": "a2b9afa2-a8af-4e2b-8024-60655aa6bffb",
+        "text": "Sauli Niinistö",
+        "type": "PERSON",
+        "confidence": 0.93,
+        "mention_count": 1
+      },
+      {
+        "id": "c87eb09f-44a8-4c15-991e-2504a6b079af",
+        "text": "China",
+        "type": "LOCATION",
+        "confidence": 0.91,
+        "mention_count": 2
+      },
+      {
+        "id": "420f7afb-cb5b-4142-b901-cb3942cb1878",
+        "text": "Xi Jinping",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "6d90104a-9ea1-49b0-a1f1-5135e0ceed02",
+        "text": "Qin Gang",
+        "type": "PERSON",
+        "confidence": 0.92,
+        "mention_count": 1
+      },
+      {
+        "id": "0cd528c8-fede-4bd3-b330-bb60cc6bf042",
+        "text": "United States",
+        "type": "LOCATION",
+        "confidence": 0.94,
+        "mention_count": 2
+      },
+      {
+        "id": "d0fc587c-8421-4e7a-b4c2-b609d0d744c8",
+        "text": "Antony Blinken",
+        "type": "PERSON",
+        "confidence": 0.94,
+        "mention_count": 2
+      },
+      {
+        "id": "7df853d0-e8f3-4166-90f2-cb0929e14ecf",
+        "text": "Kyiv",
+        "type": "LOCATION",
+        "confidence": 0.92,
+        "mention_count": 1
+      },
+      {
+        "id": "b9d04d29-d7f8-41ae-993e-549287a727f6",
+        "text": "Germany",
+        "type": "LOCATION",
+        "confidence": 0.91,
+        "mention_count": 2
+      },
+      {
+        "id": "063c99e4-1fd4-4663-895d-f14489844627",
+        "text": "Olaf Scholz",
+        "type": "PERSON",
+        "confidence": 0.93,
+        "mention_count": 2
+      },
+      {
+        "id": "c076ef79-14fb-4734-a74f-a769d8f7d149",
+        "text": "Rishi Sunak",
+        "type": "PERSON",
+        "confidence": 0.92,
+        "mention_count": 1
+      },
+      {
+        "id": "ea2ae571-89fd-43a8-ad41-3b54251182c9",
+        "text": "France",
+        "type": "LOCATION",
+        "confidence": 0.91,
+        "mention_count": 2
+      },
+      {
+        "id": "53568670-1ef5-4524-bd15-720e1e00354b",
+        "text": "Emmanuel Macron",
+        "type": "PERSON",
+        "confidence": 0.94,
+        "mention_count": 1
+      },
+      {
+        "id": "364e97f9-a9f7-4e24-b1cc-1e8fe41dfc18",
+        "text": "Vladimir Putin",
+        "type": "PERSON",
+        "confidence": 0.96,
+        "mention_count": 2
+      },
+      {
+        "id": "1fa97443-96c9-422d-a872-0b30083840dd",
+        "text": "Turkey",
+        "type": "LOCATION",
+        "confidence": 0.92,
+        "mention_count": 2
+      },
+      {
+        "id": "35a26b71-277f-478b-bf8e-33f85f7c02bc",
+        "text": "Recep Tayyip Erdoğan",
+        "type": "PERSON",
+        "confidence": 0.94,
+        "mention_count": 2
+      },
+      {
+        "id": "795c029f-19a0-4f92-8525-15babc2145cb",
+        "text": "United Nations",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "bd57869e-7c73-4fff-9ac7-2cd9dd9053a6",
+        "text": "António Guterres",
+        "type": "PERSON",
+        "confidence": 0.94,
+        "mention_count": 1
+      },
+      {
+        "id": "8c46fed7-8729-4e72-8e71-39534b229584",
+        "text": "International Criminal Court",
+        "type": "ORGANIZATION",
+        "confidence": 0.96,
+        "mention_count": 1
+      },
+      {
+        "id": "69ba4e18-2204-41bd-b9ba-d05d57334c54",
+        "text": "Karim Khan",
+        "type": "PERSON",
+        "confidence": 0.93,
+        "mention_count": 1
+      },
+      {
+        "id": "f7a06aab-0d45-4a3c-915f-59879fb6f657",
+        "text": "Poland",
+        "type": "LOCATION",
+        "confidence": 0.92,
+        "mention_count": 2
+      },
+      {
+        "id": "ca07b83f-4cac-49f8-9e4f-d826ead9f965",
+        "text": "Mateusz Morawiecki",
+        "type": "PERSON",
+        "confidence": 0.93,
+        "mention_count": 1
+      },
+      {
+        "id": "190d75a7-9e72-4195-8ec0-39783df84431",
+        "text": "Mariusz Błaszczak",
+        "type": "PERSON",
+        "confidence": 0.92,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Volodymyr Zelenskyy",
+        "entity2": "Jens Stoltenberg",
+        "type": "related_to",
+        "confidence": 0.85
+      },
+      {
+        "entity1": "Finland",
+        "entity2": "NATO",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Antony Blinken",
+        "entity2": "Kyiv",
+        "type": "located_in",
+        "confidence": 0.85
+      },
+      {
+        "entity1": "Olaf Scholz",
+        "entity2": "Ukraine",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Rishi Sunak",
+        "entity2": "Olaf Scholz",
+        "type": "partner_of",
+        "confidence": 0.75
+      },
+      {
+        "entity1": "Emmanuel Macron",
+        "entity2": "Vladimir Putin",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Recep Tayyip Erdoğan",
+        "entity2": "United Nations",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Mateusz Morawiecki",
+        "entity2": "Poland",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Mariusz Błaszczak",
+        "entity2": "NATO",
+        "type": "related_to",
+        "confidence": 0.8
+      }
+    ],
+    "entity_count": 28,
+    "relationship_count": 9,
+    "processing_time_ms": 20991,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:07:50.043863"
+}

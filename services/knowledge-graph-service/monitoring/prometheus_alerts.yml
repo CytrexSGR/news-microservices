@@ -1,0 +1,183 @@
+groups:
+  - name: fmp_kg_integration
+    interval: 30s
+    rules:
+      # ========================================
+      # Availability SLOs
+      # Target: 99.5% availability
+      # ========================================
+
+      - alert: FMPSyncAvailabilityLow
+        expr: |
+          (
+            sum(rate(fmp_sync_requests_total{status="success"}[1h])) /
+            sum(rate(fmp_sync_requests_total[1h]))
+          ) < 0.995
+        for: 5m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: fmp_sync
+        annotations:
+          summary: "FMP sync availability below SLO ({{ $value | humanizePercentage }})"
+          description: "FMP sync success rate is {{ $value | humanizePercentage }}, below 99.5% SLO target. Investigate sync failures."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#sync-availability"
+
+      # ========================================
+      # Latency SLOs
+      # Target: P95 < 200ms for sync endpoints
+      # ========================================
+
+      - alert: FMPSyncLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            rate(fmp_sync_duration_seconds_bucket[5m])
+          ) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: fmp_sync
+        annotations:
+          summary: "FMP sync P95 latency above SLO ({{ $value }}s)"
+          description: "FMP sync P95 latency is {{ $value }}s, above 200ms SLO target."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#high-latency"
+
+      - alert: Neo4jQueryLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            rate(neo4j_query_duration_seconds_bucket{query_type="merge_market"}[5m])
+          ) > 0.005
+        for: 5m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: neo4j
+        annotations:
+          summary: "Neo4j query P95 latency above target ({{ $value }}s)"
+          description: "Neo4j merge_market query P95 latency is {{ $value }}s, above 5ms target. Check indexes and query optimization."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#neo4j-slow"
+
+      # ========================================
+      # Error Rate SLOs
+      # Target: < 1% error rate
+      # ========================================
+
+      - alert: Neo4jQueryErrorRateHigh
+        expr: |
+          (
+            sum(rate(neo4j_query_errors_total[5m])) /
+            sum(rate(neo4j_query_duration_seconds_count[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: neo4j
+        annotations:
+          summary: "Neo4j query error rate above SLO ({{ $value | humanizePercentage }})"
+          description: "Neo4j query error rate is {{ $value | humanizePercentage }}, above 1% SLO target."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#neo4j-errors"
+
+      # ========================================
+      # Circuit Breaker Alerts
+      # ========================================
+
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_state == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: knowledge-graph-service
+          component: circuit_breaker
+        annotations:
+          summary: "Circuit breaker OPEN for {{ $labels.service }}"
+          description: "Circuit breaker is OPEN for {{ $labels.service }}, blocking all requests. System is degraded."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#circuit-breaker-open"
+
+      - alert: CircuitBreakerHalfOpen
+        expr: circuit_breaker_state == 2
+        for: 5m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: circuit_breaker
+        annotations:
+          summary: "Circuit breaker HALF-OPEN for {{ $labels.service }}"
+          description: "Circuit breaker has been HALF-OPEN for {{ $labels.service }} for 5+ minutes. System is testing recovery."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#circuit-breaker-half-open"
+
+      # ========================================
+      # Data Freshness
+      # ========================================
+
+      - alert: MarketDataStale
+        expr: |
+          time() - max(fmp_sync_requests_total) > 3600
+        for: 5m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: fmp_sync
+        annotations:
+          summary: "Market data not synced in 1+ hours"
+          description: "No successful market sync in the last hour. Data may be stale."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#stale-data"
+
+      # ========================================
+      # Sync Success Rate
+      # Target: > 95% success rate
+      # ========================================
+
+      - alert: FMPSyncFailureRateHigh
+        expr: |
+          (
+            sum(rate(fmp_sync_requests_total{status="failed"}[15m])) /
+            sum(rate(fmp_sync_requests_total[15m]))
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: fmp_sync
+        annotations:
+          summary: "FMP sync failure rate above 5% ({{ $value | humanizePercentage }})"
+          description: "FMP sync failure rate is {{ $value | humanizePercentage }}, above 5% threshold."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#sync-failures"
+
+      # ========================================
+      # Resource Alerts
+      # ========================================
+
+      - alert: ActiveMarketsLow
+        expr: |
+          sum(fmp_active_markets) < 10
+        for: 10m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: data_quality
+        annotations:
+          summary: "Active markets count unexpectedly low ({{ $value }})"
+          description: "Only {{ $value }} active markets detected. Expected 40+. Check market activation logic."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#low-active-markets"
+
+      # ========================================
+      # Partial Sync Alerts
+      # ========================================
+
+      - alert: FMPPartialSyncFrequent
+        expr: |
+          (
+            sum(rate(fmp_sync_requests_total{status="partial"}[1h])) /
+            sum(rate(fmp_sync_requests_total[1h]))
+          ) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+          service: knowledge-graph-service
+          component: fmp_sync
+        annotations:
+          summary: "Frequent partial syncs detected ({{ $value | humanizePercentage }})"
+          description: "{{ $value | humanizePercentage }} of syncs are partial failures. Investigate individual asset failures."
+          runbook_url: "https://docs/operations/fmp-kg-troubleshooting.md#partial-failures"

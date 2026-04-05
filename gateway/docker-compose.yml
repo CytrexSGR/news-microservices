@@ -1,0 +1,153 @@
+version: '3.9'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: news-gateway
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - news-microservices
+    ports:
+      - "80:80"       # HTTP
+      - "443:443"     # HTTPS
+      - "8080:8080"   # Dashboard (dev only)
+      - "8082:8082"   # Metrics
+    environment:
+      - TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL:-INFO}
+      - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_JWT_SECRET=${SERVICE_JWT_SECRET}
+    volumes:
+      # Static configuration
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      # Dynamic configuration
+      - ./config:/etc/traefik/config:ro
+      # Docker socket (for provider)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # SSL certificates
+      - ./certs:/certs:ro
+      # Let's Encrypt certificates
+      - letsencrypt:/letsencrypt
+      # Logs
+      - ./logs:/var/log/traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=news-microservices"
+      # Dashboard
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.news-mcp.local`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=dashboard-auth@file"
+      - "traefik.http.routers.dashboard.tls=true"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - traefik-forward-auth
+
+  # Forward Auth Service for JWT validation
+  traefik-forward-auth:
+    image: thomseddon/traefik-forward-auth:latest
+    container_name: news-forward-auth
+    restart: unless-stopped
+    networks:
+      - news-microservices
+    environment:
+      - DEFAULT_PROVIDER=generic-oauth
+      - PROVIDERS_GENERIC_OAUTH_AUTH_URL=http://auth-service:8000/api/v1/auth/authorize
+      - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=http://auth-service:8000/api/v1/auth/token
+      - PROVIDERS_GENERIC_OAUTH_USER_URL=http://auth-service:8000/api/v1/auth/me
+      - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      - SECRET=${FORWARD_AUTH_SECRET}
+      - COOKIE_DOMAIN=.news-mcp.local
+      - AUTH_HOST=auth.news-mcp.local
+      - COOKIE_SECURE=true
+      - LOG_LEVEL=info
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=news-microservices"
+      - "traefik.http.services.forward-auth.loadbalancer.server.port=4181"
+      - "traefik.http.routers.forward-auth.rule=Host(`auth.news-mcp.local`)"
+      - "traefik.http.routers.forward-auth.entrypoints=websecure"
+      - "traefik.http.routers.forward-auth.tls=true"
+      - "traefik.http.routers.forward-auth.middlewares=forward-auth"
+      - "traefik.http.middlewares.forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
+      - "traefik.http.middlewares.forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
+      - "traefik.http.middlewares.forward-auth.forwardauth.trustForwardHeader=true"
+
+  # Whoami service for testing
+  whoami:
+    image: traefik/whoami
+    container_name: news-whoami
+    restart: unless-stopped
+    networks:
+      - news-microservices
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=news-microservices"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.news-mcp.local`)"
+      - "traefik.http.routers.whoami.entrypoints=websecure"
+      - "traefik.http.routers.whoami.tls=true"
+      - "traefik.http.routers.whoami.middlewares=secure-headers@file,rate-limit@file"
+      - "traefik.http.services.whoami.loadbalancer.server.port=80"
+
+  # API Documentation (Swagger UI)
+  api-docs:
+    image: swaggerapi/swagger-ui:latest
+    container_name: news-api-docs
+    restart: unless-stopped
+    networks:
+      - news-microservices
+    environment:
+      - SWAGGER_JSON=/app/swagger.json
+      - BASE_URL=/api/docs
+    volumes:
+      - ./docs/swagger.json:/app/swagger.json:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=news-microservices"
+      - "traefik.http.routers.api-docs.rule=PathPrefix(`/api/docs`)"
+      - "traefik.http.routers.api-docs.entrypoints=websecure"
+      - "traefik.http.routers.api-docs.tls=true"
+      - "traefik.http.routers.api-docs.middlewares=secure-headers@file,cors@file"
+      - "traefik.http.services.api-docs.loadbalancer.server.port=8080"
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: news-jaeger
+    restart: unless-stopped
+    networks:
+      - news-microservices
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14268:14268"
+      - "14250:14250"
+      - "9411:9411"
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_OTLP_ENABLED=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=news-microservices"
+      - "traefik.http.routers.jaeger.rule=Host(`jaeger.news-mcp.local`)"
+      - "traefik.http.routers.jaeger.entrypoints=websecure"
+      - "traefik.http.routers.jaeger.tls=true"
+      - "traefik.http.services.jaeger.loadbalancer.server.port=16686"
+
+networks:
+  news-microservices:
+    external: true
+
+volumes:
+  letsencrypt:
+    driver: local

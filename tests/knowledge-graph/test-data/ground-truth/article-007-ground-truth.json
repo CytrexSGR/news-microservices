@@ -1,0 +1,120 @@
+{
+  "article_id": "article-007",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Volodymyr Zelenskyy", "works_for", "Ukraine"],
+      "evidence": "President Volodymyr Zelenskyy meeting NATO Secretary General",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Presidential role clearly stated"
+    },
+    {
+      "triplet": ["Jens Stoltenberg", "works_for", "NATO"],
+      "evidence": "NATO Secretary General Jens Stoltenberg in Brussels",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Secretary General role explicit"
+    },
+    {
+      "triplet": ["Sauli Niinistö", "works_for", "Finland"],
+      "evidence": "Finnish President Sauli Niinistö",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Presidential role"
+    },
+    {
+      "triplet": ["Xi Jinping", "works_for", "China"],
+      "evidence": "China's Xi Jinping held a phone call",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "National leadership"
+    },
+    {
+      "triplet": ["Qin Gang", "works_for", "China"],
+      "evidence": "Chinese Foreign Minister Qin Gang",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Foreign Minister role"
+    },
+    {
+      "triplet": ["Antony Blinken", "works_for", "United States"],
+      "evidence": "The United States, represented by Secretary of State Antony Blinken",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Secretary of State role"
+    },
+    {
+      "triplet": ["Olaf Scholz", "works_for", "Germany"],
+      "evidence": "German Chancellor Olaf Scholz",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Chancellor role"
+    },
+    {
+      "triplet": ["Rishi Sunak", "works_for", "United Kingdom"],
+      "evidence": "UK Prime Minister Rishi Sunak",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Prime Minister role"
+    },
+    {
+      "triplet": ["Emmanuel Macron", "works_for", "France"],
+      "evidence": "France's Emmanuel Macron",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Presidential role (implied by context)"
+    },
+    {
+      "triplet": ["Vladimir Putin", "works_for", "Russia"],
+      "evidence": "Russian President Vladimir Putin",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Presidential role explicit"
+    },
+    {
+      "triplet": ["Recep Tayyip Erdoğan", "works_for", "Turkey"],
+      "evidence": "Turkey's President Recep Tayyip Erdoğan",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Presidential role"
+    },
+    {
+      "triplet": ["António Guterres", "works_for", "United Nations"],
+      "evidence": "United Nations Secretary-General António Guterres",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Secretary-General role"
+    },
+    {
+      "triplet": ["Karim Khan", "works_for", "International Criminal Court"],
+      "evidence": "The International Criminal Court, led by Prosecutor Karim Khan",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Prosecutor role"
+    },
+    {
+      "triplet": ["Mateusz Morawiecki", "works_for", "Poland"],
+      "evidence": "Prime Minister Mateusz Morawiecki's leadership",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Prime Minister role"
+    },
+    {
+      "triplet": ["Mariusz Błaszczak", "works_for", "Poland"],
+      "evidence": "Defense Minister Mariusz Błaszczak coordinating",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Defense Minister role"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 12,
+    "total_relationships_max": 18,
+    "avg_confidence_min": 0.75,
+    "precision_min": 0.75,
+    "recall_min": 0.60,
+    "false_positives_max": 4,
+    "notes": "Geopolitical analysis with many state actors. Strong test of works_for relationships. May extract partner_of or related_to between countries/organizations. Entity normalization less critical here (clear country names)."
+  },
+  "notes": "COMPLEX EXAMPLE: High density of political relationships. Tests system's ability to handle multiple similar relationship types (15 works_for relationships). Minimal entity normalization challenges as names are formal."
+}

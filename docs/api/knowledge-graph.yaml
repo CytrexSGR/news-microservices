@@ -1,0 +1,809 @@
+openapi: 3.1.0
+
+info:
+  title: Knowledge Graph Service API
+  description: |
+    Graph database service for entity relationships and connections using Neo4j.
+
+    Provides real-time relationship ingestion, graph querying, pathfinding, analytics,
+    and semantic entity enrichment.
+  version: 1.0.0
+  contact:
+    name: Knowledge Graph Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8111
+    description: Local development
+  - url: http://news-kg-service:8111
+    description: Docker compose environment
+  - url: https://api.example.com/graph
+    description: Production
+
+tags:
+  - name: Health
+    description: Service health and status endpoints
+  - name: Graph
+    description: Core graph query operations
+  - name: Search
+    description: Entity search and filtering
+  - name: Pathfinding
+    description: Path finding between entities
+  - name: Analytics
+    description: Graph statistics and analysis
+  - name: Enrichment
+    description: Entity enrichment with external data
+  - name: Articles
+    description: Article-specific queries
+  - name: Markets
+    description: Financial market data
+  - name: Findings
+    description: Symbolic intelligence findings ingestion
+  - name: Admin
+    description: Administrative operations (requires auth)
+
+paths:
+  /:
+    get:
+      summary: Service health check
+      operationId: root_health_check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: knowledge-graph-service
+                  status:
+                    type: string
+                    enum: [running]
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  uptime_seconds:
+                    type: integer
+                    example: 3600
+
+  /health:
+    get:
+      summary: Detailed health check
+      operationId: detailed_health_check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  neo4j:
+                    type: string
+                    enum: [connected, disconnected, error]
+                  postgres:
+                    type: string
+                    enum: [connected, disconnected, error]
+                  rabbitmq:
+                    type: string
+                    enum: [connected, disconnected, error]
+                  consumer:
+                    type: string
+                    enum: [running, stopped, error]
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/v1/graph/entity/{entity_name}/connections:
+    get:
+      summary: Get entity connections
+      operationId: get_entity_connections
+      tags:
+        - Graph
+      parameters:
+        - name: entity_name
+          in: path
+          required: true
+          description: Name of the entity
+          schema:
+            type: string
+            example: Tesla
+        - name: relationship_type
+          in: query
+          description: Filter by specific relationship type
+          schema:
+            type: string
+            example: WORKS_FOR
+        - name: limit
+          in: query
+          description: Maximum number of connections (1-1000)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: min_confidence
+          in: query
+          description: Minimum confidence score (0.0-1.0)
+          schema:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+            default: 0.5
+      responses:
+        '200':
+          description: Graph connections retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphResponse'
+        '404':
+          description: Entity not found
+        '500':
+          description: Internal server error
+
+  /api/v1/graph/entity/{entity_name}:
+    get:
+      summary: Get entity details
+      operationId: get_entity_details
+      tags:
+        - Graph
+      parameters:
+        - name: entity_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entity details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '404':
+          description: Entity not found
+
+  /api/v1/graph/search:
+    get:
+      summary: Search for entities
+      operationId: search_entities
+      tags:
+        - Search
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: Search query term
+          schema:
+            type: string
+            example: Tesla
+        - name: entity_type
+          in: query
+          description: Filter by entity type
+          schema:
+            type: string
+            enum:
+              - PERSON
+              - ORGANIZATION
+              - LOCATION
+              - PRODUCT
+              - EVENT
+              - ARTICLE
+              - DATE
+              - MISC
+              - UNKNOWN
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+                  total_results:
+                    type: integer
+                  query_time_ms:
+                    type: integer
+
+  /api/v1/graph/search/autocomplete:
+    get:
+      summary: Entity name autocomplete
+      operationId: autocomplete_entities
+      tags:
+        - Search
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Autocomplete suggestions
+
+  /api/v1/graph/path/{entity1}/{entity2}:
+    get:
+      summary: Find paths between entities
+      operationId: find_path
+      tags:
+        - Pathfinding
+      parameters:
+        - name: entity1
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "Elon Musk"
+        - name: entity2
+          in: path
+          required: true
+          schema:
+            type: string
+            example: Tesla
+        - name: max_depth
+          in: query
+          description: Maximum path length in hops (1-5)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+            default: 3
+        - name: limit
+          in: query
+          description: Maximum number of paths to return (1-10)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 3
+        - name: min_confidence
+          in: query
+          schema:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+            default: 0.5
+      responses:
+        '200':
+          description: Paths found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathfindingResponse'
+        '404':
+          description: One or both entities not found
+
+  /api/v1/graph/stats:
+    get:
+      summary: Get basic graph statistics
+      operationId: get_graph_stats
+      tags:
+        - Analytics
+      responses:
+        '200':
+          description: Graph statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_nodes:
+                    type: integer
+                    example: 46177
+                  total_relationships:
+                    type: integer
+                    example: 69437
+                  entity_types:
+                    type: object
+                    additionalProperties:
+                      type: integer
+
+  /api/v1/graph/stats/detailed:
+    get:
+      summary: Get comprehensive graph statistics
+      operationId: get_detailed_stats
+      tags:
+        - Analytics
+      responses:
+        '200':
+          description: Detailed statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedStats'
+
+  /api/v1/graph/analytics/top-entities:
+    get:
+      summary: Get most connected entities
+      operationId: get_top_entities
+      tags:
+        - Analytics
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Top entities
+
+  /api/v1/graph/analytics/relationship-stats:
+    get:
+      summary: Get relationship statistics
+      operationId: get_relationship_stats
+      tags:
+        - Analytics
+      responses:
+        '200':
+          description: Relationship statistics
+
+  /api/v1/graph/analytics/growth-history:
+    get:
+      summary: Get graph growth history
+      operationId: get_growth_history
+      tags:
+        - Analytics
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Growth history
+
+  /api/v1/graph/analytics/cross-article-coverage:
+    get:
+      summary: Get entity coverage across articles
+      operationId: get_cross_article_coverage
+      tags:
+        - Analytics
+      parameters:
+        - name: top_limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Coverage statistics
+
+  /api/v1/graph/enrichment/wikidata:
+    post:
+      summary: Enrich entity with Wikidata
+      operationId: enrich_wikidata
+      tags:
+        - Enrichment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entity_name:
+                  type: string
+                wikidata_id:
+                  type: string
+      responses:
+        '200':
+          description: Enrichment applied
+        '404':
+          description: Entity not found
+
+  /api/v1/graph/articles/{article_id}/info:
+    get:
+      summary: Get article information
+      operationId: get_article_info
+      tags:
+        - Articles
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Article information
+
+  /api/v1/graph/articles/{article_id}/entities:
+    get:
+      summary: Get entities in article
+      operationId: get_article_entities
+      tags:
+        - Articles
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Article entities
+
+  /api/v1/graph/findings:
+    post:
+      summary: Ingest symbolic findings
+      operationId: ingest_findings
+      tags:
+        - Findings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                article_id:
+                  type: string
+                findings:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Findings ingested
+
+  /api/v1/graph/markets:
+    get:
+      summary: List market instruments
+      operationId: list_markets
+      tags:
+        - Markets
+      parameters:
+        - name: asset_type
+          in: query
+          schema:
+            type: string
+            enum: [STOCK, ETF, CRYPTO, COMMODITY, BOND]
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+        - name: symbol_contains
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Markets list
+
+  /api/v1/graph/markets/{symbol}:
+    get:
+      summary: Get market details
+      operationId: get_market_details
+      tags:
+        - Markets
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Market details
+
+  /api/v1/graph/admin/query/cypher:
+    post:
+      summary: Execute custom Cypher query
+      operationId: execute_cypher_query
+      tags:
+        - Admin
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CypherQueryRequest'
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CypherQueryResult'
+        '400':
+          description: Query validation failed
+        '408':
+          description: Query timeout
+
+  /api/v1/graph/admin/query/validate:
+    post:
+      summary: Validate Cypher query
+      operationId: validate_cypher_query
+      tags:
+        - Admin
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cypher:
+                  type: string
+      responses:
+        '200':
+          description: Validation result
+
+  /api/v1/graph/admin/query/examples:
+    get:
+      summary: Get example queries
+      operationId: get_query_examples
+      tags:
+        - Admin
+      security:
+        - bearer: []
+      responses:
+        '200':
+          description: Query examples
+
+  /api/v1/graph/admin/query/clauses:
+    get:
+      summary: Get allowed/forbidden clauses
+      operationId: get_allowed_clauses
+      tags:
+        - Admin
+      security:
+        - bearer: []
+      responses:
+        '200':
+          description: Clause restrictions
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: prometheus_metrics
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Prometheus format metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    Entity:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Entity name (unique)
+        type:
+          type: string
+          enum:
+            - PERSON
+            - ORGANIZATION
+            - LOCATION
+            - PRODUCT
+            - EVENT
+            - ARTICLE
+            - DATE
+            - MISC
+            - UNKNOWN
+        wikidata_id:
+          type: string
+          nullable: true
+        connection_count:
+          type: integer
+        enrichment_data:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+
+    GraphNode:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        connection_count:
+          type: integer
+        properties:
+          type: object
+
+    GraphEdge:
+      type: object
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        relationship_type:
+          type: string
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+        mention_count:
+          type: integer
+        evidence:
+          type: string
+          nullable: true
+
+    GraphResponse:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphEdge'
+        total_nodes:
+          type: integer
+        total_edges:
+          type: integer
+        query_time_ms:
+          type: integer
+
+    SearchResult:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        connection_count:
+          type: integer
+        wikidata_id:
+          type: string
+          nullable: true
+
+    PathfindingResponse:
+      type: object
+      properties:
+        paths:
+          type: array
+          items:
+            type: object
+            properties:
+              length:
+                type: integer
+              nodes:
+                type: array
+                items:
+                  type: string
+              relationships:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    confidence:
+                      type: number
+        total_paths:
+          type: integer
+        shortest_path_length:
+          type: integer
+        query_time_ms:
+          type: integer
+
+    DetailedStats:
+      type: object
+      properties:
+        graph_size:
+          type: object
+          properties:
+            total_nodes:
+              type: integer
+            total_relationships:
+              type: integer
+            entity_type_distribution:
+              type: object
+        relationship_quality:
+          type: object
+          properties:
+            high_confidence_count:
+              type: integer
+            high_confidence_ratio:
+              type: number
+        quality_score:
+          type: number
+        query_time_ms:
+          type: integer
+
+    CypherQueryRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Read-only Cypher query
+        parameters:
+          type: object
+          description: Query parameters
+          nullable: true
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 10
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 100
+
+    CypherQueryResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+        total_results:
+          type: integer
+        query_time_ms:
+          type: integer
+        query_hash:
+          type: string
+
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

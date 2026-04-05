@@ -1,0 +1,30 @@
+#!/bin/bash
+# Pre-commit hook for Docker best practices validation
+
+set -e
+echo "🔍 Pre-commit: Docker validation"
+
+DOCKERFILES=$(git diff --cached --name-only --diff-filter=ACM | grep "Dockerfile$" || true)
+if [ -z "$DOCKERFILES" ]; then
+  echo "✅ No Dockerfiles changed"
+  exit 0
+fi
+
+FAIL=0
+for FILE in $DOCKERFILES; do
+  echo "Checking $FILE..."
+  if grep -q "^COPY \. \." "$FILE"; then
+    echo "❌ FAIL: Found 'COPY . .' in $FILE"
+    FAIL=1
+  fi
+  if grep -q "python:3\.12" "$FILE"; then
+    echo "❌ FAIL: Wrong Python version in $FILE (use 3.11)"
+    FAIL=1
+  fi
+done
+
+if [ $FAIL -eq 1 ]; then
+  echo "❌ PRE-COMMIT FAILED"
+  exit 1
+fi
+echo "✅ All Dockerfile checks passed"

@@ -1,0 +1,14 @@
+{
+  "article_id": "article-005",
+  "category": "A",
+  "title": "Amazon Opens New Fulfillment Center in Phoenix",
+  "content": "Amazon.com Inc. opened a new 1-million-square-foot fulfillment center in Phoenix, Arizona yesterday. The facility will employ 1,500 full-time workers. Site Manager Jennifer Rodriguez will oversee operations at the Phoenix location. Amazon CEO Andy Jassy attended the ribbon-cutting ceremony. The Seattle-based company now operates 15 fulfillment centers across Arizona.",
+  "source": "Local Business Journal",
+  "published_at": "2025-08-10",
+  "metadata": {
+    "word_count": 62,
+    "expected_entities": 5,
+    "expected_relationships": 4,
+    "difficulty": "easy"
+  }
+}

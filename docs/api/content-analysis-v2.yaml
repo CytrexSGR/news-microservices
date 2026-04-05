@@ -1,0 +1,641 @@
+openapi: 3.1.0
+info:
+  title: Content-Analysis Service v2 API
+  description: |
+    Multi-agent AI system for deep news article analysis.
+    Combines 11 specialized LLM-powered agents across 3 execution tiers.
+
+    **Status:** Production Ready (Archived 2025-11-24)
+    **Port:** 8114 (Docker) / 8200 (Default)
+    **Version:** 2.0.0
+  version: 2.0.0
+  contact:
+    name: News Microservices Team
+    email: support@newsmcp.dev
+  license:
+    name: Internal Use Only
+
+servers:
+  - url: http://localhost:8114
+    description: Development
+  - url: http://localhost:8200
+    description: Direct (no Docker)
+  - url: https://api.newsmcp.dev/content-analysis-v2
+    description: Production (hypothetical)
+
+tags:
+  - name: Health & Diagnostics
+    description: Service health and status endpoints
+  - name: Statistics
+    description: Pipeline metrics and analytics
+  - name: Analysis Results
+    description: Query analysis results for articles
+  - name: Configuration
+    description: Agent and service configuration management
+  - name: Monitoring
+    description: Real-time monitoring and logs
+
+security:
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health & Diagnostics
+      summary: Service health check
+      description: Returns overall service health including database, Redis, and RabbitMQ connectivity
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                    example: healthy
+                  version:
+                    type: string
+                    example: "2.0.0"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: string
+                    enum: [connected, disconnected]
+                  redis:
+                    type: string
+                    enum: [connected, disconnected]
+                  rabbitmq:
+                    type: string
+                    enum: [connected, disconnected]
+        '503':
+          description: Service is unavailable
+
+  /api/v1/statistics:
+    get:
+      tags:
+        - Statistics
+      summary: Get pipeline statistics
+      description: Returns aggregated metrics across all agents and articles
+      operationId: getPipelineStatistics
+      parameters:
+        - name: start_date
+          in: query
+          description: Filter from date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          description: Filter to date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: agent_name
+          in: query
+          description: Filter by specific agent
+          schema:
+            type: string
+            enum:
+              - TRIAGE
+              - ENTITY_EXTRACTOR
+              - SUMMARY_GENERATOR
+              - TEXT_FOUNDATION
+              - CONFLICT_EVENT_ANALYST
+              - BIAS_DETECTOR
+              - FINANCIAL_ANALYST
+              - GEOPOLITICAL_ANALYST
+              - SENTIMENT_ANALYST
+              - TOPIC_CLASSIFIER
+              - INTELLIGENCE_SYNTHESIZER
+              - UNCERTAINTY_QUANTIFIER
+              - RELEVANCE_SCORER
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      total_articles_processed:
+                        type: integer
+                        example: 2547
+                      total_cost_usd:
+                        type: number
+                        format: double
+                        example: 10.18
+                      average_cost_per_article:
+                        type: number
+                        format: double
+                        example: 0.004
+                      average_latency_ms:
+                        type: integer
+                        example: 16100
+                      success_rate:
+                        type: number
+                        format: double
+                        minimum: 0
+                        maximum: 1
+                        example: 0.987
+                      agents:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            count:
+                              type: integer
+                            avg_latency_ms:
+                              type: integer
+                            total_cost:
+                              type: number
+                            avg_confidence:
+                              type: number
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/agents/statistics:
+    get:
+      tags:
+        - Statistics
+      summary: Get per-agent statistics
+      description: Returns detailed metrics for each agent
+      operationId: getAgentStatistics
+      responses:
+        '200':
+          description: Agent statistics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        executions:
+                          type: integer
+                        success_rate:
+                          type: number
+                        avg_latency_ms:
+                          type: integer
+                        avg_confidence:
+                          type: number
+                        cache_hit_rate:
+                          type: number
+                        total_cost:
+                          type: number
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/articles/{article_id}/analysis:
+    get:
+      tags:
+        - Analysis Results
+      summary: Get complete analysis for article
+      description: Returns results from all agents that processed this article
+      operationId: getArticleAnalysis
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          description: UUID of article
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Analysis results retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      article_id:
+                        type: string
+                        format: uuid
+                      agents:
+                        type: object
+                        additionalProperties:
+                          $ref: '#/components/schemas/AgentResult'
+                      pipeline_summary:
+                        $ref: '#/components/schemas/PipelineSummary'
+        '404':
+          description: Article not found
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/articles/{article_id}/agents/{agent_name}:
+    get:
+      tags:
+        - Analysis Results
+      summary: Get specific agent result
+      description: Returns analysis result for specific agent on specific article
+      operationId: getAgentResult
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: agent_name
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - TRIAGE
+              - ENTITY_EXTRACTOR
+              - SUMMARY_GENERATOR
+              - TEXT_FOUNDATION
+              - CONFLICT_EVENT_ANALYST
+              - BIAS_DETECTOR
+              - FINANCIAL_ANALYST
+              - GEOPOLITICAL_ANALYST
+              - SENTIMENT_ANALYST
+              - TOPIC_CLASSIFIER
+              - INTELLIGENCE_SYNTHESIZER
+              - UNCERTAINTY_QUANTIFIER
+              - RELEVANCE_SCORER
+      responses:
+        '200':
+          description: Agent result retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AgentResultDetail'
+        '404':
+          description: Result not found
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/config:
+    get:
+      tags:
+        - Configuration
+      summary: Get service configuration
+      description: Returns current configuration for service and all agents
+      operationId: getConfiguration
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ServiceConfiguration'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/config/agents/{agent_name}:
+    get:
+      tags:
+        - Configuration
+      summary: Get agent configuration
+      operationId: getAgentConfiguration
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent configuration retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AgentConfiguration'
+        '404':
+          description: Agent not found
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    patch:
+      tags:
+        - Configuration
+      summary: Update agent configuration
+      operationId: updateAgentConfiguration
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfigurationUpdate'
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AgentConfiguration'
+        '400':
+          description: Invalid configuration
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/queue/metrics:
+    get:
+      tags:
+        - Monitoring
+      summary: Get RabbitMQ queue metrics
+      operationId: getQueueMetrics
+      responses:
+        '200':
+          description: Queue metrics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      queue_name:
+                        type: string
+                      ready_count:
+                        type: integer
+                      unacked_count:
+                        type: integer
+                      total_count:
+                        type: integer
+                      consumer_count:
+                        type: integer
+                      idle_since:
+                        type: string
+                        format: date-time
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/monitoring/logs:
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring logs
+      operationId: getMonitoringLogs
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [DEBUG, INFO, WARNING, ERROR]
+        - name: agent_name
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Logs retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        level:
+                          type: string
+                        agent:
+                          type: string
+                        message:
+                          type: string
+                        latency_ms:
+                          type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from Auth Service
+
+  schemas:
+    AgentResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [completed, failed, timeout]
+        confidence:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        result:
+          type: object
+          description: Agent-specific result structure (varies by agent)
+        latency_ms:
+          type: integer
+        cost_usd:
+          type: number
+          format: double
+
+    AgentResultDetail:
+      type: object
+      properties:
+        agent_name:
+          type: string
+        agent_version:
+          type: string
+        result_data:
+          type: object
+        confidence:
+          type: number
+          format: double
+        processing_time_ms:
+          type: integer
+        model_used:
+          type: string
+        provider:
+          type: string
+        cost_usd:
+          type: number
+          format: double
+        cache_hit:
+          type: boolean
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PipelineSummary:
+      type: object
+      properties:
+        total_agents_run:
+          type: integer
+        total_latency_ms:
+          type: integer
+        total_cost_usd:
+          type: number
+          format: double
+        overall_confidence:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+
+    ServiceConfiguration:
+      type: object
+      properties:
+        service_name:
+          type: string
+        version:
+          type: string
+        port:
+          type: integer
+        agents:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/AgentConfiguration'
+        pipeline:
+          type: object
+          properties:
+            timeout_seconds:
+              type: integer
+            enable_cache:
+              type: boolean
+            cache_ttl_seconds:
+              type: integer
+
+    AgentConfiguration:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        provider:
+          type: string
+          enum: [openai, gemini]
+        model:
+          type: string
+        max_tokens:
+          type: integer
+          minimum: 100
+          maximum: 32000
+        temperature:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 2
+        timeout:
+          type: integer
+          minimum: 10
+          maximum: 300
+        retry_attempts:
+          type: integer
+          minimum: 1
+          maximum: 5
+        cache_ttl:
+          type: integer
+          minimum: 0
+
+    AgentConfigurationUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        max_tokens:
+          type: integer
+        temperature:
+          type: number
+        timeout:
+          type: integer
+        retry_attempts:
+          type: integer
+
+  responses:
+    UnauthorizedError:
+      description: Unauthorized - Invalid or missing JWT token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Unauthorized - Invalid token"
+
+x-internal-notes: |
+  # Service Notes
+
+  ## Known Issues
+  - Issue #1: SQL injection vulnerability in orchestrator.py (line 895-916)
+  - Issue #2: Hardcoded defaults in config.py
+  - Issue #3: Missing API key validation (partially fixed)
+  - Issue #4: No rate limiting on LLM calls
+  - Issue #5: Sensitive data in logs (partially fixed with redaction)
+
+  ## Deprecated Endpoints
+  - None currently
+
+  ## Future Endpoints
+  - POST /api/v1/articles/{article_id}/reanalyze (force pipeline re-run)
+  - POST /api/v1/config/reset (reset to defaults)
+  - GET /api/v1/alerts (security/performance alerts)

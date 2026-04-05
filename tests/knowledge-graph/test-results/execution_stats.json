@@ -1,0 +1,107 @@
+{
+  "total": 18,
+  "success": 18,
+  "failed": 0,
+  "categories": {
+    "category-a": {
+      "total": 5,
+      "success": 5,
+      "failed": 0,
+      "articles": [
+        {
+          "article_id": "article-001-ceo-appointment",
+          "success": true
+        },
+        {
+          "article_id": "article-002-acquisition",
+          "success": true
+        },
+        {
+          "article_id": "article-003-court-ruling",
+          "success": true
+        },
+        {
+          "article_id": "article-004-product-launch",
+          "success": true
+        },
+        {
+          "article_id": "article-005-factory-opening",
+          "success": true
+        }
+      ]
+    },
+    "category-b": {
+      "total": 5,
+      "success": 5,
+      "failed": 0,
+      "articles": [
+        {
+          "article_id": "article-006-merger-analysis",
+          "success": true
+        },
+        {
+          "article_id": "article-007-geopolitical-conflict",
+          "success": true
+        },
+        {
+          "article_id": "article-008-economic-analysis",
+          "success": true
+        },
+        {
+          "article_id": "article-009-investigative-journalism",
+          "success": true
+        },
+        {
+          "article_id": "article-010-political-analysis",
+          "success": true
+        }
+      ]
+    },
+    "category-c": {
+      "total": 5,
+      "success": 5,
+      "failed": 0,
+      "articles": [
+        {
+          "article_id": "article-011-opinion-tech-regulation",
+          "success": true
+        },
+        {
+          "article_id": "article-012-interview-indirect-speech",
+          "success": true
+        },
+        {
+          "article_id": "article-013-market-speculation",
+          "success": true
+        },
+        {
+          "article_id": "article-014-political-commentary",
+          "success": true
+        },
+        {
+          "article_id": "article-015-future-prediction",
+          "success": true
+        }
+      ]
+    },
+    "category-d": {
+      "total": 3,
+      "success": 3,
+      "failed": 0,
+      "articles": [
+        {
+          "article_id": "article-016-conference-attendees",
+          "success": true
+        },
+        {
+          "article_id": "article-017-weather-report",
+          "success": true
+        },
+        {
+          "article_id": "article-018-product-specs",
+          "success": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments (CRITICAL - saves 250MB+)
+venv/
+.venv/
+ENV/
+env/
+
+# Testing and Coverage (CRITICAL - saves build time)
+.pytest_cache/
+.coverage
+htmlcov/
+test_data/
+*.log
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (saves build context transfer)
+*.md
+!README.md
+docs/
+examples/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile.old
+Dockerfile.dev
+Dockerfile.backup
+docker-compose*.yml
+
+# Development dependencies file (not needed in build)
+requirements-dev.txt
+
+# Test files
+tests/
+test_*.py
+*_test.py

@@ -1,0 +1,14 @@
+{
+  "article_id": "article-004",
+  "category": "A",
+  "title": "Tesla Unveils Cybertruck at Austin Factory",
+  "content": "Tesla Inc. officially launched its Cybertruck electric pickup truck at a delivery event held at the company's Gigafactory in Austin, Texas. CEO Elon Musk presented the first production vehicles to customers. The Cybertruck is manufactured at Tesla's Austin facility, which opened in 2022. Musk announced that initial production will focus on the tri-motor all-wheel-drive variant. The Austin Gigafactory employs approximately 20,000 workers.",
+  "source": "Automotive News",
+  "published_at": "2025-11-30",
+  "metadata": {
+    "word_count": 73,
+    "expected_entities": 5,
+    "expected_relationships": 4,
+    "difficulty": "easy"
+  }
+}

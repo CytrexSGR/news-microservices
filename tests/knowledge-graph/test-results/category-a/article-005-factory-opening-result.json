@@ -1,0 +1,95 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "2e89903d-2257-4417-a8dc-11f763cd79af",
+    "entities": [
+      {
+        "id": "6f06d023-2c2f-4e1c-b91e-5507b3cc9525",
+        "text": "Amazon",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 3
+      },
+      {
+        "id": "83a17f59-596a-4829-a401-003c8d678e15",
+        "text": "Amazon.com Inc.",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "39009b54-a4aa-437f-a90d-508cc00b7e85",
+        "text": "Phoenix",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "b5df863a-d608-4b73-ae12-297f1b86948e",
+        "text": "Arizona",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "9571f5c6-abf2-4131-a3c2-ffd0a2c5f29e",
+        "text": "Jennifer Rodriguez",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "27554853-5cd9-4b18-b9c4-bdafcab4b4de",
+        "text": "Andy Jassy",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "d5143b89-8d43-46cf-b96d-8d94d3f19f1f",
+        "text": "Seattle",
+        "type": "LOCATION",
+        "confidence": 0.8,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Amazon",
+        "entity2": "Phoenix",
+        "type": "located_in",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Amazon",
+        "entity2": "Arizona",
+        "type": "located_in",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Jennifer Rodriguez",
+        "entity2": "Amazon",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Andy Jassy",
+        "entity2": "Amazon",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Amazon",
+        "entity2": "Seattle",
+        "type": "located_in",
+        "confidence": 0.8
+      }
+    ],
+    "entity_count": 7,
+    "relationship_count": 5,
+    "processing_time_ms": 6097,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:07:05.619893"
+}

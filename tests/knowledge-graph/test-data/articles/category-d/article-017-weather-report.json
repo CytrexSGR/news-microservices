@@ -1,0 +1,15 @@
+{
+  "article_id": "article-017",
+  "category": "D",
+  "title": "Weekly Weather Forecast",
+  "content": "The National Weather Service forecasts sunny conditions for San Francisco and Los Angeles this week. Seattle and Portland will experience rain. New York and Boston will see temperatures in the 60s. Denver and Phoenix can expect clear skies. Chicago will have partly cloudy conditions. Miami will remain warm with highs in the 80s.",
+  "source": "Weather Channel",
+  "published_at": "2025-10-22",
+  "metadata": {
+    "word_count": 62,
+    "expected_entities": 11,
+    "expected_relationships": 0,
+    "difficulty": "negative_example",
+    "notes": "Weather report with city names but no relationships between entities"
+  }
+}

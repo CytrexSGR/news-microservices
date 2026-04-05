@@ -1,0 +1,23 @@
+[project]
+name = "mcp-knowledge-graph-server"
+version = "1.0.0"
+description = "MCP server exposing Neo4j Knowledge Graph via Model Context Protocol"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

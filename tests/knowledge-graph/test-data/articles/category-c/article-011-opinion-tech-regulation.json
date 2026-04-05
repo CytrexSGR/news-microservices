@@ -1,0 +1,15 @@
+{
+  "article_id": "article-011",
+  "category": "C",
+  "title": "Opinion: Why Big Tech's Self-Regulation Has Failed and What Congress Should Do About It",
+  "content": "For years, Silicon Valley executives have promised lawmakers that industry self-regulation would address concerns about data privacy, content moderation, and market dominance. Yet as Mark Zuckerberg's Meta continues to face scrutiny over its handling of user data, and as Elon Musk's erratic management of Twitter raises new questions about platform governance, it's clear that voluntary compliance has proven insufficient. Some observers believe that Sundar Pichai's Google has made genuine efforts toward transparency, while critics argue that Tim Cook's Apple merely hides behind privacy marketing while maintaining its App Store monopoly. The relationship between these companies and Washington remains fraught. Senator Amy Klobuchar, who chairs the Antitrust Subcommittee, has suggested that stronger enforcement might force tech giants to reconsider their practices, though whether she can build bipartisan support remains uncertain. Meanwhile, Lina Khan's aggressive approach at the FTC may signal a shift in regulatory philosophy, assuming she survives political pressure from tech-friendly legislators. European regulators, particularly Margrethe Vestager's team at the European Commission, appear more willing to impose meaningful penalties, which could inspire American policymakers. If recent trends continue, we might see Satya Nadella's Microsoft emerge as the most compliant major tech player, potentially leveraging regulatory cooperation as a competitive advantage. But predictions in this space are notoriously unreliable—who would have guessed that Sam Altman's OpenAI would become Washington's newest darling almost overnight? Perhaps the real question is whether traditional regulatory frameworks can even address AI's emerging challenges, or whether we need entirely new institutions with expertise that current agencies lack.",
+  "source": "The Atlantic (Opinion)",
+  "published_at": "2023-07-10",
+  "metadata": {
+    "word_count": 270,
+    "expected_entities": 12,
+    "expected_relationships": 8,
+    "difficulty": "ambiguous_opinion",
+    "notes": "Opinion piece with speculation, conditional statements, and subjective interpretations. Tests handling of lower-confidence relationships, implied connections, and speculative language."
+  }
+}

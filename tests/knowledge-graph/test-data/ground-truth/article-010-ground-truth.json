@@ -1,0 +1,148 @@
+{
+  "article_id": "article-010",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Thierry Breton", "works_for", "European Commission"],
+      "evidence": "Internal Market Commissioner Thierry Breton",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Commissioner role"
+    },
+    {
+      "triplet": ["Ursula von der Leyen", "works_for", "European Commission"],
+      "evidence": "European Commission President Ursula von der Leyen",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "President role"
+    },
+    {
+      "triplet": ["Brando Benifei", "works_for", "European Parliament"],
+      "evidence": "lead negotiator Brando Benifei, an Italian MEP",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "MEP role"
+    },
+    {
+      "triplet": ["Volker Wissing", "works_for", "Germany"],
+      "evidence": "Germany's Digital Minister Volker Wissing",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Minister role"
+    },
+    {
+      "triplet": ["Jean-Noël Barrot", "works_for", "France"],
+      "evidence": "France's Secretary of State for Digital Transition Jean-Noël Barrot",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Secretary of State role"
+    },
+    {
+      "triplet": ["Arthur Mensch", "owns", "Mistral AI"],
+      "evidence": "Mistral AI, founded by former DeepMind researchers Arthur Mensch",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Founder implies ownership"
+    },
+    {
+      "triplet": ["Guillaume Lample", "owns", "Mistral AI"],
+      "evidence": "Mistral AI, founded by former DeepMind researchers Arthur Mensch and Guillaume Lample",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Co-founder relationship"
+    },
+    {
+      "triplet": ["Brad Smith", "works_for", "Microsoft"],
+      "evidence": "Microsoft President Brad Smith",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "President role"
+    },
+    {
+      "triplet": ["Sundar Pichai", "works_for", "Google"],
+      "evidence": "Google's Sundar Pichai",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO (implied by context)"
+    },
+    {
+      "triplet": ["Sam Altman", "works_for", "OpenAI"],
+      "evidence": "OpenAI CEO Sam Altman",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO role"
+    },
+    {
+      "triplet": ["Mateusz Morawiecki", "works_for", "Poland"],
+      "evidence": "Poland's Prime Minister Mateusz Morawiecki",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Prime Minister role"
+    },
+    {
+      "triplet": ["Erik Slottner", "works_for", "Sweden"],
+      "evidence": "Sweden's Minister for Digitalization Erik Slottner",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Minister role"
+    },
+    {
+      "triplet": ["Lars Aagaard", "works_for", "Denmark"],
+      "evidence": "Denmark's Minister for Climate, Energy and Utilities Lars Aagaard",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Minister role"
+    },
+    {
+      "triplet": ["Brett Solomon", "works_for", "Access Now"],
+      "evidence": "Access Now led by Executive Director Brett Solomon",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Executive Director role"
+    },
+    {
+      "triplet": ["Matthias Spielkamp", "owns", "AlgorithmWatch"],
+      "evidence": "AlgorithmWatch founded by Matthias Spielkamp",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Founder relationship"
+    },
+    {
+      "triplet": ["Andrea Jelinek", "works_for", "European Data Protection Board"],
+      "evidence": "The European Data Protection Board, chaired by Andrea Jelinek",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Chair role"
+    },
+    {
+      "triplet": ["Yann LeCun", "works_for", "Meta"],
+      "evidence": "Meta's Chief AI Scientist Yann LeCun",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Chief AI Scientist role"
+    },
+    {
+      "triplet": ["Helen Dixon", "works_for", "Ireland"],
+      "evidence": "Irish Data Protection Commissioner Helen Dixon",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Commissioner role for Ireland"
+    },
+    {
+      "triplet": ["Carme Artigas", "works_for", "Spain"],
+      "evidence": "Spain's Minister for Digital Transformation Carme Artigas",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Minister role"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 16,
+    "total_relationships_max": 24,
+    "avg_confidence_min": 0.75,
+    "precision_min": 0.75,
+    "recall_min": 0.60,
+    "false_positives_max": 5,
+    "notes": "Political/regulatory analysis with 30 entities. Primarily works_for relationships (17) with some owns (3 founders). Tests system's handling of political roles across EU institutions and member states. May extract related_to between aligned political actors or partner_of for lobbying relationships."
+  },
+  "notes": "COMPLEX EXAMPLE: EU regulatory politics with high entity density. Tests works_for across multiple organizational types (EU institutions, national governments, companies, NGOs). Tests owns for startup founders. Organizational hierarchy important (European Parliament vs member states)."
+}

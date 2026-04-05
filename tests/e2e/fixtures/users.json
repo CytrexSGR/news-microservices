@@ -1,0 +1,30 @@
+[
+  {
+    "email": "admin@example.com",
+    "password": "Admin123!@#",
+    "username": "admin",
+    "full_name": "Admin User",
+    "role": "admin"
+  },
+  {
+    "email": "user1@example.com",
+    "password": "User123!@#",
+    "username": "user1",
+    "full_name": "Test User One",
+    "role": "user"
+  },
+  {
+    "email": "user2@example.com",
+    "password": "User123!@#",
+    "username": "user2",
+    "full_name": "Test User Two",
+    "role": "user"
+  },
+  {
+    "email": "power_user@example.com",
+    "password": "Power123!@#",
+    "username": "poweruser",
+    "full_name": "Power User",
+    "role": "power_user"
+  }
+]

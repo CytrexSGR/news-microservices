@@ -1,0 +1,52 @@
+# Production Dockerfile for Feed Service
+# Optimized for production deployment with tests included for CI/CD
+
+FROM python:3.11-slim AS base
+
+WORKDIR /app
+
+# System dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files
+COPY requirements.txt* pyproject.toml* poetry.lock* ./
+COPY alembic.ini ./
+COPY alembic ./alembic
+
+# Install dependencies
+RUN if [ -f "pyproject.toml" ]; then \
+        pip install --no-cache-dir poetry==1.7.0 && \
+        poetry config virtualenvs.create false && \
+        poetry install --no-interaction --no-ansi --no-root; \
+    elif [ -f "requirements.txt" ]; then \
+        pip install --no-cache-dir -r requirements.txt; \
+    fi
+
+# Copy application code
+COPY app ./app
+
+# Copy tests for CI/CD (includes conftest.py and all test files)
+COPY tests ./tests
+
+# Health check script
+RUN echo '#!/bin/sh\ncurl -f http://localhost:8000/health || exit 1' > /usr/local/bin/healthcheck.sh \
+    && chmod +x /usr/local/bin/healthcheck.sh
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD /usr/local/bin/healthcheck.sh
+
+# Production command (no reload)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]

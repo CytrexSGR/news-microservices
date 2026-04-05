@@ -1,0 +1,832 @@
+openapi: 3.1.0
+info:
+  title: Search Service API
+  version: 1.0.0
+  description: |
+    Full-text search microservice with PostgreSQL FTS, autocomplete, and advanced query capabilities.
+
+    Features:
+    - PostgreSQL full-text search with tsvector indexing
+    - Real-time article indexing via RabbitMQ events
+    - Advanced search with fuzzy matching and highlighting
+    - Autocomplete suggestions with Redis caching
+    - User search history tracking
+    - Faceted search with dynamic filters
+    - Search analytics and statistics
+  contact:
+    name: Development Team
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8106
+    description: Development server
+  - url: https://api.example.com:8106
+    description: Production server
+tags:
+  - name: Search
+    description: Search and query operations
+  - name: Suggestions
+    description: Autocomplete and search suggestions
+  - name: History
+    description: User search history
+  - name: Admin
+    description: Administrative operations (requires authentication)
+
+paths:
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Returns service health status and configuration
+      operationId: health_check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: search-service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  environment:
+                    type: string
+                    example: production
+                  indexing:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      interval:
+                        type: integer
+                  search:
+                    type: object
+                    properties:
+                      fuzzy_enabled:
+                        type: boolean
+                      max_results:
+                        type: integer
+
+  /api/v1/search:
+    get:
+      tags:
+        - Search
+      summary: Basic full-text search
+      description: |
+        Search articles using PostgreSQL full-text search with optional filtering.
+        Results are cached for 1 hour.
+      operationId: search_articles
+      parameters:
+        - name: query
+          in: query
+          description: Search query (supports basic operators)
+          schema:
+            type: string
+            maxLength: 500
+          example: tesla earnings
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: page_size
+          in: query
+          description: Results per page
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: source
+          in: query
+          description: Filter by source (comma-separated)
+          schema:
+            type: string
+          example: Reuters,Bloomberg
+        - name: sentiment
+          in: query
+          description: Filter by sentiment (comma-separated)
+          schema:
+            type: string
+          example: positive,neutral
+        - name: date_from
+          in: query
+          description: Filter from date (ISO 8601 format)
+          schema:
+            type: string
+            format: date-time
+          example: "2025-01-01T00:00:00Z"
+        - name: date_to
+          in: query
+          description: Filter to date (ISO 8601 format)
+          schema:
+            type: string
+            format: date-time
+          example: "2025-01-31T23:59:59Z"
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid parameters
+        '500':
+          description: Server error
+
+  /api/v1/search/advanced:
+    post:
+      tags:
+        - Search
+      summary: Advanced search with fuzzy matching and facets
+      description: |
+        Advanced search with fuzzy matching, highlighting, and faceted search results.
+        Supports more complex queries and returns additional metadata.
+      operationId: advanced_search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvancedSearchRequest'
+      responses:
+        '200':
+          description: Search results with facets and highlights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid request
+        '500':
+          description: Server error
+
+  /api/v1/search/suggest:
+    get:
+      tags:
+        - Suggestions
+      summary: Autocomplete suggestions
+      description: |
+        Get autocomplete suggestions based on:
+        1. Popular search queries (prefix match)
+        2. Article titles (trigram similarity)
+      operationId: get_suggestions
+      parameters:
+        - name: query
+          in: query
+          description: Partial query string for suggestions
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          required: true
+          example: tes
+        - name: limit
+          in: query
+          description: Maximum number of suggestions
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 20
+      responses:
+        '200':
+          description: List of suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionResponse'
+        '400':
+          description: Invalid parameters
+        '500':
+          description: Server error
+
+  /api/v1/search/related:
+    get:
+      tags:
+        - Suggestions
+      summary: Related search queries
+      description: Get semantically related search queries based on similarity
+      operationId: get_related_searches
+      parameters:
+        - name: query
+          in: query
+          description: Current search query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+          required: true
+          example: tesla earnings
+        - name: limit
+          in: query
+          description: Maximum related queries
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+      responses:
+        '200':
+          description: List of related queries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  related:
+                    type: array
+                    items:
+                      type: string
+
+  /api/v1/search/popular:
+    get:
+      tags:
+        - Suggestions
+      summary: Popular search queries
+      description: Get most frequently searched queries
+      operationId: get_popular_queries
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of queries
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: List of popular queries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  popular_queries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        query:
+                          type: string
+                        hits:
+                          type: integer
+                  total:
+                    type: integer
+
+  /api/v1/search/facets:
+    get:
+      tags:
+        - Search
+      summary: Available filter options
+      description: Get all available sources and sentiment categories for filtering
+      operationId: get_facets
+      responses:
+        '200':
+          description: Available facets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sources:
+                    type: array
+                    items:
+                      type: string
+                    example: ["Reuters", "Bloomberg", "CNBC"]
+                  categories:
+                    type: array
+                    items:
+                      type: string
+                    example: ["positive", "neutral", "negative"]
+
+  /api/v1/search/history:
+    get:
+      tags:
+        - History
+      summary: Get user search history
+      description: Retrieve search history for authenticated user
+      operationId: get_search_history
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Search history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchHistoryResponse'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    delete:
+      tags:
+        - History
+      summary: Clear search history
+      description: Delete all search history for authenticated user
+      operationId: clear_search_history
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: History cleared successfully
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/v1/admin/reindex:
+    post:
+      tags:
+        - Admin
+      summary: Reindex all articles
+      description: |
+        Full reindex operation. Deletes all existing indexes and refetches all articles
+        from Feed Service. Useful for corruption recovery.
+        **Requires authentication**
+      operationId: reindex_articles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reindex completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                  stats:
+                    type: object
+                    properties:
+                      indexed:
+                        type: integer
+                      errors:
+                        type: integer
+        '401':
+          description: Unauthorized
+        '500':
+          description: Reindex failed
+
+  /api/v1/admin/sync:
+    post:
+      tags:
+        - Admin
+      summary: Sync new articles
+      description: |
+        Incremental sync of articles updated since last sync.
+        Fetches new articles from Feed Service and indexes them.
+        **Requires authentication**
+      operationId: sync_articles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: batch_size
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                  stats:
+                    type: object
+                    properties:
+                      indexed:
+                        type: integer
+                      updated:
+                        type: integer
+                      errors:
+                        type: integer
+                      total:
+                        type: integer
+        '401':
+          description: Unauthorized
+        '500':
+          description: Sync failed
+
+  /api/v1/admin/stats/index:
+    get:
+      tags:
+        - Admin
+      summary: Index statistics
+      description: Get index statistics including total articles, distribution by source/sentiment
+      operationId: get_index_statistics
+      responses:
+        '200':
+          description: Index statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_indexed:
+                    type: integer
+                  by_source:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source:
+                          type: string
+                        count:
+                          type: integer
+                  by_sentiment:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sentiment:
+                          type: string
+                        count:
+                          type: integer
+                  recent_24h:
+                    type: integer
+                  index_size:
+                    type: string
+                  last_updated:
+                    type: string
+                    format: date-time
+        '500':
+          description: Server error
+
+  /api/v1/admin/stats/queries:
+    get:
+      tags:
+        - Admin
+      summary: Query statistics
+      description: Get search query statistics including popular queries and trends
+      operationId: get_query_statistics
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Query statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  top_queries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        query:
+                          type: string
+                        hits:
+                          type: integer
+                  total_searches:
+                    type: integer
+                  recent_24h:
+                    type: integer
+                  avg_results_per_query:
+                    type: number
+                  last_updated:
+                    type: string
+                    format: date-time
+        '500':
+          description: Server error
+
+  /api/v1/admin/stats/cache:
+    get:
+      tags:
+        - Admin
+      summary: Cache statistics
+      description: Get Redis cache statistics including hit rate and memory usage
+      operationId: get_cache_statistics
+      responses:
+        '200':
+          description: Cache statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_keys:
+                    type: integer
+                  memory_used:
+                    type: string
+                  memory_peak:
+                    type: string
+                  hit_rate_percent:
+                    type: number
+                  total_hits:
+                    type: integer
+                  total_misses:
+                    type: integer
+                  evicted_keys:
+                    type: integer
+                  expired_keys:
+                    type: integer
+                  last_updated:
+                    type: string
+                    format: date-time
+        '500':
+          description: Server error
+
+  /api/v1/admin/stats/performance:
+    get:
+      tags:
+        - Admin
+      summary: Performance statistics
+      description: Get search performance metrics including latency and result distribution
+      operationId: get_performance_statistics
+      responses:
+        '200':
+          description: Performance statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  avg_execution_time_ms:
+                    type: number
+                  slowest_queries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        query:
+                          type: string
+                        hits:
+                          type: integer
+                  result_distribution:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        range:
+                          type: string
+                        count:
+                          type: integer
+                  last_updated:
+                    type: string
+                    format: date-time
+        '500':
+          description: Server error
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SearchFilters:
+      type: object
+      description: Search filters
+      properties:
+        source:
+          type: array
+          items:
+            type: string
+          description: Filter by sources
+          example: ["Reuters", "Bloomberg"]
+        sentiment:
+          type: array
+          items:
+            type: string
+            enum: [positive, negative, neutral]
+          description: Filter by sentiment
+        entities:
+          type: array
+          items:
+            type: string
+          description: Filter by entities
+        date_from:
+          type: string
+          format: date-time
+          description: Filter from date
+        date_to:
+          type: string
+          format: date-time
+          description: Filter to date
+
+    SearchRequest:
+      type: object
+      description: Basic search request
+      properties:
+        query:
+          type: string
+          maxLength: 500
+          description: Search query
+          example: tesla earnings
+        page:
+          type: integer
+          default: 1
+          minimum: 1
+        page_size:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+        filters:
+          $ref: '#/components/schemas/SearchFilters'
+
+    AdvancedSearchRequest:
+      allOf:
+        - $ref: '#/components/schemas/SearchRequest'
+        - type: object
+          properties:
+            use_fuzzy:
+              type: boolean
+              default: true
+              description: Enable fuzzy/typo-tolerant matching
+            highlight:
+              type: boolean
+              default: true
+              description: Include search term highlighting in results
+            facets:
+              type: array
+              items:
+                type: string
+                enum: [source, sentiment, date]
+              description: Facets to compute
+              example: ["source", "sentiment"]
+
+    SearchResultItem:
+      type: object
+      description: Single search result
+      properties:
+        article_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        content:
+          type: string
+        author:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        url:
+          type: string
+          format: uri
+          nullable: true
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        sentiment:
+          type: string
+          enum: [positive, negative, neutral]
+          nullable: true
+        entities:
+          type: array
+          items:
+            type: string
+          nullable: true
+        relevance_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        highlight:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          nullable: true
+
+    SearchResponse:
+      type: object
+      description: Search response with results and metadata
+      properties:
+        query:
+          type: string
+          description: The search query
+        total:
+          type: integer
+          description: Total number of results
+        page:
+          type: integer
+          description: Current page number
+        page_size:
+          type: integer
+          description: Results per page
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResultItem'
+        facets:
+          type: object
+          description: Faceted search results
+          additionalProperties: true
+          nullable: true
+        execution_time_ms:
+          type: number
+          description: Query execution time in milliseconds
+
+    SuggestionResponse:
+      type: object
+      description: Autocomplete suggestions response
+      properties:
+        query:
+          type: string
+          description: The input query
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: List of suggested queries
+
+    SearchHistoryItem:
+      type: object
+      description: Single search history entry
+      properties:
+        id:
+          type: integer
+        query:
+          type: string
+        filters:
+          type: object
+          nullable: true
+          additionalProperties: true
+        results_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    SearchHistoryResponse:
+      type: object
+      description: Search history response with pagination
+      properties:
+        total:
+          type: integer
+          description: Total history entries
+        page:
+          type: integer
+        page_size:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHistoryItem'
+
+    Error:
+      type: object
+      description: Error response
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        detail:
+          type: string
+          nullable: true

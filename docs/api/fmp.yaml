@@ -1,0 +1,1374 @@
+openapi: 3.1.0
+info:
+  title: FMP Service - Financial Market Data Integration API
+  description: |
+    Comprehensive financial market data API with real-time quotes, OHLCV candles,
+    financial news, company intelligence, and intermarket analytics.
+
+    **Features:**
+    - Real-time quotes for indices, forex, commodities, and crypto
+    - 1-minute and 5-minute OHLCV candlestick data
+    - Financial news aggregation (stock, forex, crypto)
+    - Company profiles, SEC filings, insider trading
+    - Economic indicators and market microstructure data
+    - WebSocket support for real-time updates
+
+    **Rate Limits:** 300 calls/minute (FMP Starter plan)
+
+    **Base URL:** http://localhost:8113/api/v1
+  version: 2.1.0
+  contact:
+    name: FMP Service Team
+    url: https://github.com/news-microservices/fmp-service
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8113/api/v1
+    description: Development server
+  - url: https://api.example.com/fmp/v1
+    description: Production server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Simple health check for Docker healthcheck and monitoring
+      tags:
+        - System
+      operationId: health_check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  environment:
+                    type: string
+                    enum: [development, production]
+
+  /market/quotes:
+    get:
+      summary: Get latest quotes for asset type
+      description: |
+        Returns latest quotes for all symbols of a specific asset type.
+        Data is cached with 1-5 minute TTL depending on asset type.
+      tags:
+        - Market Data
+      operationId: get_quotes
+      parameters:
+        - name: asset_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [indices, forex, commodities, crypto]
+          description: Asset type to filter by
+      responses:
+        '200':
+          description: List of latest quotes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotesListResponse'
+        '400':
+          description: Invalid asset type
+        '503':
+          description: Service unavailable (database/API error)
+
+  /market/quotes/{symbol}:
+    get:
+      summary: Get latest quote for specific symbol
+      description: |
+        Returns the most recent quote snapshot for a symbol.
+        Includes price, bid/ask, volume, and timestamp.
+      tags:
+        - Market Data
+      operationId: get_quote_by_symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z0-9^_-]{1,20}$'
+          description: |
+            Symbol (e.g., AAPL, EURUSD, BTCUSD, ^GSPC, GCUSD)
+      responses:
+        '200':
+          description: Quote found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedQuoteResponse'
+        '404':
+          description: Symbol not found
+        '503':
+          description: Service unavailable
+
+  /market/candles/{symbol}:
+    get:
+      summary: Get OHLCV candlestick data
+      description: |
+        Returns candlestick (OHLCV) data for a symbol at specified interval.
+        Supports 1-minute through 4-hour intervals.
+        Data is cached with TTL based on interval.
+
+        **Tier 1 symbols (40):** 1-min candles available
+        **Tier 2 symbols (67):** 5-min candles available
+        **Tier 3 symbols (150+):** Quote snapshots only
+      tags:
+        - Market Data
+      operationId: get_candles
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Symbol to fetch candles for
+        - name: interval
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [1min, 5min, 15min, 30min, 1hour, 4hour]
+          description: Candle interval
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Number of candles to return
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Start date (YYYY-MM-DD)
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: End date (YYYY-MM-DD)
+      responses:
+        '200':
+          description: List of candlesticks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  symbol:
+                    type: string
+                  interval:
+                    type: string
+                  candles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Candlestick'
+                  count:
+                    type: integer
+        '400':
+          description: Invalid parameters
+        '404':
+          description: Symbol not found
+
+  /historical/{asset_type}/{symbol}:
+    get:
+      summary: Get historical EOD price data
+      description: |
+        Returns historical end-of-day (EOD) price data for a symbol.
+        Data includes open, high, low, close, volume.
+      tags:
+        - Historical Data
+      operationId: get_historical
+      parameters:
+        - name: asset_type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [indices, forex, commodities, crypto]
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Historical prices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoricalPrice'
+
+  /news:
+    get:
+      summary: Get financial news articles
+      description: |
+        Returns paginated financial news articles from database.
+        Covers stock market, forex, and cryptocurrency news.
+      tags:
+        - News
+      operationId: list_news
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: News articles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  articles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NewsArticle'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+
+  /news/by-symbol/{symbol}:
+    get:
+      summary: Get news for specific symbol
+      description: Returns news articles mentioning a specific symbol
+      tags:
+        - News
+      operationId: get_news_by_symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: News articles for symbol
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NewsArticle'
+
+  /news/live/stock:
+    get:
+      summary: Fetch latest stock news from FMP API
+      description: |
+        Fetches latest stock market news directly from FMP API.
+        This is a real-time endpoint that may incur API costs.
+      tags:
+        - News
+      operationId: get_live_stock_news
+      responses:
+        '200':
+          description: Latest stock news
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NewsArticle'
+
+  /news/live/forex:
+    get:
+      summary: Fetch latest forex news from FMP API
+      tags:
+        - News
+      operationId: get_live_forex_news
+      responses:
+        '200':
+          description: Latest forex news
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NewsArticle'
+
+  /news/live/crypto:
+    get:
+      summary: Fetch latest cryptocurrency news from FMP API
+      tags:
+        - News
+      operationId: get_live_crypto_news
+      responses:
+        '200':
+          description: Latest crypto news
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NewsArticle'
+
+  /earnings/calendar:
+    get:
+      summary: Get earnings calendar events
+      description: |
+        Returns corporate earnings events with EPS estimates and actual results.
+      tags:
+        - Earnings & Events
+      operationId: get_earnings_calendar
+      parameters:
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: symbol
+          in: query
+          schema:
+            type: string
+          description: Filter by specific symbol
+      responses:
+        '200':
+          description: Earnings events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EarningsEvent'
+
+  /macro/indicators:
+    get:
+      summary: Get economic indicators
+      description: |
+        Returns macroeconomic indicators such as GDP, CPI, unemployment,
+        interest rates, etc.
+      tags:
+        - Macro
+      operationId: get_macro_indicators
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [gdp, inflation, unemployment, interest_rate, nonfarm_payroll]
+      responses:
+        '200':
+          description: Economic indicators
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MacroIndicator'
+
+  /company/{symbol}:
+    get:
+      summary: Get company profile
+      description: |
+        Returns detailed company profile including sector, employees,
+        market cap, founded date, and other metadata.
+      tags:
+        - Company Intelligence
+      operationId: get_company_profile
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Company profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyProfile'
+        '404':
+          description: Company not found
+
+  /company/{symbol}/executives:
+    get:
+      summary: Get company executives
+      description: Returns list of company executives with titles and compensation
+      tags:
+        - Company Intelligence
+      operationId: get_executives
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of executives
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Executive'
+
+  /company/{symbol}/sec-filings:
+    get:
+      summary: Get SEC filings
+      description: |
+        Returns SEC filings including 8-K, 10-K, 10-Q forms.
+      tags:
+        - Company Intelligence
+      operationId: get_sec_filings
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [8-K, 10-K, 10-Q, 4]
+      responses:
+        '200':
+          description: SEC filings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SECFiling'
+
+  /company/{symbol}/insider-trading:
+    get:
+      summary: Get insider trading transactions
+      description: Returns Form 4 insider trading transactions
+      tags:
+        - Company Intelligence
+      operationId: get_insider_trading
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Insider trading transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InsiderTrade'
+
+  /company/{symbol}/income-statement:
+    get:
+      summary: Get income statement
+      description: Returns income statement financials (annual or quarterly)
+      tags:
+        - Company Intelligence
+      operationId: get_income_statement
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [annual, quarterly]
+            default: annual
+      responses:
+        '200':
+          description: Income statement
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IncomeStatement'
+
+  /company/{symbol}/balance-sheet:
+    get:
+      summary: Get balance sheet
+      description: Returns balance sheet financials (assets, liabilities, equity)
+      tags:
+        - Company Intelligence
+      operationId: get_balance_sheet
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [annual, quarterly]
+            default: annual
+      responses:
+        '200':
+          description: Balance sheet
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BalanceSheet'
+
+  /company/{symbol}/cash-flow:
+    get:
+      summary: Get cash flow statement
+      description: Returns cash flow statement (operating, investing, financing)
+      tags:
+        - Company Intelligence
+      operationId: get_cash_flow
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cash flow statement
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CashFlowStatement'
+
+  /company/{symbol}/key-metrics:
+    get:
+      summary: Get key metrics (TTM)
+      description: Returns trailing twelve months (TTM) financial metrics and ratios
+      tags:
+        - Company Intelligence
+      operationId: get_key_metrics
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Key metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KeyMetrics'
+
+  /volatility/vix:
+    get:
+      summary: Get VIX history
+      description: Returns Volatility Index (VIX) historical data
+      tags:
+        - Intermarket Analytics
+      operationId: get_vix_history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: VIX history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VolatilityIndex'
+
+  /volatility/indices:
+    get:
+      summary: Get all volatility indices
+      description: |
+        Returns all volatility indices including VIX, VVIX (volatility of VIX),
+        and MOVE (bond volatility index).
+      tags:
+        - Intermarket Analytics
+      operationId: get_volatility_indices
+      responses:
+        '200':
+          description: Volatility indices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VolatilityIndex'
+
+  /treasury/yields:
+    get:
+      summary: Get Treasury yields
+      description: Returns US Treasury yield curves (2Y, 10Y, 30Y, etc.)
+      tags:
+        - Intermarket Analytics
+      operationId: get_treasury_yields
+      parameters:
+        - name: maturity
+          in: query
+          schema:
+            type: string
+            enum: [2Y, 10Y, 30Y, all]
+      responses:
+        '200':
+          description: Treasury yields
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TreasuryYield'
+
+  /inflation/breakevens:
+    get:
+      summary: Get inflation breakeven rates
+      description: Returns market-implied inflation expectations (TIPS-based)
+      tags:
+        - Intermarket Analytics
+      operationId: get_inflation_breakevens
+      responses:
+        '200':
+          description: Inflation breakevens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InflationBreakeven'
+
+  /rates/real-rates:
+    get:
+      summary: Get real interest rates
+      description: Returns real (inflation-adjusted) interest rates from TIPS
+      tags:
+        - Intermarket Analytics
+      operationId: get_real_rates
+      responses:
+        '200':
+          description: Real rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RealRate'
+
+  /market/correlations:
+    get:
+      summary: Get asset correlations
+      description: Returns correlation matrix for specified symbols over time period
+      tags:
+        - Intermarket Analytics
+      operationId: get_correlations
+      parameters:
+        - name: symbols
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "AAPL,SPY,TLT"
+          description: Comma-separated list of symbols
+        - name: period
+          in: query
+          schema:
+            type: string
+            pattern: '^\d+[dw]$'
+            example: "60d"
+            default: "60d"
+          description: Time period (e.g., 30d, 60d, 1w)
+      responses:
+        '200':
+          description: Correlation matrix
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  symbols:
+                    type: array
+                    items:
+                      type: string
+                  correlations:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: number
+                  period:
+                    type: string
+
+  /market/regime:
+    get:
+      summary: Get current market regime
+      description: |
+        Returns current market risk regime classification (risk-on vs risk-off)
+        and volatility regime assessment.
+      tags:
+        - Intermarket Analytics
+      operationId: get_market_regime
+      responses:
+        '200':
+          description: Market regime
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketRegime'
+
+  /admin/scheduler/status:
+    get:
+      summary: Get scheduler job status
+      description: Returns status of all background jobs and their next run times
+      tags:
+        - Admin
+      operationId: scheduler_status
+      responses:
+        '200':
+          description: Scheduler status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [running, paused]
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JobStatus'
+
+  /admin/scheduler/pause:
+    post:
+      summary: Pause all scheduler jobs
+      description: Temporarily pause all background job execution
+      tags:
+        - Admin
+      operationId: pause_scheduler
+      responses:
+        '200':
+          description: Scheduler paused
+        '409':
+          description: Already paused
+
+  /admin/scheduler/resume:
+    post:
+      summary: Resume scheduler jobs
+      description: Resume background job execution
+      tags:
+        - Admin
+      operationId: resume_scheduler
+      responses:
+        '200':
+          description: Scheduler resumed
+
+  /admin/stats/database:
+    get:
+      summary: Get database statistics
+      description: Returns table row counts, storage size, and other DB metrics
+      tags:
+        - Admin
+      operationId: database_stats
+      responses:
+        '200':
+          description: Database statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tables:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  total_rows:
+                    type: integer
+                  storage_size_gb:
+                    type: number
+                  indexes_size_gb:
+                    type: number
+
+  /admin/stats/api-usage:
+    get:
+      summary: Get API usage statistics
+      description: Returns daily API call counts and bandwidth usage
+      tags:
+        - Admin
+      operationId: api_usage_stats
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 7
+      responses:
+        '200':
+          description: API usage statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  daily_breakdown:
+                    type: array
+                    items:
+                      type: object
+                  total_calls_period:
+                    type: integer
+                  bandwidth_gb:
+                    type: number
+
+  /admin/rate-limit/stats:
+    get:
+      summary: Get rate limit statistics
+      description: Returns current rate limit usage and remaining capacity
+      tags:
+        - Admin
+      operationId: rate_limit_stats
+      responses:
+        '200':
+          description: Rate limit statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitStats'
+
+  /admin/cache/stats:
+    get:
+      summary: Get cache statistics
+      description: Returns cache hit/miss ratio and memory usage
+      tags:
+        - Admin
+      operationId: cache_stats
+      responses:
+        '200':
+          description: Cache statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hit_rate:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                  miss_rate:
+                    type: number
+                  total_hits:
+                    type: integer
+                  memory_used_mb:
+                    type: number
+                  keys_count:
+                    type: integer
+
+  /admin/cache/clear:
+    post:
+      summary: Clear cache
+      description: Clear Redis cache (WARNING: may impact performance)
+      tags:
+        - Admin
+      operationId: clear_cache
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [quotes, candles, news, company, all]
+      responses:
+        '200':
+          description: Cache cleared
+        '503':
+          description: Redis unavailable
+
+  /ws/quotes/{symbol}:
+    get:
+      summary: WebSocket for real-time quotes
+      description: |
+        WebSocket endpoint for receiving real-time quote updates.
+        Connection: ws://localhost:8113/ws/quotes/AAPL
+      tags:
+        - WebSocket
+      operationId: ws_quotes
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+
+components:
+  schemas:
+    UnifiedQuoteResponse:
+      type: object
+      required:
+        - symbol
+        - asset_type
+        - price
+        - timestamp
+      properties:
+        symbol:
+          type: string
+          description: Symbol (e.g., AAPL, EURUSD, BTCUSD)
+        asset_type:
+          type: string
+          enum: [indices, forex, commodities, crypto]
+        name:
+          type: string
+        price:
+          type: number
+          format: double
+          description: Latest price
+        bid:
+          type: number
+          format: double
+          description: Bid price (if available)
+        ask:
+          type: number
+          format: double
+          description: Ask price (if available)
+        change:
+          type: number
+          format: double
+          description: Absolute change
+        change_percent:
+          type: number
+          format: double
+          description: Percentage change
+        volume:
+          type: integer
+          description: Trading volume
+        timestamp:
+          type: string
+          format: date-time
+          description: Quote timestamp
+
+    QuotesListResponse:
+      type: object
+      required:
+        - asset_type
+        - quotes
+        - count
+        - timestamp
+      properties:
+        asset_type:
+          type: string
+        quotes:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnifiedQuoteResponse'
+        count:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    Candlestick:
+      type: object
+      required:
+        - timestamp
+        - open
+        - high
+        - low
+        - close
+        - volume
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        open:
+          type: number
+          format: double
+        high:
+          type: number
+          format: double
+        low:
+          type: number
+          format: double
+        close:
+          type: number
+          format: double
+        volume:
+          type: integer
+        vwap:
+          type: number
+          format: double
+          description: Volume weighted average price
+
+    HistoricalPrice:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: integer
+
+    NewsArticle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        text:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+          format: uri
+        image_url:
+          type: string
+          format: uri
+        published_at:
+          type: string
+          format: date-time
+        symbols:
+          type: array
+          items:
+            type: string
+          description: Symbols mentioned in article
+
+    EarningsEvent:
+      type: object
+      properties:
+        symbol:
+          type: string
+        company_name:
+          type: string
+        earnings_date:
+          type: string
+          format: date
+        eps_estimated:
+          type: number
+        eps_actual:
+          type: number
+        revenue_estimated:
+          type: number
+        revenue_actual:
+          type: number
+
+    MacroIndicator:
+      type: object
+      properties:
+        name:
+          type: string
+        country:
+          type: string
+        date:
+          type: string
+          format: date
+        value:
+          type: number
+        unit:
+          type: string
+
+    CompanyProfile:
+      type: object
+      properties:
+        symbol:
+          type: string
+        company_name:
+          type: string
+        sector:
+          type: string
+        industry:
+          type: string
+        website:
+          type: string
+        ceo:
+          type: string
+        founded_year:
+          type: integer
+        employees:
+          type: integer
+        market_cap:
+          type: number
+        exchange:
+          type: string
+
+    Executive:
+      type: object
+      properties:
+        name:
+          type: string
+        title:
+          type: string
+        compensation:
+          type: number
+        pay_ratio:
+          type: number
+
+    SECFiling:
+      type: object
+      properties:
+        filing_type:
+          type: string
+          enum: [8-K, 10-K, 10-Q, 4]
+        filing_date:
+          type: string
+          format: date
+        report_date:
+          type: string
+          format: date
+        form_html_url:
+          type: string
+          format: uri
+
+    InsiderTrade:
+      type: object
+      properties:
+        insider_name:
+          type: string
+        position_title:
+          type: string
+        transaction_type:
+          type: string
+        shares:
+          type: integer
+        price:
+          type: number
+        value:
+          type: number
+        transaction_date:
+          type: string
+          format: date
+
+    IncomeStatement:
+      type: object
+      properties:
+        period_ending:
+          type: string
+          format: date
+        revenue:
+          type: number
+        net_income:
+          type: number
+        eps_basic:
+          type: number
+        eps_diluted:
+          type: number
+
+    BalanceSheet:
+      type: object
+      properties:
+        period_ending:
+          type: string
+          format: date
+        total_assets:
+          type: number
+        total_liabilities:
+          type: number
+        total_equity:
+          type: number
+        cash:
+          type: number
+
+    CashFlowStatement:
+      type: object
+      properties:
+        period_ending:
+          type: string
+          format: date
+        operating_cash_flow:
+          type: number
+        investing_cash_flow:
+          type: number
+        financing_cash_flow:
+          type: number
+        free_cash_flow:
+          type: number
+
+    KeyMetrics:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        pe_ratio:
+          type: number
+        peg_ratio:
+          type: number
+        dividend_yield:
+          type: number
+        market_cap:
+          type: number
+        enterprise_value:
+          type: number
+
+    VolatilityIndex:
+      type: object
+      properties:
+        index:
+          type: string
+          enum: [VIX, VVIX, MOVE]
+        value:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    TreasuryYield:
+      type: object
+      properties:
+        maturity:
+          type: string
+        yield_value:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    InflationBreakeven:
+      type: object
+      properties:
+        maturity:
+          type: string
+        breakeven_rate:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    RealRate:
+      type: object
+      properties:
+        maturity:
+          type: string
+        real_rate:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    MarketRegime:
+      type: object
+      properties:
+        regime:
+          type: string
+          enum: [risk-on, risk-off, flight-to-quality]
+        volatility_regime:
+          type: string
+          enum: [low, normal, high]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        timestamp:
+          type: string
+          format: date-time
+
+    RateLimitStats:
+      type: object
+      properties:
+        current_calls:
+          type: integer
+          description: API calls in current window
+        limit:
+          type: integer
+          description: Maximum calls per window
+        window_seconds:
+          type: integer
+        remaining:
+          type: integer
+        percentage_used:
+          type: number
+        status:
+          type: string
+          enum: [ok, warning, critical]
+        next_reset:
+          type: string
+          format: date-time
+
+    JobStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Job identifier
+        name:
+          type: string
+        status:
+          type: string
+          enum: [running, paused, error]
+        next_run:
+          type: string
+          format: date-time
+        last_run:
+          type: string
+          format: date-time
+        success_count:
+          type: integer
+        failure_count:
+          type: integer
+        success_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+        last_error:
+          type: string
+          nullable: true

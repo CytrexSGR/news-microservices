@@ -1,0 +1,1572 @@
+openapi: 3.1.0
+info:
+  title: Research Service API
+  version: 1.0.0
+  description: |
+    AI-powered research service with Perplexity integration.
+
+    ## Features
+    - Deep research using Perplexity AI (3 models: sonar, sonar-pro, sonar-reasoning-pro)
+    - Structured output validation with Pydantic schemas
+    - 13 specialized research functions (feed assessment, fact checking, trend analysis, etc.)
+    - Reusable query templates with variable substitution
+    - Scheduled and recurring research runs
+    - Multi-level caching (Redis + PostgreSQL)
+    - Circuit breaker pattern for API resilience
+    - 3-tier cost optimization (Quick/Standard/Deep)
+
+  contact:
+    name: News Microservices Team
+    email: andreas@test.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8103/api/v1
+    description: Development server
+  - url: http://research-service:8103/api/v1
+    description: Docker internal network
+
+tags:
+  - name: research
+    description: Research task operations
+  - name: templates
+    description: Reusable research templates
+  - name: runs
+    description: Scheduled research runs
+  - name: health
+    description: Service health checks
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ==================== Research Endpoints ====================
+  /research/:
+    post:
+      summary: Create research task
+      description: |
+        Create a new research task with optional specialized function.
+
+        **Standard research:** Provide only `query`, `model_name`, and `depth`.
+
+        **Specialized research:** Provide `research_function` and `function_parameters`.
+        Available functions: feed_source_assessment, fact_check, trend_analysis.
+
+        **Guardrails:**
+        - Shared contract validation (if available)
+        - Prevents silent function_parameters drop
+        - Validates function_parameters requires research_function
+      tags:
+        - research
+      operationId: createResearchTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchTaskCreate'
+            examples:
+              standardResearch:
+                summary: Standard research query
+                value:
+                  query: "What are the latest developments in quantum computing?"
+                  model_name: "sonar"
+                  depth: "standard"
+              specializedResearch:
+                summary: Feed source assessment
+                value:
+                  query: "Assess credibility of news source"
+                  research_function: "feed_source_assessment"
+                  function_parameters:
+                    feed_url: "https://example.com/rss"
+                    feed_name: "Example News"
+                  feed_id: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '201':
+          description: Research task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchTaskResponse'
+        '400':
+          description: Invalid request (contract violation, missing research_function, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      summary: List research tasks
+      description: List research tasks with pagination and filtering
+      tags:
+        - research
+      operationId: listResearchTasks
+      parameters:
+        - name: status
+          in: query
+          description: Filter by task status
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+        - name: feed_id
+          in: query
+          description: Filter by feed UUID
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          description: Results per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: List of research tasks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchTaskList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /research/{task_id}:
+    get:
+      summary: Get research task
+      description: Retrieve a specific research task by ID
+      tags:
+        - research
+      operationId: getResearchTask
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          description: Research task ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Research task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchTaskResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /research/batch:
+    post:
+      summary: Create batch research tasks
+      description: Create multiple research tasks in a single request
+      tags:
+        - research
+      operationId: batchResearchTasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchTaskBatchCreate'
+            example:
+              queries:
+                - "What is the impact of AI on healthcare?"
+                - "Recent breakthroughs in renewable energy"
+                - "Quantum computing vs classical computing comparison"
+              model_name: "sonar"
+              depth: "standard"
+              feed_id: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: List of created tasks (partial failures allowed)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchTaskResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /research/feed/{feed_id}:
+    get:
+      summary: Get feed research tasks
+      description: Get research tasks associated with a specific feed
+      tags:
+        - research
+      operationId: getFeedResearchTasks
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          description: Feed UUID
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum results to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: List of research tasks for the feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchTaskResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /research/history:
+    get:
+      summary: Get research history
+      description: Retrieve historical research tasks for the current user
+      tags:
+        - research
+      operationId: getResearchHistory
+      parameters:
+        - name: days
+          in: query
+          description: Number of days to look back
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Historical research tasks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchTaskList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /research/stats:
+    get:
+      summary: Get usage statistics
+      description: Retrieve usage statistics for research tasks
+      tags:
+        - research
+      operationId: getUsageStatistics
+      parameters:
+        - name: days
+          in: query
+          description: Number of days to include in stats
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: Usage statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== Template Endpoints ====================
+  /templates/:
+    post:
+      summary: Create template
+      description: Create a reusable research template with variable substitution
+      tags:
+        - templates
+      operationId: createTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreate'
+            example:
+              name: "Daily News Analysis"
+              description: "Analyze news trends for a specific topic"
+              query_template: "Analyze recent news about {{topic}} in the last {{days}} days"
+              parameters:
+                topic: "string"
+                days: "integer"
+              default_model: "sonar"
+              default_depth: "standard"
+              is_public: false
+      responses:
+        '201':
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      summary: List templates
+      description: List available research templates (user's + public)
+      tags:
+        - templates
+      operationId: listTemplates
+      parameters:
+        - name: include_public
+          in: query
+          description: Include public templates from other users
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /templates/{template_id}:
+    get:
+      summary: Get template
+      description: Retrieve a specific template by ID
+      tags:
+        - templates
+      operationId: getTemplate
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          description: Template ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update template
+      description: Update an existing template (owner only)
+      tags:
+        - templates
+      operationId: updateTemplate
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateUpdate'
+      responses:
+        '200':
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not authorized to update this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete template
+      description: Soft-delete a template (owner only)
+      tags:
+        - templates
+      operationId: deleteTemplate
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Template deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not authorized to delete this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /templates/functions:
+    get:
+      summary: List research functions
+      description: List all available specialized research functions
+      tags:
+        - templates
+      operationId: listResearchFunctions
+      responses:
+        '200':
+          description: List of available functions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  functions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        parameters:
+                          type: object
+                example:
+                  functions:
+                    - name: "feed_source_assessment"
+                      description: "Assess credibility, bias and reputation of news sources"
+                      parameters:
+                        feed_url: "string"
+                        feed_name: "string"
+
+  /templates/{template_id}/preview:
+    post:
+      summary: Preview template
+      description: Preview rendered template with variables (no execution)
+      tags:
+        - templates
+      operationId: previewTemplate
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateApply'
+            example:
+              variables:
+                topic: "artificial intelligence"
+                days: "7"
+      responses:
+        '200':
+          description: Template preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplatePreview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /templates/{template_id}/apply:
+    post:
+      summary: Apply template
+      description: Apply template with variables and create research task
+      tags:
+        - templates
+      operationId: applyTemplate
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateApply'
+            example:
+              variables:
+                topic: "quantum computing"
+                days: "30"
+              model_name: "sonar-pro"
+              depth: "deep"
+              feed_id: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Research task created from template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ==================== Research Run Endpoints ====================
+  /runs/:
+    post:
+      summary: Create research run
+      description: Create a scheduled or recurring research run from a template
+      tags:
+        - runs
+      operationId: createResearchRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchRunCreate'
+            example:
+              template_id: 1
+              parameters:
+                topic: "climate change"
+                days: "7"
+              model_name: "sonar"
+              depth: "standard"
+              is_recurring: true
+              recurrence_pattern: "daily"
+              metadata:
+                purpose: "Daily climate news monitoring"
+      responses:
+        '201':
+          description: Research run created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      summary: List research runs
+      description: List research runs with pagination and filtering
+      tags:
+        - runs
+      operationId: listResearchRuns
+      parameters:
+        - name: status
+          in: query
+          description: Filter by run status
+          schema:
+            type: string
+            enum: [pending, running, completed, failed, cancelled]
+        - name: template_id
+          in: query
+          description: Filter by template UUID
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: List of research runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchRunList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /runs/{run_id}:
+    get:
+      summary: Get research run
+      description: Retrieve a specific research run by ID
+      tags:
+        - runs
+      operationId: getResearchRun
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          description: Research run UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Research run details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchRunResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /runs/{run_id}/status:
+    get:
+      summary: Get run status
+      description: Get current status and progress of a research run
+      tags:
+        - runs
+      operationId: getRunStatus
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Run status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchRunStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /runs/{run_id}/cancel:
+    post:
+      summary: Cancel research run
+      description: Cancel a pending or running research run
+      tags:
+        - runs
+      operationId: cancelResearchRun
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Run cancelled successfully
+        '400':
+          description: Run cannot be cancelled (already completed/failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /runs/template/{template_id}:
+    get:
+      summary: Get template runs
+      description: Get research runs for a specific template
+      tags:
+        - runs
+      operationId: getTemplateRuns
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: List of runs for the template
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResearchRunResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== Health Check Endpoint ====================
+  /health:
+    get:
+      summary: Health check
+      description: |
+        Check service health and dependencies.
+
+        **Optimizations:**
+        - Health check caching (60s TTL, Task 404)
+        - Reduces latency from 1.19s → <50ms (cached)
+        - Circuit breaker status included
+      tags:
+        - health
+      operationId: healthCheck
+      security: []  # No auth required
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  service:
+                    type: string
+                    example: "research-service"
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  dependencies:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [healthy, unhealthy]
+                      redis:
+                        type: string
+                        enum: [healthy, unhealthy]
+                      perplexity_api:
+                        type: string
+                        enum: [healthy, unhealthy, circuit_open]
+                      celery:
+                        type: string
+                        enum: [healthy, unhealthy]
+                  cached:
+                    type: boolean
+                    description: Whether this response was cached
+                  cache_age_seconds:
+                    type: number
+                    description: Age of cached response (if cached)
+                example:
+                  status: "healthy"
+                  service: "research-service"
+                  version: "1.0.0"
+                  dependencies:
+                    database: "healthy"
+                    redis: "healthy"
+                    perplexity_api: "healthy"
+                    celery: "healthy"
+                  cached: true
+                  cache_age_seconds: 15.3
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "unhealthy"
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from auth-service (port 8100).
+
+        **Example:**
+        ```
+        curl -X POST http://localhost:8100/api/v1/auth/login \
+          -H "Content-Type: application/json" \
+          -d '{"email":"andreas@test.com","password":"Aug2012#"}'
+        ```
+
+        Use the `access_token` from the response in the Authorization header.
+
+  schemas:
+    # ==================== Research Schemas ====================
+    ResearchTaskCreate:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          description: Research query or question
+          example: "What are the latest developments in quantum computing?"
+        model_name:
+          type: string
+          enum: [sonar, sonar-pro, sonar-reasoning-pro]
+          default: sonar
+          description: |
+            Perplexity AI model to use:
+            - sonar: Fast, cost-effective ($0.005/1k tokens)
+            - sonar-pro: Advanced reasoning ($0.015/1k tokens)
+            - sonar-reasoning-pro: Highest quality ($0.025/1k tokens)
+        depth:
+          type: string
+          enum: [quick, standard, deep]
+          default: standard
+          description: |
+            Research depth (affects cost and quality):
+            - quick: Fast, cached results (recency: 24h)
+            - standard: Balanced approach (recency: 7d)
+            - deep: Comprehensive research (recency: 30d)
+        feed_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated feed UUID (new schema)
+        legacy_feed_id:
+          type: integer
+          nullable: true
+          description: Associated feed ID (legacy schema, deprecated)
+        article_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated article UUID (new schema)
+        legacy_article_id:
+          type: integer
+          nullable: true
+          description: Associated article ID (legacy schema, deprecated)
+        research_function:
+          type: string
+          nullable: true
+          enum: [feed_source_assessment, fact_check, trend_analysis]
+          description: |
+            Optional specialized research function.
+
+            **Available functions:**
+            - feed_source_assessment: Assess news source credibility
+            - fact_check: Verify claims with citations
+            - trend_analysis: Analyze news trends
+        function_parameters:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: |
+            Parameters for specialized research function.
+            Required when research_function is specified.
+
+            **Example for feed_source_assessment:**
+            ```json
+            {
+              "feed_url": "https://example.com/rss",
+              "feed_name": "Example News"
+            }
+            ```
+
+    ResearchTaskBatchCreate:
+      type: object
+      required:
+        - queries
+      properties:
+        queries:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 10
+          description: List of research queries (max 10)
+        model_name:
+          type: string
+          enum: [sonar, sonar-pro, sonar-reasoning-pro]
+          default: sonar
+        depth:
+          type: string
+          enum: [quick, standard, deep]
+          default: standard
+        feed_id:
+          type: string
+          format: uuid
+          nullable: true
+        legacy_feed_id:
+          type: integer
+          nullable: true
+
+    ResearchTaskResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Task ID
+        user_id:
+          type: integer
+          description: User who created the task
+        query:
+          type: string
+          description: Research query
+        model_name:
+          type: string
+          description: Model used for research
+        depth:
+          type: string
+          description: Research depth level
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          description: Task status
+        result:
+          type: object
+          nullable: true
+          properties:
+            content:
+              type: string
+              description: Research results
+            citations:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  title:
+                    type: string
+                  snippet:
+                    type: string
+            sources:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  title:
+                    type: string
+            tokens_used:
+              type: integer
+            cost:
+              type: number
+              format: float
+            model:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+        error_message:
+          type: string
+          nullable: true
+          description: Error message if task failed
+        structured_data:
+          type: object
+          nullable: true
+          description: Validated structured output (if output_schema provided)
+        validation_status:
+          type: string
+          nullable: true
+          description: Validation status (valid, invalid, etc.)
+        tokens_used:
+          type: integer
+          description: Total tokens consumed
+        cost:
+          type: number
+          format: float
+          description: Total cost in USD
+        feed_id:
+          type: string
+          format: uuid
+          nullable: true
+        legacy_feed_id:
+          type: integer
+          nullable: true
+        article_id:
+          type: string
+          format: uuid
+          nullable: true
+        legacy_article_id:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ResearchTaskList:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchTaskResponse'
+        total:
+          type: integer
+          description: Total number of tasks matching filter
+        page:
+          type: integer
+          description: Current page number
+        page_size:
+          type: integer
+          description: Results per page
+        has_more:
+          type: boolean
+          description: Whether more pages are available
+
+    UsageStats:
+      type: object
+      properties:
+        total_requests:
+          type: integer
+          description: Total number of research requests
+        total_tokens:
+          type: integer
+          description: Total tokens consumed
+        total_cost:
+          type: number
+          format: float
+          description: Total cost in USD
+        requests_by_model:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Request count per model
+        cost_by_model:
+          type: object
+          additionalProperties:
+            type: number
+          description: Cost per model in USD
+        avg_tokens_per_request:
+          type: number
+          format: float
+          description: Average tokens per request
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+
+    # ==================== Template Schemas ====================
+    TemplateCreate:
+      type: object
+      required:
+        - name
+        - query_template
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 100
+          description: Template name
+          example: "Daily News Analysis"
+        description:
+          type: string
+          nullable: true
+          description: Template description
+        query_template:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          description: |
+            Query template with {{variable}} placeholders.
+
+            **Example:** "Analyze news about {{topic}} in the last {{days}} days"
+        parameters:
+          type: object
+          additionalProperties: true
+          default: {}
+          description: |
+            Parameter definitions (name -> type).
+
+            **Example:**
+            ```json
+            {
+              "topic": "string",
+              "days": "integer"
+            }
+            ```
+        default_model:
+          type: string
+          enum: [sonar, sonar-pro, sonar-reasoning-pro]
+          default: sonar
+        default_depth:
+          type: string
+          enum: [quick, standard, deep]
+          default: standard
+        is_public:
+          type: boolean
+          default: false
+          description: Whether template is visible to other users
+        research_function:
+          type: string
+          nullable: true
+          description: Optional specialized research function
+        function_parameters:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Default parameters for research function
+        output_schema:
+          type: object
+          nullable: true
+          description: Pydantic schema for structured output validation
+
+    TemplateUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 100
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        query_template:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          nullable: true
+        parameters:
+          type: object
+          nullable: true
+        default_model:
+          type: string
+          enum: [sonar, sonar-pro, sonar-reasoning-pro]
+          nullable: true
+        default_depth:
+          type: string
+          enum: [quick, standard, deep]
+          nullable: true
+        is_active:
+          type: boolean
+          nullable: true
+        is_public:
+          type: boolean
+          nullable: true
+        research_function:
+          type: string
+          nullable: true
+        function_parameters:
+          type: object
+          nullable: true
+        output_schema:
+          type: object
+          nullable: true
+
+    TemplateResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        query_template:
+          type: string
+        parameters:
+          type: object
+        default_model:
+          type: string
+        default_depth:
+          type: string
+        is_active:
+          type: boolean
+        is_public:
+          type: boolean
+        usage_count:
+          type: integer
+          description: Number of times template has been used
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        research_function:
+          type: string
+          nullable: true
+        function_parameters:
+          type: object
+          nullable: true
+        output_schema:
+          type: object
+          nullable: true
+
+    TemplateApply:
+      type: object
+      properties:
+        variables:
+          type: object
+          additionalProperties: true
+          default: {}
+          description: |
+            Variable values for template substitution.
+
+            **Example:**
+            ```json
+            {
+              "topic": "artificial intelligence",
+              "days": "7"
+            }
+            ```
+        model_name:
+          type: string
+          enum: [sonar, sonar-pro, sonar-reasoning-pro]
+          nullable: true
+          description: Override template's default model
+        depth:
+          type: string
+          enum: [quick, standard, deep]
+          nullable: true
+          description: Override template's default depth
+        feed_id:
+          type: string
+          format: uuid
+          nullable: true
+        legacy_feed_id:
+          type: integer
+          nullable: true
+        article_id:
+          type: string
+          format: uuid
+          nullable: true
+        legacy_article_id:
+          type: integer
+          nullable: true
+
+    TemplatePreview:
+      type: object
+      properties:
+        template_id:
+          type: integer
+        variables:
+          type: object
+          description: Variables used for rendering
+        rendered_query:
+          type: string
+          description: Final query after variable substitution
+        estimated_cost:
+          type: number
+          format: float
+          description: Estimated cost in USD
+
+    # ==================== Research Run Schemas ====================
+    ResearchRunCreate:
+      type: object
+      required:
+        - template_id
+      properties:
+        template_id:
+          type: integer
+          minimum: 1
+          description: Template to use for the run
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          default: {}
+          description: Template variables
+        model_name:
+          type: string
+          enum: [sonar, sonar-pro, sonar-reasoning-pro]
+          nullable: true
+          description: Override template's model
+        depth:
+          type: string
+          enum: [quick, standard, deep]
+          nullable: true
+          description: Override template's depth
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When to execute the run (null = immediate)
+        is_recurring:
+          type: boolean
+          default: false
+          description: Whether run repeats automatically
+        recurrence_pattern:
+          type: string
+          enum: [daily, weekly, monthly]
+          nullable: true
+          description: How often to repeat (if is_recurring=true)
+        metadata:
+          type: object
+          default: {}
+          description: Additional metadata for the run
+
+    ResearchRunResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        template_id:
+          type: integer
+        template_name:
+          type: string
+          description: Name of the template used
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+        model_name:
+          type: string
+        depth:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_recurring:
+          type: boolean
+        recurrence_pattern:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        tasks_created:
+          type: integer
+          description: Number of tasks created by this run
+        tasks_completed:
+          type: integer
+          description: Number of tasks successfully completed
+        tasks_failed:
+          type: integer
+          description: Number of tasks that failed
+        total_tokens_used:
+          type: integer
+          description: Total tokens consumed by all tasks
+        total_cost:
+          type: number
+          format: float
+          description: Total cost in USD
+        results_summary:
+          type: object
+          nullable: true
+          description: Aggregated results from all tasks
+        error_message:
+          type: string
+          nullable: true
+        triggered_by:
+          type: string
+          description: How the run was triggered (manual, scheduled, recurring)
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ResearchRunList:
+      type: object
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchRunResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        has_more:
+          type: boolean
+
+    ResearchRunStatus:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Completion percentage (0.0 to 1.0)
+        tasks_created:
+          type: integer
+        tasks_completed:
+          type: integer
+        tasks_failed:
+          type: integer
+        total_tokens_used:
+          type: integer
+        total_cost:
+          type: number
+          format: float
+        error_message:
+          type: string
+          nullable: true
+
+    # ==================== Error Schemas ====================
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Task not found"
+
+  responses:
+    Unauthorized:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Could not validate credentials"
+
+    BadRequest:
+      description: Invalid request (validation error, contract violation)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Request contract violation: function_parameters provided but research_function missing"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Failed to create research task"

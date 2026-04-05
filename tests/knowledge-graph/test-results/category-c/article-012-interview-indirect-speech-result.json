@@ -1,0 +1,191 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "4f400578-5dc5-405c-a777-437bb6f18ca2",
+    "entities": [
+      {
+        "id": "dd7227fa-ec83-4fce-b404-50278b75ad4b",
+        "text": "Dr. Sarah Chen",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 3
+      },
+      {
+        "id": "5db86831-be8d-4161-ab15-d00a6e2286a2",
+        "text": "OpenAI",
+        "type": "ORGANIZATION",
+        "confidence": 0.98,
+        "mention_count": 4
+      },
+      {
+        "id": "2a9149e1-63d8-49bb-8755-1b0eba94f6a8",
+        "text": "Anthropic",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "fe325e6b-bad3-4778-a7fc-12d67843b599",
+        "text": "Sam Altman",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "7f325b88-4a30-4477-ad13-f8853a0e838e",
+        "text": "Dario Amodei",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "90c5a472-2920-4478-9836-b34781fe5a60",
+        "text": "Elon Musk",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "330ad9af-b247-42ce-aef9-a68a0679c4fb",
+        "text": "Tesla",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "117782ed-32e9-44cd-9c86-ccd9f8597ed1",
+        "text": "Neuralink",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "b6535460-d1fa-454c-b740-60c878338b66",
+        "text": "Microsoft",
+        "type": "ORGANIZATION",
+        "confidence": 0.98,
+        "mention_count": 2
+      },
+      {
+        "id": "6c7175e3-2198-488c-8eb1-42816f1069b2",
+        "text": "Satya Nadella",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "6439b886-b413-4306-933d-2727ed0f4e29",
+        "text": "Greg Brockman",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "e3fdb698-b93f-4c3b-b360-b1cf0a5400c3",
+        "text": "Ilya Sutskever",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "a2bd073c-244f-46bf-8ac3-e62f7504a0d8",
+        "text": "DeepMind",
+        "type": "ORGANIZATION",
+        "confidence": 0.98,
+        "mention_count": 1
+      },
+      {
+        "id": "88033d12-c3c8-4734-adc8-e196d48d7c4a",
+        "text": "Demis Hassabis",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "c8839826-a203-447b-a383-5530363b3f8e",
+        "text": "Sundar Pichai",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "00377ff2-47f1-4b32-a235-235a2389f8ff",
+        "text": "UK AI Safety Institute",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "e503906c-cef5-4b92-96da-ee046a2a09e5",
+        "text": "Ian Hogarth",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "875dde7e-611c-431b-9ff9-ba878457c15d",
+        "text": "Yoshua Bengio",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "0bc9fb69-5593-4501-831d-ceb0155af98a",
+        "text": "Marc Benioff",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Elon Musk",
+        "entity2": "OpenAI",
+        "type": "related_to",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Microsoft",
+        "entity2": "OpenAI",
+        "type": "related_to",
+        "confidence": 0.98
+      },
+      {
+        "entity1": "Satya Nadella",
+        "entity2": "Microsoft",
+        "type": "related_to",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Greg Brockman",
+        "entity2": "OpenAI",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Ilya Sutskever",
+        "entity2": "OpenAI",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Demis Hassabis",
+        "entity2": "DeepMind",
+        "type": "related_to",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Ian Hogarth",
+        "entity2": "UK AI Safety Institute",
+        "type": "related_to",
+        "confidence": 0.9
+      }
+    ],
+    "entity_count": 19,
+    "relationship_count": 7,
+    "processing_time_ms": 17854,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:10:00.715656"
+}

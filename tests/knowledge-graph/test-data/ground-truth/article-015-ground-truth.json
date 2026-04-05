@@ -1,0 +1,121 @@
+{
+  "article_id": "article-015",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["David Luan", "works_for", "Adept"],
+      "evidence": "Adept, led by David Luan",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Led by indicates current leadership"
+    },
+    {
+      "triplet": ["Noam Shazeer", "owns", "Character.AI"],
+      "evidence": "Character.AI, co-founded by Noam Shazeer and Daniel De Freitas",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Co-founder relationship"
+    },
+    {
+      "triplet": ["Daniel De Freitas", "owns", "Character.AI"],
+      "evidence": "Character.AI, co-founded by Noam Shazeer and Daniel De Freitas",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Co-founder relationship"
+    },
+    {
+      "triplet": ["Satya Nadella", "works_for", "Microsoft"],
+      "evidence": "Satya Nadella's massive investment (in Microsoft context)",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Sam Altman", "works_for", "OpenAI"],
+      "evidence": "Sam Altman's team delivers AGI",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive with team"
+    },
+    {
+      "triplet": ["Greg Brockman", "works_for", "OpenAI"],
+      "evidence": "Greg Brockman might emerge as a mediating force (in OpenAI-Microsoft context)",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Context implies OpenAI role"
+    },
+    {
+      "triplet": ["Mark Zuckerberg", "works_for", "Meta"],
+      "evidence": "Meta's Mark Zuckerberg to make an unexpected play",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Sundar Pichai", "works_for", "Google"],
+      "evidence": "Google's offerings under Sundar Pichai",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Under indicates leadership"
+    },
+    {
+      "triplet": ["Clement Delangue", "works_for", "Hugging Face"],
+      "evidence": "Hugging Face CEO Clement Delangue",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO title explicit"
+    },
+    {
+      "triplet": ["Dario Amodei", "works_for", "Anthropic"],
+      "evidence": "Anthropic's Dario Amodei has positioned his company",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Michelle Donelan", "works_for", "United Kingdom"],
+      "evidence": "the UK's Michelle Donelan (Secretary of State for Science)",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Secretary of State role"
+    },
+    {
+      "triplet": ["Thierry Breton", "works_for", "European Union"],
+      "evidence": "the EU's Thierry Breton impose strict safety requirements",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "EU context (Commissioner role implied)"
+    },
+    {
+      "triplet": ["Marc Benioff", "works_for", "Salesforce"],
+      "evidence": "Salesforce under Marc Benioff",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Under indicates leadership"
+    },
+    {
+      "triplet": ["Safra Catz", "works_for", "Oracle"],
+      "evidence": "Oracle under Safra Catz",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Under indicates leadership"
+    },
+    {
+      "triplet": ["Kai-Fu Lee", "owns", "Sinovation Ventures"],
+      "evidence": "Kai-Fu Lee's Sinovation Ventures backing Chinese alternatives",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates ownership/leadership"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 12,
+    "total_relationships_max": 18,
+    "avg_confidence_min": 0.60,
+    "avg_confidence_max": 0.75,
+    "precision_min": 0.60,
+    "recall_min": 0.50,
+    "false_positives_max": 6,
+    "notes": "CRITICAL: Entire article is future speculation. System must extract ONLY current factual relationships (current employment/ownership) and MUST NOT extract predicted future relationships. Phrases like 'may find themselves acquired', 'could face strain', 'might make a play' are hypothetical scenarios, NOT current facts. Very high risk of false positives if system extracts future predictions as current relationships."
+  },
+  "notes": "CRITICAL AMBIGUOUS EXAMPLE: Strongest test of speculation handling. Every paragraph predicts future scenarios that HAVE NOT HAPPENED YET. System must distinguish between (1) current facts used in speculation ('David Luan leads Adept' ✅) vs (2) predicted future events ('Adept may be acquired' ❌). Only extract relationships describing current reality. This tests whether system can resist extracting from 'expect', 'could', 'may', 'might', 'imagine', 'if' constructions."
+}

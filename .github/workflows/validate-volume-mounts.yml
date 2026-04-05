@@ -1,0 +1,155 @@
+name: Validate Volume Mounts for Shared Dependencies
+
+on:
+  pull_request:
+    paths:
+      - 'services/**/requirements.txt'
+      - 'docker-compose.yml'
+  push:
+    branches:
+      - master
+      - main
+      - 'feature/**'
+    paths:
+      - 'services/**/requirements.txt'
+      - 'docker-compose.yml'
+
+jobs:
+  validate-shared-volumes:
+    runs-on: ubuntu-latest
+    name: Check Shared Volume Mounts
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate volume mounts for services using news-mcp-common
+        run: |
+          #!/bin/bash
+          set -e
+
+          echo "🔍 Checking services for news-mcp-common dependency..."
+
+          # Track if any errors found
+          ERRORS=0
+
+          # Find all services that depend on news-mcp-common
+          for req_file in services/*/requirements.txt; do
+            if [ -f "$req_file" ]; then
+              service_dir=$(dirname "$req_file")
+              service_name=$(basename "$service_dir")
+
+              # Check if this service uses news-mcp-common
+              if grep -q "news.mcp.common\|news_mcp_common" "$req_file"; then
+                echo "✓ Found: $service_name uses news-mcp-common"
+
+                # Check if docker-compose.yml has the volume mount for this service
+                # Look for the service definition and check if shared volume is mounted
+                service_section=$(awk "/  ${service_name}:/,/^  [a-zA-Z]/" docker-compose.yml)
+
+                if echo "$service_section" | grep -q "./shared:/app/shared"; then
+                  echo "  ✅ PASS: $service_name has shared volume mount"
+                else
+                  echo "  ❌ FAIL: $service_name is missing shared volume mount!"
+                  echo "  📝 Add this to docker-compose.yml under $service_name:"
+                  echo "     volumes:"
+                  echo "       - ./shared:/app/shared"
+                  ERRORS=$((ERRORS + 1))
+                fi
+
+                echo ""
+              fi
+            fi
+          done
+
+          # Summary
+          echo "─────────────────────────────────────"
+          if [ $ERRORS -eq 0 ]; then
+            echo "✅ All services with news-mcp-common have shared volume mounts"
+            exit 0
+          else
+            echo "❌ Found $ERRORS service(s) with missing shared volume mounts"
+            echo ""
+            echo "📚 Documentation: CLAUDE.backend.md - Shared Dependencies"
+            echo "🔗 Related: POSTMORTEMS.md - Incident #10"
+            exit 1
+          fi
+
+      - name: Validate editable installs have volume mounts
+        run: |
+          #!/bin/bash
+          set -e
+
+          echo "🔍 Checking for editable installs (-e) without volume mounts..."
+
+          ERRORS=0
+
+          for req_file in services/*/requirements.txt; do
+            if [ -f "$req_file" ]; then
+              service_dir=$(dirname "$req_file")
+              service_name=$(basename "$service_dir")
+
+              # Check for any editable installs
+              if grep -q "^-e " "$req_file"; then
+                echo "✓ Found: $service_name has editable installs"
+
+                # Extract the editable install paths
+                editable_paths=$(grep "^-e " "$req_file" | sed 's/-e //')
+
+                for path in $editable_paths; do
+                  # Check if path starts with ../.. (shared directory)
+                  if [[ "$path" == ../../* ]]; then
+                    echo "  📦 Editable install: $path"
+
+                    # Extract the mount point (e.g., ../../shared/news-mcp-common -> /app/shared)
+                    mount_required="/app/shared"
+
+                    service_section=$(awk "/  ${service_name}:/,/^  [a-zA-Z]/" docker-compose.yml)
+
+                    if echo "$service_section" | grep -q "./shared:/app/shared"; then
+                      echo "     ✅ PASS: Has required volume mount"
+                    else
+                      echo "     ❌ FAIL: Missing volume mount for editable install!"
+                      echo "     📝 Add to docker-compose.yml:"
+                      echo "        volumes:"
+                      echo "          - ./shared:/app/shared"
+                      ERRORS=$((ERRORS + 1))
+                    fi
+                  fi
+                done
+
+                echo ""
+              fi
+            fi
+          done
+
+          if [ $ERRORS -eq 0 ]; then
+            echo "✅ All editable installs have required volume mounts"
+            exit 0
+          else
+            echo "❌ Found $ERRORS editable install(s) with missing volume mounts"
+            exit 1
+          fi
+
+      - name: Check for orphaned shared volume mounts
+        run: |
+          #!/bin/bash
+
+          echo "🔍 Checking for services with shared volume but no dependency..."
+
+          # Find services with shared volume mount
+          services_with_mount=$(grep -B 10 "./shared:/app/shared" docker-compose.yml | grep "^  [a-zA-Z].*:$" | sed 's/://g' | xargs)
+
+          for service in $services_with_mount; do
+            service_trimmed=$(echo "$service" | xargs)
+            req_file="services/${service_trimmed}/requirements.txt"
+
+            if [ -f "$req_file" ]; then
+              if ! grep -q "news.mcp.common\|news_mcp_common\|-e.*shared" "$req_file"; then
+                echo "⚠️  WARNING: $service_trimmed has shared volume mount but no shared dependency"
+                echo "   This may be intentional, but worth reviewing."
+              fi
+            fi
+          done
+
+          echo "✅ Orphan check complete"

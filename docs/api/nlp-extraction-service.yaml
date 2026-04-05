@@ -1,0 +1,879 @@
+openapi: 3.1.0
+info:
+  title: NLP Extraction Service API
+  version: 1.0.0
+  description: |
+    High-performance NLP extraction API using spaCy for deterministic entity recognition, sentiment analysis, and relation extraction.
+
+    **Features:**
+    - Entity extraction (18 types)
+    - Phase 2B: Entity sentiments, centrality, quote attribution
+    - Batch support (1-100 articles)
+    - < 50ms single query, < 200ms batch query
+    - Rate limiting for DoS protection
+
+    **143x faster and 100% cheaper than LLM-based analysis**
+
+    **Current Status:** ⚠️ DEPRECATED (2025-11-09) - Not in production use, stopped by design
+  contact:
+    name: Development Team
+    email: dev@news-microservices.local
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8115
+    description: Development server (local)
+  - url: http://nlp-extraction-service:8115
+    description: Docker internal network
+
+tags:
+  - name: Health
+    description: Health check and service information endpoints
+  - name: NLP Extraction
+    description: Entity extraction and NLP analysis endpoints
+
+paths:
+  /:
+    get:
+      tags:
+        - Health
+      summary: Root endpoint
+      description: Service information and health check
+      operationId: getRoot
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: nlp-extraction-service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  status:
+                    type: string
+                    example: operational
+                  api_docs:
+                    type: string
+                    example: /docs
+                  endpoints:
+                    type: object
+                    properties:
+                      single_extraction:
+                        type: string
+                        example: /api/v1/extractions/{article_id}
+                      batch_extraction:
+                        type: string
+                        example: /api/v1/extractions/batch
+                      statistics:
+                        type: string
+                        example: /api/v1/extractions/stats
+                  features:
+                    type: object
+                    properties:
+                      entity_extraction:
+                        type: boolean
+                        example: true
+                      entity_sentiments:
+                        type: boolean
+                        example: true
+                      entity_centrality:
+                        type: boolean
+                        example: true
+                      quote_sentiments:
+                        type: boolean
+                        example: true
+                  performance:
+                    type: object
+                    properties:
+                      single_query_target:
+                        type: string
+                        example: < 50ms
+                      batch_query_target:
+                        type: string
+                        example: < 200ms (100 articles)
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Service health status
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: nlp-extraction-service
+                  database:
+                    type: string
+                    example: connected
+                  timestamp:
+                    type: number
+                    format: float
+                    example: 1732442400.0
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthError'
+
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: Service readiness status (Kubernetes probe)
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service is ready to accept traffic
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+                  extractions_count:
+                    type: integer
+                    example: 22021
+                  timestamp:
+                    type: number
+                    format: float
+                    example: 1732442400.0
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthError'
+
+  /api/v1/extractions/stats:
+    get:
+      tags:
+        - NLP Extraction
+      summary: Get extraction statistics
+      description: |
+        Get statistics about NLP extractions for monitoring and health checks.
+
+        Returns:
+        - Total extractions in database
+        - Phase 2B coverage (entity_sentiments, entity_centrality, quote_sentiments)
+        - Coverage percentage
+
+        **Rate Limit:** 100 requests per minute
+      operationId: getStats
+      responses:
+        '200':
+          description: Statistics returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionStats'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+        '503':
+          description: Database query timeout - service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableError'
+
+  /api/v1/extractions/{article_id}:
+    get:
+      tags:
+        - NLP Extraction
+      summary: Get NLP extraction for single article
+      description: |
+        Retrieve NLP extraction data for a single article by UUID.
+
+        Returns entity extraction, Phase 2B features (entity sentiments, entity centrality, quote sentiments), and additional NLP features.
+
+        **Performance:** Target < 50ms
+        **Rate Limit:** 60 requests per minute
+      operationId: getExtraction
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          description: Article UUID
+          schema:
+            type: string
+            format: uuid
+            example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: Extraction found and returned
+          headers:
+            X-Processing-Time:
+              schema:
+                type: string
+                example: 12.45ms
+              description: Request processing time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionResponse'
+        '400':
+          description: Invalid UUID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                invalid_uuid:
+                  value:
+                    error: VALIDATION_ERROR
+                    message: "Invalid UUID format: not-a-uuid"
+                    details:
+                      article_id: not-a-uuid
+                    path: /api/v1/extractions/not-a-uuid
+        '404':
+          description: Article not found or not yet processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+              examples:
+                not_found:
+                  value:
+                    error: NOT_FOUND
+                    message: NLP extraction not found for article
+                    details:
+                      article_id: 123e4567-e89b-12d3-a456-426614174000
+                      note: Article may not have been processed yet
+                    path: /api/v1/extractions/123e4567-e89b-12d3-a456-426614174000
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+        '503':
+          description: Database query timeout - service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableError'
+
+  /api/v1/extractions/batch:
+    post:
+      tags:
+        - NLP Extraction
+      summary: Get NLP extractions for multiple articles (batch)
+      description: |
+        Retrieve NLP extraction data for multiple articles in a single request.
+
+        Uses optimized single-query database access for maximum performance.
+
+        **Limits:**
+        - Minimum: 1 article
+        - Maximum: 100 articles per request
+        - Rate limit: 10 requests per minute
+
+        **Behavior:**
+        - Missing articles are skipped (no error)
+        - Returns only found articles
+        - Order is not guaranteed
+
+        **Performance:** Target < 200ms for 100 articles
+      operationId: getBatchExtractions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRequest'
+            examples:
+              small_batch:
+                summary: Small batch (3 articles)
+                value:
+                  article_ids:
+                    - 123e4567-e89b-12d3-a456-426614174000
+                    - 223e4567-e89b-12d3-a456-426614174001
+                    - 323e4567-e89b-12d3-a456-426614174002
+              large_batch:
+                summary: Large batch (10 articles)
+                value:
+                  article_ids:
+                    - 123e4567-e89b-12d3-a456-426614174000
+                    - 223e4567-e89b-12d3-a456-426614174001
+                    - 323e4567-e89b-12d3-a456-426614174002
+                    - 423e4567-e89b-12d3-a456-426614174003
+                    - 523e4567-e89b-12d3-a456-426614174004
+                    - 623e4567-e89b-12d3-a456-426614174005
+                    - 723e4567-e89b-12d3-a456-426614174006
+                    - 823e4567-e89b-12d3-a456-426614174007
+                    - 923e4567-e89b-12d3-a456-426614174008
+                    - a23e4567-e89b-12d3-a456-426614174009
+      responses:
+        '200':
+          description: Batch request processed successfully
+          headers:
+            X-Processing-Time:
+              schema:
+                type: string
+                example: 145.32ms
+              description: Request processing time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+        '400':
+          description: Invalid request (empty array, > 100 articles, bad UUID)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                too_many:
+                  value:
+                    error: VALIDATION_ERROR
+                    message: Maximum 100 article IDs allowed per request, got 150
+                    details:
+                      requested_count: 150
+                      max_allowed: 100
+                    path: /api/v1/extractions/batch
+                empty_array:
+                  value:
+                    error: VALIDATION_ERROR
+                    message: article_ids must contain at least 1 UUID
+                    details: {}
+                    path: /api/v1/extractions/batch
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+        '503':
+          description: Database query timeout - service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableError'
+
+components:
+  schemas:
+    # ============================================================================
+    # Core Extraction Models
+    # ============================================================================
+
+    ExtractionResponse:
+      type: object
+      required:
+        - article_id
+        - language
+        - extractor_version
+        - model_version
+        - created_at
+        - processing_time_ms
+        - content_length
+        - entity_count
+        - entity_density
+        - entities
+      properties:
+        article_id:
+          type: string
+          format: uuid
+          description: Article UUID
+          example: 123e4567-e89b-12d3-a456-426614174000
+        language:
+          type: string
+          description: Detected language (de/en)
+          enum: [de, en, unknown]
+          example: de
+        extractor_version:
+          type: string
+          description: Extractor version (for A/B testing)
+          enum: [base_v1, refined_v1, custom_v1]
+          example: base_v1
+        model_version:
+          type: string
+          description: spaCy model version
+          example: de_core_news_lg-3.7.0
+        created_at:
+          type: string
+          format: date-time
+          description: Extraction timestamp
+          example: 2025-11-24T10:30:00Z
+        processing_time_ms:
+          type: integer
+          description: Processing time in milliseconds
+          example: 45
+        content_length:
+          type: integer
+          description: Article content length in characters
+          example: 1234
+        entity_count:
+          type: integer
+          description: Total number of entities extracted
+          example: 12
+        entity_density:
+          type: number
+          format: float
+          description: Entities per 100 words
+          example: 2.3
+        entities:
+          type: array
+          description: Extracted named entities
+          items:
+            $ref: '#/components/schemas/Entity'
+        entity_sentiments:
+          type: array
+          nullable: true
+          description: Entity-level sentiment analysis (Phase 2B.4)
+          items:
+            $ref: '#/components/schemas/EntitySentiment'
+        entity_centrality:
+          type: array
+          nullable: true
+          description: Entity importance scores (Phase 2B.5)
+          items:
+            $ref: '#/components/schemas/EntityCentrality'
+        quote_sentiments:
+          type: array
+          nullable: true
+          description: Quote attribution with sentiment (Phase 2B.6)
+          items:
+            $ref: '#/components/schemas/QuoteSentiment'
+        sentiment_overall:
+          $ref: '#/components/schemas/Sentiment'
+          nullable: true
+          description: Overall article sentiment (Phase 2B.2)
+        keywords:
+          type: array
+          nullable: true
+          description: Important keywords (lemmatized)
+          items:
+            $ref: '#/components/schemas/Keyword'
+
+    Entity:
+      type: object
+      required:
+        - text
+        - label
+        - start
+        - end
+        - start_char
+        - end_char
+      properties:
+        text:
+          type: string
+          description: Entity text
+          example: Angela Merkel
+        label:
+          type: string
+          description: Entity type label
+          enum: [PER, PERSON, ORG, LOC, GPE, DATE, TIME, MONEY, PERCENT, CARDINAL, ORDINAL, QUANTITY, EVENT, PRODUCT, WORK_OF_ART, LAW, LANGUAGE, FACILITY, MISC]
+          example: PER
+        start:
+          type: integer
+          description: Token start index
+          example: 0
+        end:
+          type: integer
+          description: Token end index
+          example: 2
+        start_char:
+          type: integer
+          description: Character start position
+          example: 0
+        end_char:
+          type: integer
+          description: Character end position
+          example: 13
+
+    EntitySentiment:
+      type: object
+      required:
+        - entity
+        - sentiment
+        - mention_count
+      properties:
+        entity:
+          type: string
+          description: Entity text
+          example: Angela Merkel
+        sentiment:
+          $ref: '#/components/schemas/Sentiment'
+        mention_count:
+          type: integer
+          description: Number of mentions in article
+          example: 8
+
+    EntityCentrality:
+      type: object
+      required:
+        - entity
+        - centrality
+      properties:
+        entity:
+          type: string
+          description: Entity text
+          example: Angela Merkel
+        centrality:
+          type: object
+          required:
+            - score
+            - in_title
+            - in_first_sentence
+            - mention_count
+          properties:
+            score:
+              type: number
+              format: float
+              description: Centrality score (0-130, higher = more important)
+              example: 95
+            in_title:
+              type: boolean
+              description: Entity appears in article title (+30 points)
+              example: true
+            in_first_sentence:
+              type: boolean
+              description: Entity appears in first sentence (+20 points)
+              example: true
+            mention_count:
+              type: integer
+              description: Number of mentions in article
+              example: 8
+            syntactic_roles:
+              type: array
+              items:
+                type: string
+                enum: [subject, object, verb_phrase]
+              description: Syntactic roles in dependency triples
+              example: [subject, object]
+
+    QuoteSentiment:
+      type: object
+      required:
+        - quote
+        - sentence_idx
+      properties:
+        quote:
+          type: string
+          description: Quoted text
+          example: Wir schaffen das
+        speaker:
+          type: string
+          nullable: true
+          description: Identified speaker (may be null)
+          example: Merkel
+        speaker_confidence:
+          type: number
+          format: float
+          description: Speaker identification confidence (0.0-1.0)
+          example: 0.9
+        sentiment:
+          $ref: '#/components/schemas/Sentiment'
+          nullable: true
+          description: Sentiment of the quote
+        sentence_idx:
+          type: integer
+          description: Sentence index where quote appears
+          example: 3
+        context_before:
+          type: string
+          nullable: true
+          description: Sentence before the quote
+          example: Merkel sagte
+        context_after:
+          type: string
+          nullable: true
+          description: Sentence after the quote
+          example: Das ist unser Ziel.
+
+    Sentiment:
+      type: object
+      required:
+        - score
+        - label
+        - confidence
+      properties:
+        score:
+          type: number
+          format: float
+          description: Sentiment score (-1.0 to +1.0)
+          minimum: -1.0
+          maximum: 1.0
+          example: 0.65
+        label:
+          type: string
+          enum: [positive, neutral, negative]
+          description: Sentiment label
+          example: positive
+        confidence:
+          type: number
+          format: float
+          description: Confidence score (0.0 to 1.0)
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.87
+        model:
+          type: string
+          description: Model used for sentiment analysis
+          example: oliverguhr/german-sentiment-bert
+
+    Keyword:
+      type: object
+      required:
+        - text
+        - lemma
+        - pos
+      properties:
+        text:
+          type: string
+          description: Keyword text
+          example: Merkel
+        lemma:
+          type: string
+          description: Lemmatized form
+          example: merkel
+        pos:
+          type: string
+          description: Part-of-speech tag
+          enum: [NOUN, PROPN, VERB, ADJ, ADV, AUX, CONJ, DET, INTJ, NUM, PART, PRON, PROPN, PUNCT, SCONJ, SYM, X]
+          example: PROPN
+
+    # ============================================================================
+    # Batch Models
+    # ============================================================================
+
+    BatchRequest:
+      type: object
+      required:
+        - article_ids
+      properties:
+        article_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+            format: uuid
+          description: List of article UUIDs (1-100)
+          example:
+            - 123e4567-e89b-12d3-a456-426614174000
+            - 223e4567-e89b-12d3-a456-426614174001
+            - 323e4567-e89b-12d3-a456-426614174002
+
+    BatchResponse:
+      type: object
+      required:
+        - total_requested
+        - total_found
+        - total_not_found
+        - not_found_ids
+        - extractions
+      properties:
+        total_requested:
+          type: integer
+          description: Total number of articles requested
+          example: 3
+        total_found:
+          type: integer
+          description: Number of articles found
+          example: 2
+        total_not_found:
+          type: integer
+          description: Number of articles not found
+          example: 1
+        not_found_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: UUIDs of articles not found
+          example:
+            - 323e4567-e89b-12d3-a456-426614174002
+        extractions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtractionResponse'
+          description: Extraction data for found articles
+
+    # ============================================================================
+    # Statistics Models
+    # ============================================================================
+
+    ExtractionStats:
+      type: object
+      required:
+        - total_extractions
+        - with_phase2b_sentiments
+        - with_phase2b_centrality
+        - with_phase2b_quotes
+        - phase2b_coverage_pct
+      properties:
+        total_extractions:
+          type: integer
+          description: Total extractions in database
+          example: 22021
+        with_phase2b_sentiments:
+          type: integer
+          description: Extractions with entity_sentiments
+          example: 15430
+        with_phase2b_centrality:
+          type: integer
+          description: Extractions with entity_centrality
+          example: 15430
+        with_phase2b_quotes:
+          type: integer
+          description: Extractions with quote_sentiments
+          example: 8200
+        phase2b_coverage_pct:
+          type: number
+          format: float
+          description: Phase 2B feature coverage percentage
+          example: 70.05
+
+    # ============================================================================
+    # Error Models
+    # ============================================================================
+
+    ValidationError:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum: [VALIDATION_ERROR]
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          description: Human-readable error message
+          example: Invalid UUID format
+        details:
+          type: object
+          description: Additional error details
+        path:
+          type: string
+          description: Request path
+          example: /api/v1/extractions/not-a-uuid
+
+    NotFoundError:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum: [NOT_FOUND]
+          example: NOT_FOUND
+        message:
+          type: string
+          description: Human-readable error message
+          example: NLP extraction not found for article
+        details:
+          type: object
+          description: Additional error details
+        path:
+          type: string
+          description: Request path
+          example: /api/v1/extractions/123e4567-e89b-12d3-a456-426614174000
+
+    RateLimitError:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Rate limit error message
+          example: Rate limit exceeded - 60 per 1 minute
+        retry_after:
+          type: integer
+          description: Seconds until next request allowed
+          example: 42
+
+    ServiceUnavailableError:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum: [SERVICE_UNAVAILABLE]
+          example: SERVICE_UNAVAILABLE
+        message:
+          type: string
+          description: Human-readable error message
+          example: Database query exceeded timeout - please try again later
+        details:
+          type: object
+          description: Additional error details
+        query_info:
+          type: object
+          description: Query information
+        circuit_breaker_message:
+          type: string
+          nullable: true
+          description: Circuit breaker status message
+        path:
+          type: string
+          description: Request path
+
+    HealthError:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [unhealthy, not_ready]
+          example: unhealthy
+        service:
+          type: string
+          example: nlp-extraction-service
+        database:
+          type: string
+          nullable: true
+          example: disconnected
+        error:
+          type: string
+          nullable: true
+          description: Error message
+        timestamp:
+          type: number
+          format: float
+          example: 1732442400.0
+
+  # ============================================================================
+  # Security Schemes
+  # ============================================================================
+
+  securitySchemes:
+    # Future: JWT authentication when exposing to external clients
+    # bearerAuth:
+    #   type: http
+    #   scheme: bearer
+    #   bearerFormat: JWT
+    #   description: JWT token from auth-service

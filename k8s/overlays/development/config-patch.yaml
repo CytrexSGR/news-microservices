@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: news-mcp-config
+  namespace: news-mcp-dev
+data:
+  ENVIRONMENT: "development"
+  DEBUG: "true"
+  LOG_LEVEL: "DEBUG"
+  CORS_ORIGINS: '["http://localhost:3000","http://localhost:3001","http://localhost:8000","http://localhost:8001","http://localhost:8002"]'

@@ -1,0 +1,576 @@
+openapi: 3.1.0
+info:
+  title: Scraping Service API
+  description: |
+    Autonomous content scraping service with multi-strategy support (newspaper4k, Playwright) and Wikipedia entity enrichment.
+
+    **Key Features:**
+    - Event-driven scraping via RabbitMQ (consumes article.created events)
+    - Multi-strategy content extraction (newspaper4k for speed, Playwright for JavaScript-heavy sites)
+    - Automatic failure tracking and feed disabling (Redis-based)
+    - Wikipedia MediaWiki API integration for entity enrichment
+    - Relationship extraction from Wikipedia infoboxes
+
+    **Architecture:**
+    - RabbitMQ consumer for scraping jobs
+    - REST API for Wikipedia enrichment
+    - Redis-based failure tracking with feed-specific thresholds
+    - Integration with Feed Service API for content updates
+  version: 1.0.0
+  contact:
+    name: News Microservices Team
+    url: https://github.com/your-org/news-microservices
+
+servers:
+  - url: http://localhost:8009
+    description: Development server
+  - url: http://scraping-service:8009
+    description: Docker internal network
+
+tags:
+  - name: health
+    description: Health check and service information
+  - name: wikipedia
+    description: Wikipedia entity enrichment and relationship extraction
+
+paths:
+  /health:
+    get:
+      summary: Service health check
+      description: Returns service health status, name, and version
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: scraping-service
+                  version:
+                    type: string
+                    example: 1.0.0
+                required:
+                  - status
+                  - service
+                  - version
+
+  /:
+    get:
+      summary: Service information
+      description: Returns service metadata and capabilities
+      operationId: rootInfo
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: scraping-service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  description:
+                    type: string
+                    example: Autonomous content scraping service
+                  methods:
+                    type: array
+                    items:
+                      type: string
+                    example: ["httpx", "playwright", "auto"]
+                required:
+                  - service
+                  - version
+                  - description
+                  - methods
+
+  /api/v1/wikipedia/search:
+    post:
+      summary: Search Wikipedia articles
+      description: |
+        Search Wikipedia articles by query string. Returns matching articles with page IDs and snippets.
+        Useful for finding the correct article title before extraction.
+
+        **Rate Limiting:** No authentication required, but respect Wikipedia's User-Agent policy
+        **Supported Languages:** German (de), English (en)
+      operationId: searchWikipedia
+      tags:
+        - wikipedia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikipediaSearchRequest'
+            examples:
+              searchPerson:
+                summary: Search for a person
+                value:
+                  query: "Elon Musk"
+                  language: "de"
+                  limit: 5
+              searchCompany:
+                summary: Search for a company
+                value:
+                  query: "Tesla, Inc."
+                  language: "en"
+                  limit: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikipediaSearchResponse'
+              examples:
+                successResult:
+                  summary: Successful search
+                  value:
+                    results:
+                      - title: "Elon Musk"
+                        page_id: 123456
+                        snippet: "Elon Reeve Musk ist ein südafrikanisch-kanadisch-US-amerikanischer Unternehmer..."
+                    query: "Elon Musk"
+                    count: 1
+        '500':
+          description: Wikipedia API failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/wikipedia/article:
+    post:
+      summary: Extract full Wikipedia article
+      description: |
+        Extract comprehensive data from Wikipedia article including:
+        - Article summary (plain text)
+        - Infobox structured data (key-value pairs like CEO, Founded, Headquarters)
+        - Categories (for classification)
+        - Related entity links
+        - Last modified timestamp
+
+        **Use Case:** Enrich Knowledge Graph entities with Wikipedia structured data
+      operationId: getWikipediaArticle
+      tags:
+        - wikipedia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikipediaArticleRequest'
+            examples:
+              companyArticle:
+                summary: Extract company data
+                value:
+                  title: "Tesla, Inc."
+                  language: "en"
+                  include_infobox: true
+                  include_categories: true
+                  include_links: true
+              minimalArticle:
+                summary: Extract only summary
+                value:
+                  title: "Elon Musk"
+                  language: "de"
+                  include_infobox: false
+                  include_categories: false
+                  include_links: false
+      responses:
+        '200':
+          description: Article data extracted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikipediaArticleResponse'
+              examples:
+                companyData:
+                  summary: Company article with full metadata
+                  value:
+                    title: "Tesla, Inc."
+                    extract: "Tesla, Inc. is an American automotive and clean energy company based in Austin, Texas..."
+                    url: "https://en.wikipedia.org/wiki/Tesla,_Inc."
+                    infobox:
+                      Industry: "Automotive"
+                      Founded: "July 1, 2003"
+                      Founder: "Elon Musk, Martin Eberhard, JB Straubel, Marc Tarpenning, Ian Wright"
+                      Headquarters: "Austin, Texas, U.S."
+                      CEO: "Elon Musk"
+                    categories:
+                      - "Electric vehicle manufacturers"
+                      - "Companies listed on NASDAQ"
+                      - "American electric vehicle manufacturers"
+                    links:
+                      - "Elon Musk"
+                      - "SpaceX"
+                      - "Model 3"
+                      - "Model S"
+                      - "Gigafactory"
+                    language: "en"
+                    page_id: 2242799
+                    last_modified: "2024-11-23T10:30:00Z"
+        '404':
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Wikipedia article not found: NonExistentArticle"
+        '500':
+          description: Extraction failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/wikipedia/relationships:
+    post:
+      summary: Extract entity relationships from Wikipedia
+      description: |
+        Extract potential relationships from Wikipedia article by analyzing:
+        - Infobox structured data (high confidence: 0.80-0.95)
+        - Article text patterns (lower confidence: 0.70)
+
+        **Relationship Types:**
+        - Organizations: founded_by, CEO_of, located_in, operates_in, owns, owned_by
+        - People: born_in, works_as, works_for, associated_with, member_of
+
+        **Use Case:** Bootstrap Knowledge Graph relationships from Wikipedia
+        **Note:** Text pattern matching requires NER for full accuracy (future enhancement)
+      operationId: extractRelationships
+      tags:
+        - wikipedia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikipediaRelationshipRequest'
+            examples:
+              companyRelationships:
+                summary: Extract company relationships
+                value:
+                  title: "Tesla, Inc."
+                  language: "en"
+                  entity_type: "ORGANIZATION"
+              personRelationships:
+                summary: Extract person relationships
+                value:
+                  title: "Elon Musk"
+                  language: "en"
+                  entity_type: "PERSON"
+      responses:
+        '200':
+          description: Relationships extracted (may be empty list)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikipediaRelationshipResponse'
+              examples:
+                companyRelationships:
+                  summary: Company relationships from infobox
+                  value:
+                    entity: "Tesla, Inc."
+                    relationships:
+                      - entity1: "Tesla, Inc."
+                        entity2: "Elon Musk"
+                        relationship_type: "CEO_of"
+                        confidence: 0.95
+                        evidence: "Wikipedia infobox: CEO=Elon Musk"
+                        source: "wikipedia_infobox"
+                      - entity1: "Tesla, Inc."
+                        entity2: "Austin, Texas"
+                        relationship_type: "located_in"
+                        confidence: 0.90
+                        evidence: "Wikipedia infobox: Headquarters=Austin, Texas, U.S."
+                        source: "wikipedia_infobox"
+                      - entity1: "Tesla, Inc."
+                        entity2: "Automotive"
+                        relationship_type: "operates_in"
+                        confidence: 0.80
+                        evidence: "Wikipedia infobox: Industry=Automotive"
+                        source: "wikipedia_infobox"
+                    count: 3
+        '500':
+          description: Relationship extraction failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    WikipediaSearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Search query (entity name)
+          example: "Elon Musk"
+        language:
+          type: string
+          enum: [de, en]
+          default: de
+          description: Wikipedia language (de=German, en=English)
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+          description: Maximum number of results
+
+    WikipediaSearchResponse:
+      type: object
+      required:
+        - results
+        - query
+        - count
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required:
+              - title
+              - page_id
+              - snippet
+            properties:
+              title:
+                type: string
+                description: Article title
+                example: "Elon Musk"
+              page_id:
+                type: integer
+                description: Wikipedia page ID
+                example: 123456
+              snippet:
+                type: string
+                description: HTML snippet with search term highlighted
+                example: "Elon Reeve <b>Musk</b> ist ein..."
+        query:
+          type: string
+          description: Original search query
+          example: "Elon Musk"
+        count:
+          type: integer
+          description: Number of results returned
+          example: 1
+
+    WikipediaArticleRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: Article title (exact match required)
+          example: "Tesla, Inc."
+        language:
+          type: string
+          enum: [de, en]
+          default: de
+          description: Wikipedia language
+        include_infobox:
+          type: boolean
+          default: true
+          description: Extract infobox structured data
+        include_categories:
+          type: boolean
+          default: true
+          description: Extract article categories
+        include_links:
+          type: boolean
+          default: true
+          description: Extract related entity links
+
+    WikipediaArticleResponse:
+      type: object
+      required:
+        - title
+        - extract
+        - url
+        - categories
+        - infobox
+        - links
+        - language
+        - page_id
+      properties:
+        title:
+          type: string
+          description: Article title
+          example: "Tesla, Inc."
+        extract:
+          type: string
+          description: Article summary (plain text, intro section)
+          example: "Tesla, Inc. is an American automotive and clean energy company..."
+        url:
+          type: string
+          format: uri
+          description: Wikipedia article URL
+          example: "https://en.wikipedia.org/wiki/Tesla,_Inc."
+        categories:
+          type: array
+          items:
+            type: string
+          description: Article categories (without "Category:" prefix)
+          example: ["Electric vehicle manufacturers", "Companies listed on NASDAQ"]
+        infobox:
+          type: object
+          additionalProperties:
+            type: string
+          description: Infobox key-value pairs (structured data)
+          example:
+            Industry: "Automotive"
+            Founded: "July 1, 2003"
+            CEO: "Elon Musk"
+        links:
+          type: array
+          items:
+            type: string
+          description: Related entity links (article titles)
+          example: ["Elon Musk", "SpaceX", "Model 3"]
+        language:
+          type: string
+          description: Wikipedia language
+          example: "en"
+        page_id:
+          type: integer
+          description: Wikipedia page ID
+          example: 2242799
+        last_modified:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last modification timestamp (ISO 8601)
+          example: "2024-11-23T10:30:00Z"
+
+    WikipediaRelationshipRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: Article title (entity name)
+          example: "Tesla, Inc."
+        language:
+          type: string
+          enum: [de, en]
+          default: de
+          description: Wikipedia language
+        entity_type:
+          type: string
+          nullable: true
+          description: Entity type hint for relationship extraction
+          enum: [PERSON, ORGANIZATION, LOCATION, EVENT]
+          example: "ORGANIZATION"
+
+    WikipediaRelationshipResponse:
+      type: object
+      required:
+        - entity
+        - relationships
+        - count
+      properties:
+        entity:
+          type: string
+          description: Source entity name
+          example: "Tesla, Inc."
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelationshipCandidate'
+        count:
+          type: integer
+          description: Number of relationships extracted
+          example: 3
+
+    RelationshipCandidate:
+      type: object
+      required:
+        - entity1
+        - entity2
+        - relationship_type
+        - confidence
+        - evidence
+        - source
+      properties:
+        entity1:
+          type: string
+          description: First entity (source)
+          example: "Tesla, Inc."
+        entity2:
+          type: string
+          description: Second entity (target)
+          example: "Elon Musk"
+        relationship_type:
+          type: string
+          description: Relationship type
+          enum:
+            - founded_by
+            - CEO_of
+            - located_in
+            - operates_in
+            - owns
+            - owned_by
+            - born_in
+            - works_as
+            - works_for
+            - associated_with
+            - member_of
+          example: "CEO_of"
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Confidence score (0.0-1.0)
+          example: 0.95
+        evidence:
+          type: string
+          description: Evidence supporting this relationship
+          example: "Wikipedia infobox: CEO=Elon Musk"
+        source:
+          type: string
+          description: Extraction source
+          enum:
+            - wikipedia_infobox
+            - wikipedia_text_pattern
+          example: "wikipedia_infobox"
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Wikipedia article not found: NonExistentArticle"
+
+  securitySchemes:
+    ServiceApiKey:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+      description: |
+        Service-to-service authentication for internal API calls (not used for Wikipedia endpoints).
+        Required for Feed Service API integration (not exposed via this API).

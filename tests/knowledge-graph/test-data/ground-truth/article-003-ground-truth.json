@@ -1,0 +1,40 @@
+{
+  "article_id": "article-003",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Competition Appeal Tribunal", "ruled_against", "Apple"],
+      "evidence": "The Competition Appeal Tribunal in London ruled today that Apple Inc. abused its monopoly",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Core fact of the article - NEW relationship type test!"
+    },
+    {
+      "triplet": ["Apple", "abused_monopoly_in", "UK App Store"],
+      "evidence": "Apple Inc. abused its monopoly in the UK App Store market",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Another NEW relationship type test!"
+    },
+    {
+      "triplet": ["Competition Appeal Tribunal", "located_in", "London"],
+      "evidence": "The Competition Appeal Tribunal in London",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Location statement"
+    },
+    {
+      "triplet": ["Apple", "located_in", "Cupertino"],
+      "evidence": "Apple, headquartered in Cupertino, California",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Headquarters location"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 3,
+    "total_relationships_max": 4,
+    "avg_confidence_min": 0.90,
+    "false_positives_max": 0
+  },
+  "notes": "CRITICAL TEST: Tests our new relationship types (ruled_against, abused_monopoly_in). This is the motivating example from the implementation!"
+}

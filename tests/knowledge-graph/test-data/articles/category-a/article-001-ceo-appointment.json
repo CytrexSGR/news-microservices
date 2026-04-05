@@ -1,0 +1,14 @@
+{
+  "article_id": "article-001",
+  "category": "A",
+  "title": "Microsoft Appoints Sarah Chen as New AI Division Head",
+  "content": "Microsoft Corporation announced today that Sarah Chen has been appointed as the new head of its AI division. Chen, who previously served as Vice President of Research at Google, will be based at Microsoft's headquarters in Redmond, Washington. The appointment is effective immediately. Microsoft CEO Satya Nadella stated: 'Sarah brings unparalleled expertise in machine learning and AI ethics. We're thrilled to have her lead our AI initiatives.' Chen will report directly to Nadella and oversee a team of over 2,000 engineers.",
+  "source": "Tech News Daily",
+  "published_at": "2025-10-20",
+  "metadata": {
+    "word_count": 95,
+    "expected_entities": 6,
+    "expected_relationships": 5,
+    "difficulty": "easy"
+  }
+}

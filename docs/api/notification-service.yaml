@@ -1,0 +1,821 @@
+openapi: 3.1.0
+info:
+  title: Notification Service API
+  description: |
+    Multi-channel notification delivery service for the News Microservices platform.
+
+    **Features:**
+    - Multi-channel delivery (email, webhook, RabbitMQ, push)
+    - Template-based messaging with Jinja2
+    - User preference management
+    - Event-driven notification triggering
+    - Retry logic with exponential backoff
+    - Rate limiting per user
+    - Circuit breaker pattern for webhook resilience
+
+    **Authentication:**
+    All endpoints require JWT Bearer token authentication except `/health` and `/`.
+  version: 1.0.0
+  contact:
+    name: News Microservices Team
+    email: dev@newsplatform.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8105
+    description: Local development server
+  - url: http://notification-service:8000
+    description: Docker internal network
+  - url: https://api.newsplatform.com/notifications
+    description: Production server
+
+tags:
+  - name: notifications
+    description: Notification sending and tracking operations
+  - name: templates
+    description: Notification template management
+  - name: preferences
+    description: User notification preferences
+  - name: health
+    description: Service health and monitoring
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check service health status
+      tags:
+        - health
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: notification-service
+                  version:
+                    type: string
+                    example: 1.0.0
+
+  /:
+    get:
+      summary: Service information
+      description: Get service metadata and available endpoints
+      tags:
+        - health
+      operationId: serviceInfo
+      security: []
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: notification-service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  docs:
+                    type: string
+                    example: /docs
+                  health:
+                    type: string
+                    example: /health
+
+  /api/v1/notifications/send:
+    post:
+      summary: Send notification
+      description: |
+        Send a notification through specified channel (email, webhook, rabbitmq, push).
+
+        Supports:
+        - Direct content or template-based rendering
+        - Async delivery via Celery
+        - Retry with exponential backoff
+        - Rate limiting (100/hour, 1000/day per user)
+      tags:
+        - notifications
+      operationId: sendNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendNotificationRequest'
+            examples:
+              email_direct:
+                summary: Email with direct content
+                value:
+                  user_id: andreas
+                  channel: email
+                  subject: Alert Triggered
+                  content: <h1>Important Alert</h1><p>Details here</p>
+                  metadata:
+                    email: andreas@test.com
+              email_template:
+                summary: Email with template
+                value:
+                  user_id: andreas
+                  channel: email
+                  template_name: osint_alert_email
+                  template_variables:
+                    alert:
+                      title: High Severity Event
+                      severity: high
+                      message: Security incident detected
+                  metadata:
+                    email: andreas@test.com
+              webhook:
+                summary: Webhook notification
+                value:
+                  user_id: andreas
+                  channel: webhook
+                  content: '{"event": "alert", "severity": "high"}'
+                  metadata:
+                    webhook_url: https://example.com/webhook
+      responses:
+        '201':
+          description: Notification created and queued for delivery
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Rate limit exceeded for user andreas
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/notifications/send/adhoc:
+    post:
+      summary: Send ad-hoc notification
+      description: |
+        Send notification without template (direct content).
+
+        **Security:** Users can only send to their own email address.
+
+        Used primarily by Agent Service for dynamic report generation.
+
+        Supports:
+        - Plain text
+        - HTML
+        - Markdown (auto-converted to HTML)
+      tags:
+        - notifications
+      operationId: sendAdhocNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdhocNotificationRequest'
+      responses:
+        '201':
+          description: Notification sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Can only send to own email address
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: You can only send notifications to your own email address
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/notifications/{notification_id}:
+    get:
+      summary: Get notification status
+      description: |
+        Get notification details by ID.
+
+        **Authorization:** Users can only view their own notifications.
+      tags:
+        - notifications
+      operationId: getNotification
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1234
+      responses:
+        '200':
+          description: Notification details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not authorized to view this notification
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Not authorized to view this notification
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/notifications/history:
+    get:
+      summary: Get notification history
+      description: |
+        Get notification history for authenticated user.
+
+        Supports filtering by channel and status.
+      tags:
+        - notifications
+      operationId: getNotificationHistory
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - email
+              - webhook
+              - rabbitmq
+              - push
+          description: Filter by delivery channel
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - sent
+              - failed
+              - retrying
+          description: Filter by status
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Max results per page
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: Notification history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/notifications/templates:
+    get:
+      summary: List templates
+      description: List all available notification templates
+      tags:
+        - templates
+      operationId: listTemplates
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - email
+              - webhook
+              - push
+          description: Filter by channel
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create template
+      description: Create a new notification template
+      tags:
+        - templates
+      operationId: createTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreate'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/notifications/preferences:
+    get:
+      summary: Get notification preferences
+      description: Get notification preferences for authenticated user
+      tags:
+        - preferences
+      operationId: getPreferences
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferenceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Update notification preferences
+      description: |
+        Update notification preferences for authenticated user.
+
+        Allows configuration of:
+        - Enabled channels (email, webhook, push)
+        - Webhook URL
+        - FCM token (Firebase Cloud Messaging)
+        - Event filters (excluded event types)
+      tags:
+        - preferences
+      operationId: updatePreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferenceUpdate'
+      responses:
+        '200':
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferenceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/notifications/test:
+    post:
+      summary: Send test notification
+      description: |
+        Send a test notification (for development/debugging).
+
+        Does not create notification log.
+      tags:
+        - notifications
+      operationId: testNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestNotificationRequest'
+      responses:
+        '200':
+          description: Test notification sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: sent
+                  message:
+                    type: string
+                    example: Test email sent to test@example.com
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from auth-service
+
+  schemas:
+    NotificationChannel:
+      type: string
+      enum:
+        - email
+        - webhook
+        - rabbitmq
+        - push
+      description: Notification delivery channel
+
+    NotificationStatus:
+      type: string
+      enum:
+        - pending
+        - sent
+        - failed
+        - retrying
+      description: Notification delivery status
+
+    SendNotificationRequest:
+      type: object
+      required:
+        - user_id
+        - channel
+        - content
+      properties:
+        user_id:
+          type: string
+          description: User ID to notify
+          example: andreas
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+        subject:
+          type: string
+          maxLength: 200
+          description: Email subject (for email channel)
+          example: Alert Triggered
+        content:
+          type: string
+          description: Notification content (HTML/JSON/plaintext)
+          example: <h1>Important Alert</h1>
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Channel-specific metadata
+          example:
+            email: andreas@test.com
+        template_name:
+          type: string
+          maxLength: 100
+          description: Template to use (optional)
+          example: osint_alert_email
+        template_variables:
+          type: object
+          additionalProperties: true
+          description: Variables for template rendering
+          example:
+            alert:
+              title: High Severity Event
+              severity: high
+
+    NotificationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1234
+        user_id:
+          type: string
+          example: andreas
+        channel:
+          type: string
+          example: email
+        status:
+          $ref: '#/components/schemas/NotificationStatus'
+        subject:
+          type: string
+          nullable: true
+          example: Alert Triggered
+        content:
+          type: string
+          example: <h1>Important Alert</h1>
+        metadata:
+          type: object
+          additionalProperties: true
+        error_message:
+          type: string
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: 2025-11-24T10:30:00Z
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2025-11-24T10:30:05Z
+
+    AdhocNotificationRequest:
+      type: object
+      required:
+        - recipient
+        - subject
+        - body
+      properties:
+        recipient:
+          type: string
+          format: email
+          description: Recipient email address (must match authenticated user)
+          example: andreas@test.com
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Email subject
+          example: Geopolitical Analysis Report
+        body:
+          type: string
+          minLength: 1
+          description: Email body content
+          example: "# Executive Summary\n\nAnalysis content..."
+        body_format:
+          type: string
+          enum:
+            - plain
+            - html
+            - markdown
+          default: markdown
+          description: Body format (markdown auto-converted to HTML)
+
+    TemplateCreate:
+      type: object
+      required:
+        - name
+        - channel
+        - body
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: Unique template identifier
+          example: custom_alert
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+        subject:
+          type: string
+          maxLength: 200
+          description: Email subject template (Jinja2)
+          example: "Alert: {{ alert.title }}"
+        body:
+          type: string
+          description: Template body (Jinja2)
+          example: "<h2>{{ alert.title }}</h2><p>{{ alert.message }}</p>"
+        variables:
+          type: array
+          items:
+            type: string
+          description: Required variable list
+          example:
+            - alert
+
+    TemplateResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: osint_alert_email
+        channel:
+          type: string
+          example: email
+        subject:
+          type: string
+          nullable: true
+          example: "OSINT Alert: {{ alert.title }}"
+        body:
+          type: string
+          example: "Alert: {{ alert.title }}\n\nSeverity: {{ alert.severity }}"
+        variables:
+          type: array
+          items:
+            type: string
+          example:
+            - alert
+        created_at:
+          type: string
+          format: date-time
+          example: 2025-10-14T09:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+
+    NotificationPreferenceUpdate:
+      type: object
+      properties:
+        email_enabled:
+          type: boolean
+          description: Enable email notifications
+          example: true
+        webhook_enabled:
+          type: boolean
+          description: Enable webhook notifications
+          example: true
+        push_enabled:
+          type: boolean
+          description: Enable push notifications
+          example: false
+        webhook_url:
+          type: string
+          format: uri
+          maxLength: 500
+          description: Webhook endpoint URL
+          example: https://example.com/webhook
+        fcm_token:
+          type: string
+          maxLength: 200
+          description: Firebase Cloud Messaging token
+          example: null
+        filters:
+          type: object
+          additionalProperties: true
+          description: Event type filters
+          example:
+            excluded_events:
+              - feed.new_article
+
+    NotificationPreferenceResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: string
+          example: andreas
+        email_enabled:
+          type: boolean
+          example: true
+        webhook_enabled:
+          type: boolean
+          example: false
+        push_enabled:
+          type: boolean
+          example: false
+        webhook_url:
+          type: string
+          nullable: true
+          example: null
+        fcm_token:
+          type: string
+          nullable: true
+          example: null
+        filters:
+          type: object
+          additionalProperties: true
+          example:
+            excluded_events: []
+        created_at:
+          type: string
+          format: date-time
+          example: 2025-11-20T08:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2025-11-24T10:00:00Z
+
+    TestNotificationRequest:
+      type: object
+      required:
+        - channel
+        - recipient
+      properties:
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+        recipient:
+          type: string
+          description: Email address or webhook URL
+          example: test@example.com
+        template_name:
+          type: string
+          description: Template to use (optional)
+          example: osint_alert_email
+        test_data:
+          type: object
+          additionalProperties: true
+          description: Test data for template rendering
+          example:
+            alert:
+              title: Test Alert
+              severity: low
+
+  responses:
+    BadRequest:
+      description: Bad request (invalid parameters)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Invalid request parameters
+
+    Unauthorized:
+      description: Unauthorized (missing or invalid JWT token)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Invalid authentication credentials
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Notification not found
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Internal server error
+
+externalDocs:
+  description: Full service documentation
+  url: https://github.com/news-microservices/docs/notification-service.md

@@ -1,0 +1,761 @@
+{
+  "title": "Circuit Breaker Monitoring",
+  "description": "Comprehensive circuit breaker monitoring across all microservices",
+  "tags": [
+    "circuit-breaker",
+    "resilience",
+    "task-406"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Circuit Breaker States Overview",
+      "description": "Current state of all circuit breakers: 0=CLOSED (normal), 1=OPEN (failing), 2=HALF_OPEN (testing)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "circuit_breaker_state",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "CLOSED",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "OPEN",
+                  "color": "red"
+                },
+                "2": {
+                  "text": "HALF_OPEN",
+                  "color": "yellow"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              },
+              {
+                "value": 2,
+                "color": "yellow"
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "title": "Open Circuit Breakers (Current)",
+      "description": "Number of circuit breakers currently in OPEN state",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(circuit_breaker_state == 1)",
+          "legendFormat": "Open Circuits",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "id": 3,
+      "title": "Half-Open Circuit Breakers",
+      "description": "Circuit breakers currently testing recovery",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(circuit_breaker_state == 2)",
+          "legendFormat": "Half-Open Circuits",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "yellow"
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 8
+      }
+    },
+    {
+      "id": 4,
+      "title": "Total Rejections (Last Hour)",
+      "description": "Requests rejected due to open circuit breakers",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(increase(circuit_breaker_rejections_total[1h]))",
+          "legendFormat": "Rejections",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 100,
+                "color": "yellow"
+              },
+              {
+                "value": 500,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "id": 5,
+      "title": "State Transitions (Last Hour)",
+      "description": "Number of circuit breaker state changes",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(increase(circuit_breaker_state_transitions_total[1h]))",
+          "legendFormat": "Transitions",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 10,
+                "color": "yellow"
+              },
+              {
+                "value": 50,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      }
+    },
+    {
+      "id": 6,
+      "title": "Failure Rate by Circuit Breaker",
+      "description": "Failures per minute for each circuit breaker",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(circuit_breaker_failures_total[1m]) * 60",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 5,
+                "color": "yellow"
+              },
+              {
+                "value": 10,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "reqpm"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      }
+    },
+    {
+      "id": 7,
+      "title": "Success Rate by Circuit Breaker",
+      "description": "Successful requests per minute",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(circuit_breaker_successes_total[1m]) * 60",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never"
+          },
+          "unit": "reqpm"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      }
+    },
+    {
+      "id": 8,
+      "title": "Failure Ratio by Circuit Breaker",
+      "description": "Percentage of requests that failed (failures / (failures + successes))",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "(sum by (name) (rate(circuit_breaker_failures_total[5m]))) / (sum by (name) (rate(circuit_breaker_failures_total[5m]) + rate(circuit_breaker_successes_total[5m]))) * 100",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 5,
+                "color": "yellow"
+              },
+              {
+                "value": 20,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      }
+    },
+    {
+      "id": 9,
+      "title": "Rejection Rate by Circuit Breaker",
+      "description": "Requests rejected per minute due to open circuit",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(circuit_breaker_rejections_total[1m]) * 60",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 10,
+                "color": "yellow"
+              },
+              {
+                "value": 50,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "reqpm"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      }
+    },
+    {
+      "id": 10,
+      "title": "State Transitions by Circuit Breaker",
+      "description": "Circuit breaker state changes over time",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "sum by (name, from_state, to_state) (increase(circuit_breaker_state_transitions_total[1h]))",
+          "legendFormat": "{{name}}: {{from_state}} -> {{to_state}}",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      }
+    },
+    {
+      "id": 11,
+      "title": "LLM Circuit Breakers (OpenAI, Gemini)",
+      "description": "Circuit breaker states for LLM providers",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "circuit_breaker_state{name=~\"llm-.*\"}",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "CLOSED",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "OPEN",
+                  "color": "red"
+                },
+                "2": {
+                  "text": "HALF_OPEN",
+                  "color": "yellow"
+                }
+              }
+            }
+          ],
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      }
+    },
+    {
+      "id": 12,
+      "title": "RabbitMQ Circuit Breakers",
+      "description": "Circuit breaker states for RabbitMQ publishers",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "circuit_breaker_state{name=~\"rabbitmq-.*\"}",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "CLOSED",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "OPEN",
+                  "color": "red"
+                },
+                "2": {
+                  "text": "HALF_OPEN",
+                  "color": "yellow"
+                }
+              }
+            }
+          ],
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      }
+    },
+    {
+      "id": 13,
+      "title": "Database Circuit Breakers",
+      "description": "Circuit breaker states for database connection pools",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "circuit_breaker_state{name=~\"database-.*\"}",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "CLOSED",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "OPEN",
+                  "color": "red"
+                },
+                "2": {
+                  "text": "HALF_OPEN",
+                  "color": "yellow"
+                }
+              }
+            }
+          ],
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      }
+    },
+    {
+      "id": 14,
+      "title": "HTTP Circuit Breakers (Perplexity, Webhooks)",
+      "description": "Circuit breaker states for external HTTP APIs",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "circuit_breaker_state{name=~\"http-.*\"}",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "CLOSED",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "OPEN",
+                  "color": "red"
+                },
+                "2": {
+                  "text": "HALF_OPEN",
+                  "color": "yellow"
+                }
+              }
+            }
+          ],
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      }
+    },
+    {
+      "id": 15,
+      "title": "Circuit Breaker Performance Impact",
+      "description": "Comparison of requests with vs without circuit breaker protection",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(circuit_breaker_successes_total[5m]))",
+          "legendFormat": "Protected Requests/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(circuit_breaker_rejections_total[5m]))",
+          "legendFormat": "Rejected Requests/sec",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 52
+      }
+    },
+    {
+      "id": 16,
+      "title": "Recent Circuit Breaker Events",
+      "description": "Log of recent circuit breaker state transitions",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service=\"content-analysis-v2\"} |~ \"Circuit breaker.*transitioned\"",
+          "refId": "A"
+        },
+        {
+          "expr": "{service=\"feed-service\"} |~ \"Circuit breaker.*transitioned\"",
+          "refId": "B"
+        },
+        {
+          "expr": "{service=\"research-service\"} |~ \"Circuit breaker.*transitioned\"",
+          "refId": "C"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 56
+      }
+    }
+  ],
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d"
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(circuit_breaker_state, name)",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Circuit Opened",
+        "datasource": "Prometheus",
+        "expr": "changes(circuit_breaker_state{state=\"1\"}[1m])",
+        "enable": true,
+        "iconColor": "red",
+        "tagKeys": "name"
+      },
+      {
+        "name": "Circuit Closed",
+        "datasource": "Prometheus",
+        "expr": "changes(circuit_breaker_state{state=\"0\"}[1m])",
+        "enable": true,
+        "iconColor": "green",
+        "tagKeys": "name"
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,56 @@
+# Development Dockerfile for Analytics Service
+# Includes news-mcp-common shared library
+# Fast rebuilds, hot-reload enabled, optimized for development workflow
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    postgresql-client \
+    curl \
+    libgobject-2.0-0 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf-xlib-2.0-0 \
+    libgdk-pixbuf2.0-common \
+    shared-mime-info \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy shared library first
+COPY shared/news-mcp-common /tmp/news-mcp-common
+
+# Copy requirements file
+COPY services/analytics-service/requirements.txt .
+
+# Install news-mcp-common first, then filter it out from requirements
+RUN pip install --no-cache-dir /tmp/news-mcp-common && \
+    grep -v 'news-mcp-common' requirements.txt > requirements-filtered.txt && \
+    pip install --no-cache-dir -r requirements-filtered.txt
+
+# Copy application code
+COPY services/analytics-service/app ./app
+
+# Copy and setup health check scripts
+COPY services/analytics-service/healthcheck.sh /usr/local/bin/healthcheck.sh
+COPY services/analytics-service/healthcheck-celery-beat.sh /usr/local/bin/healthcheck-celery-beat.sh
+RUN chmod +x /usr/local/bin/healthcheck.sh /usr/local/bin/healthcheck-celery-beat.sh
+
+# Create non-root user with Docker socket access
+# GID 988 matches host docker group for socket permissions
+RUN groupadd -g 988 docker && \
+    useradd -m -u 1000 -G docker appuser && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+
+# Health check
+
+# Run the application
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

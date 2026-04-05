@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: news-mcp-config
+  namespace: news-mcp
+  labels:
+    app: news-mcp
+    component: config
+data:
+  # Application Configuration
+  ENVIRONMENT: "development"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+
+  # Service URLs (internal cluster communication)
+  AUTH_SERVICE_URL: "http://auth-service:80"
+  FEED_SERVICE_URL: "http://feed-service:80"
+  CONTENT_ANALYSIS_SERVICE_URL: "http://content-analysis-service:80"
+  RESEARCH_SERVICE_URL: "http://research-service:80"
+  OSINT_SERVICE_URL: "http://osint-service:80"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:80"
+
+  # Database Configuration
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "news_mcp"
+  POSTGRES_USER: "news_user"
+
+  # Redis Configuration
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+  # RabbitMQ Configuration
+  RABBITMQ_HOST: "rabbitmq-service"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "news_mcp"
+  RABBITMQ_USER: "admin"
+
+  # MinIO Configuration
+  MINIO_ENDPOINT: "minio-service:9000"
+  MINIO_USE_SSL: "false"
+  MINIO_ACCESS_KEY: "admin"
+
+  # Observability
+  JAEGER_HOST: "jaeger-service"
+  JAEGER_PORT: "6831"
+  PROMETHEUS_PORT: "9090"
+  TRACING_ENABLED: "true"
+  METRICS_ENABLED: "true"
+
+  # CORS Configuration
+  CORS_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
+  CORS_ALLOW_CREDENTIALS: "true"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-config
+  namespace: news-mcp
+  labels:
+    app: news-mcp
+    component: database
+data:
+  init.sql: |
+    -- Create databases for each service
+    CREATE DATABASE IF NOT EXISTS auth_service;
+    CREATE DATABASE IF NOT EXISTS feed_service;
+    CREATE DATABASE IF NOT EXISTS content_analysis_service;
+    CREATE DATABASE IF NOT EXISTS research_service;
+    CREATE DATABASE IF NOT EXISTS osint_service;
+    CREATE DATABASE IF NOT EXISTS notification_service;
+
+    -- Grant privileges
+    GRANT ALL PRIVILEGES ON DATABASE auth_service TO news_user;
+    GRANT ALL PRIVILEGES ON DATABASE feed_service TO news_user;
+    GRANT ALL PRIVILEGES ON DATABASE content_analysis_service TO news_user;
+    GRANT ALL PRIVILEGES ON DATABASE research_service TO news_user;
+    GRANT ALL PRIVILEGES ON DATABASE osint_service TO news_user;
+    GRANT ALL PRIVILEGES ON DATABASE notification_service TO news_user;

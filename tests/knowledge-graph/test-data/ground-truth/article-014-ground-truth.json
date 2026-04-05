@@ -1,0 +1,93 @@
+{
+  "article_id": "article-014",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Elizabeth Warren", "works_for", "Senate"],
+      "evidence": "Senator Elizabeth Warren",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Senator title explicit"
+    },
+    {
+      "triplet": ["Alexandria Ocasio-Cortez", "works_for", "House of Representatives"],
+      "evidence": "Representative Alexandria Ocasio-Cortez",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Representative title explicit"
+    },
+    {
+      "triplet": ["Sam Altman", "works_for", "OpenAI"],
+      "evidence": "OpenAI's Sam Altman",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Dario Amodei", "works_for", "Anthropic"],
+      "evidence": "Anthropic's Dario Amodei",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Bernie Sanders", "works_for", "Senate"],
+      "evidence": "Senator Bernie Sanders on economic inequality",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Senator title explicit"
+    },
+    {
+      "triplet": ["Marc Andreessen", "owns", "Andreessen Horowitz"],
+      "evidence": "venture capitalist Marc Andreessen (implied firm)",
+      "confidence_expectation": "medium",
+      "mandatory": false,
+      "notes": "Venture capitalist context strongly implies a16z, but not explicitly stated"
+    },
+    {
+      "triplet": ["Peter Thiel", "owns", "PayPal"],
+      "evidence": "PayPal co-founder Peter Thiel",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Co-founder relationship (historical ownership)"
+    },
+    {
+      "triplet": ["Dan Hendrycks", "works_for", "Center for AI Safety"],
+      "evidence": "Center for AI Safety (where Dan Hendrycks serves as director)",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Director role explicit"
+    },
+    {
+      "triplet": ["Mark Warner", "works_for", "Senate"],
+      "evidence": "Senator Mark Warner, who chairs the Intelligence Committee",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Senator title and committee chair"
+    },
+    {
+      "triplet": ["Ro Khanna", "works_for", "House of Representatives"],
+      "evidence": "Representative Ro Khanna",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Representative title"
+    },
+    {
+      "triplet": ["Josh Hawley", "works_for", "Senate"],
+      "evidence": "Senator Josh Hawley",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Senator title"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 9,
+    "total_relationships_max": 15,
+    "avg_confidence_min": 0.55,
+    "avg_confidence_max": 0.75,
+    "precision_min": 0.60,
+    "recall_min": 0.50,
+    "false_positives_max": 6,
+    "notes": "Political commentary with metaphorical language ('alliance', 'partnership', 'coalition'). These are ideological descriptions, NOT organizational relationships. System must NOT extract related_to or partner_of based on political alignment descriptions. Only extract formal organizational relationships (works_for, owns). High risk of false positives from political metaphors."
+  },
+  "notes": "CRITICAL AMBIGUOUS EXAMPLE: Tests metaphorical vs literal relationship distinction. Phrases like 'Warren's partnership with Sanders' or 'Musk's alliance with Andreessen' describe political/ideological alignment, NOT formal organizational relationships. System must recognize these as contextual commentary, not extractable relationships. Only extract explicit employment/ownership relationships."
+}

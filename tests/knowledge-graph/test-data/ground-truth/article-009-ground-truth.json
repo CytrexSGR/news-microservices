@@ -1,0 +1,148 @@
+{
+  "article_id": "article-009",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Sam Bankman-Fried", "owns", "FTX"],
+      "evidence": "FTX, founded by Sam Bankman-Fried in 2019",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Founder relationship implies ownership"
+    },
+    {
+      "triplet": ["Sam Bankman-Fried", "owns", "Alameda Research"],
+      "evidence": "Bankman-Fried, who also founded trading firm Alameda Research",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Founded implies ownership"
+    },
+    {
+      "triplet": ["Prager Metis", "partner_of", "FTX"],
+      "evidence": "auditors at Prager Metis, the accounting firm that signed off on FTX's financial statements",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Auditor relationship - business partnership"
+    },
+    {
+      "triplet": ["FTX", "located_in", "Bahamas"],
+      "evidence": "The Bahamas-based exchange",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicit location"
+    },
+    {
+      "triplet": ["Alfred Lin", "works_for", "Sequoia Capital"],
+      "evidence": "Sequoia Capital, led by partner Alfred Lin",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Partner role"
+    },
+    {
+      "triplet": ["Chase Coleman", "owns", "Tiger Global Management"],
+      "evidence": "Tiger Global Management, whose founder Chase Coleman",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Founder implies ownership"
+    },
+    {
+      "triplet": ["Tom Brady", "partner_of", "FTX"],
+      "evidence": "Tom Brady, the former NFL quarterback, and his ex-wife Gisele Bündchen served as FTX brand ambassadors",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Brand ambassador = business partnership"
+    },
+    {
+      "triplet": ["Gisele Bündchen", "partner_of", "FTX"],
+      "evidence": "Gisele Bündchen served as FTX brand ambassadors and received equity stakes",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Brand ambassador with equity"
+    },
+    {
+      "triplet": ["Kevin O'Leary", "partner_of", "FTX"],
+      "evidence": "Kevin O'Leary, known from ABC's Shark Tank and a paid FTX spokesperson",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Paid spokesperson relationship"
+    },
+    {
+      "triplet": ["Gary Gensler", "works_for", "Securities and Exchange Commission"],
+      "evidence": "The Securities and Exchange Commission, under Chair Gary Gensler",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Chair role"
+    },
+    {
+      "triplet": ["Rostin Behnam", "works_for", "Commodity Futures Trading Commission"],
+      "evidence": "Commodity Futures Trading Commission, led by Chairman Rostin Behnam",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Chairman role"
+    },
+    {
+      "triplet": ["Caroline Ellison", "works_for", "Alameda Research"],
+      "evidence": "Caroline Ellison, who ran Alameda Research",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Leadership role"
+    },
+    {
+      "triplet": ["Damian Williams", "works_for", "US Attorney"],
+      "evidence": "federal prosecutors under US Attorney Damian Williams",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "US Attorney role"
+    },
+    {
+      "triplet": ["John J. Ray III", "works_for", "FTX"],
+      "evidence": "FTX's new CEO, John J. Ray III",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "New CEO role"
+    },
+    {
+      "triplet": ["Changpeng Zhao", "works_for", "Binance"],
+      "evidence": "Binance, the world's largest crypto exchange run by Changpeng Zhao",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Leadership role"
+    },
+    {
+      "triplet": ["Christina Rolle", "works_for", "Bahamian Securities Commission"],
+      "evidence": "The Bahamian Securities Commission, headed by Executive Director Christina Rolle",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Executive Director role"
+    },
+    {
+      "triplet": ["Zac Prince", "works_for", "BlockFi"],
+      "evidence": "filed for bankruptcy under CEO Zac Prince",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO role"
+    },
+    {
+      "triplet": ["Barry Silbert", "works_for", "Digital Currency Group"],
+      "evidence": "Digital Currency Group led by CEO Barry Silbert",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO role"
+    },
+    {
+      "triplet": ["Genesis Global Capital", "member_of", "Digital Currency Group"],
+      "evidence": "Genesis Global Capital, a subsidiary of Digital Currency Group",
+      "confidence_expectation": "high",
+      "mandatory": false,
+      "notes": "Subsidiary relationship - tests corporate hierarchy"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 15,
+    "total_relationships_max": 22,
+    "avg_confidence_min": 0.70,
+    "precision_min": 0.75,
+    "recall_min": 0.60,
+    "false_positives_max": 5,
+    "notes": "Complex corporate fraud investigation. Tests multiple relationship types: owns (2), works_for (12), partner_of (4), located_in (1), member_of (1). May extract related_to between interconnected entities. Celebrity endorsements test partner_of type."
+  },
+  "notes": "COMPLEX EXAMPLE: Investigative journalism testing nested corporate structures, celebrity endorsements, and regulatory enforcement relationships. High entity density (25) with diverse relationship types. Tests partner_of for business relationships and member_of for subsidiaries."
+}

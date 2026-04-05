@@ -1,0 +1,39 @@
+{
+  "article_id": "article-005",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Amazon", "located_in", "Seattle"],
+      "evidence": "The Seattle-based company",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "HQ location"
+    },
+    {
+      "triplet": ["fulfillment center", "located_in", "Phoenix"],
+      "evidence": "fulfillment center in Phoenix, Arizona",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Facility location"
+    },
+    {
+      "triplet": ["Jennifer Rodriguez", "works_for", "Amazon"],
+      "evidence": "Site Manager Jennifer Rodriguez will oversee operations",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Site Manager role"
+    },
+    {
+      "triplet": ["Andy Jassy", "works_for", "Amazon"],
+      "evidence": "Amazon CEO Andy Jassy attended",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO role"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 3,
+    "total_relationships_max": 4,
+    "avg_confidence_min": 0.85,
+    "false_positives_max": 0
+  }
+}

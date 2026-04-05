@@ -1,0 +1,46 @@
+{
+  "article_id": "article-002",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Adobe", "owns", "Figma"],
+      "evidence": "Adobe Inc. announced the acquisition of Figma Inc.",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Acquisition = ownership"
+    },
+    {
+      "triplet": ["Dylan Field", "works_for", "Figma"],
+      "evidence": "Figma CEO Dylan Field remain in his role",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO role"
+    },
+    {
+      "triplet": ["Figma", "located_in", "San Francisco"],
+      "evidence": "Figma, based in San Francisco",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Headquarters location"
+    },
+    {
+      "triplet": ["David Wadhwani", "works_for", "Adobe"],
+      "evidence": "Adobe President David Wadhwani",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "President title"
+    },
+    {
+      "triplet": ["Shantanu Narayen", "works_for", "Adobe"],
+      "evidence": "Adobe Chairman and CEO Shantanu Narayen",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO role"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 4,
+    "total_relationships_max": 5,
+    "avg_confidence_min": 0.85,
+    "false_positives_max": 1
+  }
+}

@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Create public dir for Cesium postinstall script
+RUN mkdir -p public
+
+# Install dependencies
+RUN npm install
+
+# Copy all source files
+COPY . .
+
+# Expose Vite dev server port
+EXPOSE 3000
+
+# Start Vite dev server with host binding for Docker
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

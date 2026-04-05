@@ -1,0 +1,39 @@
+# Knowledge Graph Service - Development Dockerfile
+# Last Updated: 2025-10-24
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app/ ./app/
+
+# Expose service port
+
+# Health check
+
+# Run application with auto-reload for development
+
+# Copy and setup health check script
+COPY healthcheck.sh /usr/local/bin/healthcheck.sh
+RUN chmod +x /usr/local/bin/healthcheck.sh
+
+# Expose port
+EXPOSE 8111
+
+# Enhanced health check - validates both imports and HTTP endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD PORT=8111 /usr/local/bin/healthcheck.sh
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8111", "--reload"]

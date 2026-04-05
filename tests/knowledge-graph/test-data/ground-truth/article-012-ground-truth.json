@@ -1,0 +1,114 @@
+{
+  "article_id": "article-012",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Sarah Chen", "works_for", "Anthropic"],
+      "evidence": "Dr. Sarah Chen, who spent three years at OpenAI before joining Anthropic last year",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicit current employment"
+    },
+    {
+      "triplet": ["Sam Altman", "works_for", "OpenAI"],
+      "evidence": "Sam Altman's vision (in context of OpenAI discussion)",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Implied from possessive in OpenAI context"
+    },
+    {
+      "triplet": ["Dario Amodei", "works_for", "Anthropic"],
+      "evidence": "Anthropic's approach, championed by Dario Amodei",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Championed by implies leadership"
+    },
+    {
+      "triplet": ["Elon Musk", "partner_of", "OpenAI"],
+      "evidence": "tensions between OpenAI and its early backer, Elon Musk",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Early backer = investment/partnership relationship"
+    },
+    {
+      "triplet": ["Elon Musk", "owns", "Tesla"],
+      "evidence": "his own ventures at Tesla and Neuralink",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "His ventures = ownership"
+    },
+    {
+      "triplet": ["Elon Musk", "owns", "Neuralink"],
+      "evidence": "his own ventures at Tesla and Neuralink",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "His ventures = ownership"
+    },
+    {
+      "triplet": ["Microsoft", "partner_of", "OpenAI"],
+      "evidence": "Microsoft's deep partnership with OpenAI",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicitly stated partnership"
+    },
+    {
+      "triplet": ["Satya Nadella", "works_for", "Microsoft"],
+      "evidence": "Satya Nadella approved a multi-billion dollar investment",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Approval authority implies leadership"
+    },
+    {
+      "triplet": ["Greg Brockman", "works_for", "OpenAI"],
+      "evidence": "Greg Brockman and Ilya Sutskever have been navigating competing pressures (in OpenAI context)",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Context implies OpenAI employment"
+    },
+    {
+      "triplet": ["Ilya Sutskever", "works_for", "OpenAI"],
+      "evidence": "Greg Brockman and Ilya Sutskever (in OpenAI discussion context)",
+      "confidence_expectation": "medium",
+      "mandatory": true,
+      "notes": "Context strongly implies OpenAI"
+    },
+    {
+      "triplet": ["Demis Hassabis", "works_for", "DeepMind"],
+      "evidence": "When discussing DeepMind, she praises Demis Hassabis's commitment",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Leadership role in DeepMind discussion"
+    },
+    {
+      "triplet": ["Sundar Pichai", "works_for", "Google"],
+      "evidence": "Google's corporate structure, under Sundar Pichai's leadership",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicit leadership mention"
+    },
+    {
+      "triplet": ["Ian Hogarth", "works_for", "UK AI Safety Institute"],
+      "evidence": "UK AI Safety Institute, recently established under Ian Hogarth's direction",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Direction implies leadership"
+    },
+    {
+      "triplet": ["Marc Benioff", "works_for", "Salesforce"],
+      "evidence": "Salesforce—whose CEO Marc Benioff",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Explicit CEO mention"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 10,
+    "total_relationships_max": 16,
+    "avg_confidence_min": 0.55,
+    "avg_confidence_max": 0.75,
+    "precision_min": 0.60,
+    "recall_min": 0.50,
+    "false_positives_max": 6,
+    "notes": "Interview format with indirect speech. Verbs like 'suggests', 'hints', 'believes', 'questions' indicate hearsay but relationships themselves can be factual. System must extract factual relationships while recognizing speculative nature of surrounding commentary. May extract related_to between mentioned entities but should have lower confidence."
+  },
+  "notes": "AMBIGUOUS EXAMPLE: Tests indirect speech handling. Key challenge: Distinguish factual statements ('Sarah Chen joined Anthropic') from speculative claims ('Chen believes X about Y'). Interview subjects often describe relationships second-hand which are still extractable but with medium confidence."
+}

@@ -1,0 +1,230 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "da461b3b-5f4a-49c7-ae83-1967b6004e5b",
+    "entities": [
+      {
+        "id": "4cc6a33d-3e2a-46d0-a351-2303e58e35ae",
+        "text": "Tech Summit 2025",
+        "type": "EVENT",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "64c74d5c-1a24-4ca3-b1fd-6836630222ec",
+        "text": "Las Vegas",
+        "type": "LOCATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "826030e0-f5ff-4132-8f0e-f83fd31d6af3",
+        "text": "Mark Johnson",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "ecabf2e2-6a4f-40da-b12e-cc5fd03a6ecd",
+        "text": "Microsoft",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "c9f6fee9-b7eb-4ad7-91dd-7f928875bd87",
+        "text": "Lisa Chen",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "09739f94-db28-462e-adc2-3cb8f89ea1b8",
+        "text": "Google",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "c73ca8aa-5e7a-4310-8b98-50d87172d7b4",
+        "text": "Robert Smith",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "7a812e30-23be-4125-abb6-17d7b2766bc0",
+        "text": "Amazon",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "f5e808a4-6114-4bcf-97de-632630465c08",
+        "text": "Maria Garcia",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "0e779f42-c1c3-47a0-8117-a15d002158d7",
+        "text": "Meta",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "e036a3e1-cfb1-48d5-b200-893248e58a52",
+        "text": "David Lee",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "50f47508-2c87-4207-9c4b-833d8ed17880",
+        "text": "Apple",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "723c60b7-6cfc-441e-8cdd-78d2c5e1be03",
+        "text": "Sarah Williams",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "5d479949-f67a-4a17-ac90-5a9336ec135a",
+        "text": "Tesla",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "2048809c-3cc0-4fa7-b196-3f5bc86402bc",
+        "text": "Oracle",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "a7ea255d-c9d5-4f21-a351-230669749126",
+        "text": "IBM",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "373f825a-99cb-4568-954c-588c2ef57087",
+        "text": "Cisco",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "ca21692b-d879-49ac-b202-bfdb776f71b9",
+        "text": "Intel",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "ab1aeb73-abb7-49c9-80e4-c5df2f61a200",
+        "text": "NVIDIA",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "bfd19a01-0966-4fb1-bdc0-0c95b37ff33c",
+        "text": "March 15-17, 2025",
+        "type": "DATE",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "602a395b-d5b3-4f3f-b65b-07b1b5e46829",
+        "text": "Convention Center",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "42869a90-35ec-4b5c-bd5f-37da7cda66b1",
+        "text": "Nevada",
+        "type": "LOCATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Mark Johnson",
+        "entity2": "Microsoft",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Lisa Chen",
+        "entity2": "Google",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Robert Smith",
+        "entity2": "Amazon",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Maria Garcia",
+        "entity2": "Meta",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "David Lee",
+        "entity2": "Apple",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Sarah Williams",
+        "entity2": "Tesla",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Tech Summit 2025",
+        "entity2": "Las Vegas",
+        "type": "located_in",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Tech Summit 2025",
+        "entity2": "March 15-17, 2025",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Tech Summit 2025",
+        "entity2": "Convention Center",
+        "type": "located_in",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Tech Summit 2025",
+        "entity2": "Nevada",
+        "type": "located_in",
+        "confidence": 0.9
+      }
+    ],
+    "entity_count": 22,
+    "relationship_count": 10,
+    "processing_time_ms": 18060,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:11:35.856817"
+}

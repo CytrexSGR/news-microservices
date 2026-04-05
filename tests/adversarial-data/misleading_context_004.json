@@ -1,0 +1,97 @@
+{
+  "test_case_id": "misleading_context_004",
+  "article": {
+    "title": "Tiny Town's Crime Rate Skyrockets in Unprecedented Surge",
+    "content": "In a shocking development that has rattled the serene community of Little Haven, the local police department reported a staggering 50% increase in crime rates this year, compared to the previous year. Nestled in the heart of the countryside, Little Haven, known for its picturesque landscapes and tight-knit community, is grappling with this unexpected surge in criminal activities. The town, which boasts a population of merely 800 residents, has been renowned for its low crime rates and peaceful living conditions. However, the latest statistics from the Little Haven Police Department (LHPD) indicate a dramatic shift, with incidents rising from 2 to 3 in the span of a year. This alarming percentage increase has prompted local authorities to take immediate action, increasing patrols and community outreach programs in an effort to stave off any further criminal activities. 'We are dedicated to maintaining the safety and security of our community,' stated Police Chief Elizabeth Murray. 'Even one incident is too many for our small town. We're implementing new strategies to ensure our residents feel safe and supported.' Community leaders have also stepped up, organizing neighborhood watches and safety workshops, aiming to foster a collective approach to combating crime. Despite the statistical increase, Little Haven remains one of the safest places in the region, with crime rates significantly lower than national averages.",
+    "source": "Countryside Today",
+    "url": "https://example.com/article",
+    "published_at": "2024-10-24T10:00:00Z"
+  },
+  "ground_truth": {
+    "challenge_type": "misleading_context",
+    "challenge_description": "The article presents a 50% increase in crime rate in a misleading context to suggest a significant surge in criminal activities in Little Haven, despite the actual change being from 2 to 3 incidents. This manipulation of statistics serves to exaggerate the perception of crime in a small community.",
+    "difficulty_level": 4,
+    "uq_expectations": {
+      "confidence_range_min": 0.45,
+      "confidence_range_max": 0.65,
+      "expected_uncertainty_factors": [
+        "High impact of low absolute numbers on percentage calculations",
+        "Inflated perception of crime severity due to contextual presentation"
+      ],
+      "should_trigger_verification": true,
+      "expected_entropy_range": [
+        2.0,
+        2.5
+      ]
+    },
+    "correct_analysis": {
+      "entities": [
+        {
+          "text": "Little Haven",
+          "type": "LOCATION",
+          "start_char": 69,
+          "end_char": 80
+        },
+        {
+          "text": "Little Haven Police Department",
+          "type": "ORGANIZATION",
+          "start_char": 313,
+          "end_char": 344
+        },
+        {
+          "text": "Elizabeth Murray",
+          "type": "PERSON",
+          "start_char": 676,
+          "end_char": 692
+        }
+      ],
+      "relationships": [],
+      "sentiment": {
+        "sentiment": "negative",
+        "confidence": 0.85,
+        "explanation": "Report on increased crime rates"
+      },
+      "category": "local news",
+      "summary": "Little Haven, a small town known for its safety, reported a 50% increase in crime rates this year, rising from 2 to 3 incidents, prompting local authorities to enhance safety measures.",
+      "facts": [
+        "Little Haven crime rate increased by 50% this year.",
+        "The actual increase in incidents was from 2 to 3."
+      ],
+      "topics": [
+        "crime rate",
+        "public safety"
+      ],
+      "keywords": [
+        "Little Haven",
+        "crime increase",
+        "police department",
+        "community safety"
+      ]
+    },
+    "verification_plan": {
+      "priority": "high",
+      "verification_methods": [
+        "contextual_analysis_of_statistical_data",
+        "evaluation_of_impact_on_community_perception"
+      ],
+      "external_sources": [
+        "Little Haven Police Department annual report",
+        "National crime statistics database"
+      ],
+      "expected_corrections": [
+        {
+          "field": "sentiment",
+          "original": "negative",
+          "corrected": "neutral",
+          "confidence_improvement": 0.1
+        }
+      ],
+      "estimated_verification_time_seconds": 180
+    },
+    "created_at": "2024-10-24T10:00:00Z",
+    "created_by": "red_team_agent"
+  },
+  "generated_at": "2025-10-24T10:11:30.763044",
+  "generator_model": "gpt-4-turbo-preview",
+  "generator_version": "1.0.0"
+}

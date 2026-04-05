@@ -1,0 +1,25 @@
+# MCP Content Server - Development Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies including curl for healthcheck
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code (will be overwritten by volume mount in dev)
+COPY app/ ./app/
+
+# Expose port
+EXPOSE 9007
+
+# Run with reload in dev
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9007", "--reload"]

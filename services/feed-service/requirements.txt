@@ -1,0 +1,69 @@
+# Feed Service Dependencies
+
+# Shared MCP Common Library
+# Note: Installed via Dockerfile (COPY + pip install -e /app/shared/news-mcp-common)
+# -e ../../shared/news-mcp-common
+
+# Core Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+pydantic==2.8.0
+pydantic-settings==2.4.0
+
+# Database
+sqlalchemy==2.0.35
+alembic==1.13.0
+psycopg2-binary==2.9.9
+
+# Redis
+redis[hiredis]==5.0.1
+
+# Message Queue
+aio-pika==9.4.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+
+# HTTP Client
+httpx==0.27.0
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+aiosqlite==0.21.0
+
+# Logging
+structlog==24.4.0
+
+# Metrics
+prometheus_client==0.20.0
+
+# Service-specific dependencies
+# Async database
+asyncpg==0.29.0
+
+# Async file I/O
+aiofiles==23.2.1
+
+# Celery
+celery[redis]==5.3.6
+flower==2.0.1
+
+# Feed parsing
+feedparser==6.0.11
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.4
+
+# Rate Limiting
+slowapi==0.1.9
+
+# Deduplication Features
+simhash>=2.1.2
+
+# News Intelligence Common Library (EventEnvelope standardization)
+-e ../../libs/news-intelligence-common

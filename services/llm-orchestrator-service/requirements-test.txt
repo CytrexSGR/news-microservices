@@ -1,0 +1,13 @@
+# Test dependencies for llm-orchestrator-service
+
+# Core testing framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# HTTP testing
+httpx==0.27.2
+
+# Test coverage
+coverage[toml]==7.3.2

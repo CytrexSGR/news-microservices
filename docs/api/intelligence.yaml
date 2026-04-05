@@ -1,0 +1,892 @@
+openapi: 3.1.0
+info:
+  title: Intelligence Service API
+  description: |
+    Real-time news intelligence and threat analysis platform. Ingests RSS articles,
+    detects events, clusters related stories, calculates risk scores, and provides
+    intelligence briefings.
+  version: 1.0.0
+  contact:
+    name: Engineering Team
+    email: engineering@infinimind.ai
+  license:
+    name: Proprietary
+    url: https://infinimind.ai/license
+
+servers:
+  - url: http://localhost:8103/api/v1/intelligence
+    description: Local development
+  - url: http://intelligence-service:8103/api/v1/intelligence
+    description: Docker environment
+
+tags:
+  - name: Overview
+    description: High-level intelligence dashboard endpoints
+  - name: Clusters
+    description: Event cluster management and analysis
+  - name: Events
+    description: Individual intelligence event operations
+  - name: Analysis
+    description: Advanced intelligence analysis
+  - name: Health
+    description: Service health and status
+
+paths:
+  /health:
+    get:
+      summary: Service health check
+      description: Returns service status and version information
+      tags:
+        - Health
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  service:
+                    type: string
+                    example: intelligence
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+  /overview:
+    get:
+      summary: Intelligence dashboard overview
+      description: |
+        High-level intelligence metrics including global risk index,
+        top clusters, category-specific risk scores, and regional activity.
+        Used for main dashboard display.
+      tags:
+        - Overview
+      operationId: getOverview
+      responses:
+        '200':
+          description: Overview data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewResponse'
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clusters:
+    get:
+      summary: List intelligence clusters
+      description: |
+        Get paginated list of event clusters with optional filtering and sorting.
+        Each cluster represents a group of related events.
+      tags:
+        - Clusters
+      operationId: getClusters
+      parameters:
+        - name: min_events
+          in: query
+          description: Minimum event count to include in results
+          schema:
+            type: integer
+            minimum: 1
+            example: 10
+        - name: time_range
+          in: query
+          description: Only include clusters updated in last N days
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 90
+        - name: sort_by
+          in: query
+          description: Sort results by specified field
+          schema:
+            type: string
+            enum: [risk_score, event_count, last_updated]
+            default: risk_score
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: Items per page (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Clusters retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClustersResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clusters/{cluster_id}:
+    get:
+      summary: Get cluster details
+      description: |
+        Get detailed information for a specific cluster including
+        timeline data, event composition, and risk metrics.
+      tags:
+        - Clusters
+      operationId: getClusterDetail
+      parameters:
+        - name: cluster_id
+          in: path
+          required: true
+          description: UUID of the cluster
+          schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Cluster details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDetail'
+        '404':
+          description: Cluster not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clusters/{cluster_id}/events:
+    get:
+      summary: Get events in cluster
+      description: |
+        Get paginated list of all events belonging to a specific cluster.
+        Includes full event details (entities, keywords, sentiment).
+      tags:
+        - Clusters
+      operationId: getClusterEvents
+      parameters:
+        - name: cluster_id
+          in: path
+          required: true
+          description: UUID of the cluster
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: Items per page (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Events retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterEventsResponse'
+        '404':
+          description: Cluster not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /events/latest:
+    get:
+      summary: Get latest intelligence events
+      description: |
+        Get most recent events across all clusters within specified time window.
+        Includes cluster association for each event.
+      tags:
+        - Events
+      operationId: getLatestEvents
+      parameters:
+        - name: hours
+          in: query
+          description: Look back N hours for recent events
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 48
+            default: 4
+        - name: limit
+          in: query
+          description: Maximum number of events to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Recent events retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LatestEventsResponse'
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /subcategories:
+    get:
+      summary: Get dynamic subcategories
+      description: |
+        Get top 2 sub-topics per major category (geo, finance, tech, security)
+        extracted dynamically from current cluster keywords. Updates as news changes.
+      tags:
+        - Analysis
+      operationId: getSubcategories
+      responses:
+        '200':
+          description: Subcategories retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubcategoriesResponse'
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /risk-history:
+    get:
+      summary: Get risk score history
+      description: |
+        Get daily risk score history for trend visualization.
+        Shows global, category-specific (geo/finance), and event count trends.
+      tags:
+        - Analysis
+      operationId: getRiskHistory
+      parameters:
+        - name: days
+          in: query
+          description: Historical days to retrieve
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 7
+      responses:
+        '200':
+          description: Risk history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskHistoryResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # Base types
+    UUID:
+      type: string
+      format: uuid
+      example: 550e8400-e29b-41d4-a716-446655440000
+
+    DateTime:
+      type: string
+      format: date-time
+      example: "2025-11-24T10:30:00Z"
+
+    # Error response
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          description: Error message
+
+    # Overview response
+    OverviewResponse:
+      type: object
+      required:
+        - global_risk_index
+        - top_clusters
+        - geo_risk
+        - finance_risk
+        - top_regions
+        - total_clusters
+        - total_events
+        - timestamp
+      properties:
+        global_risk_index:
+          type: number
+          format: float
+          description: Average risk score of top 5 clusters (0-100 scale)
+          example: 45.3
+        top_clusters:
+          type: array
+          description: Top 5 clusters by risk score
+          items:
+            $ref: '#/components/schemas/ClusterSummary'
+        geo_risk:
+          type: number
+          format: float
+          description: Risk score for geopolitical category (0-100)
+          example: 52.1
+        finance_risk:
+          type: number
+          format: float
+          description: Risk score for financial category (0-100)
+          example: 38.5
+        top_regions:
+          type: array
+          description: Top 5 regions by event activity
+          items:
+            $ref: '#/components/schemas/TopRegion'
+        total_clusters:
+          type: integer
+          description: Total number of active clusters
+          example: 34
+        total_events:
+          type: integer
+          description: Total events in last 7 days
+          example: 2847
+        timestamp:
+          $ref: '#/components/schemas/DateTime'
+
+    # Cluster summary (for overview)
+    ClusterSummary:
+      type: object
+      required:
+        - id
+        - name
+        - risk_score
+        - risk_delta
+        - event_count
+        - keywords
+        - last_updated
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          description: Generated cluster name from top keywords
+          example: Ukraine Defense War
+        risk_score:
+          type: number
+          format: float
+          description: Risk score normalized to 0-100
+          example: 67.5
+        risk_delta:
+          type: number
+          format: float
+          description: Percentage change from last week
+          example: 12.3
+        event_count:
+          type: integer
+          description: Number of events in cluster
+          example: 145
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Top keywords for cluster
+          example: ["Ukraine", "War", "Defense"]
+        category:
+          type: string
+          nullable: true
+          enum: [geo, finance, tech, security, other]
+          description: Cluster category
+          example: geo
+        last_updated:
+          $ref: '#/components/schemas/DateTime'
+
+    # Top region
+    TopRegion:
+      type: object
+      required:
+        - name
+        - event_count
+        - risk_score
+      properties:
+        name:
+          type: string
+          description: Region name
+          example: Ukraine
+        event_count:
+          type: integer
+          description: Number of events in region
+          example: 85
+        risk_score:
+          type: number
+          format: float
+          description: Average risk score for region
+          example: 65.0
+
+    # Clusters list response
+    ClustersResponse:
+      type: object
+      required:
+        - clusters
+        - total
+        - page
+        - per_page
+        - timestamp
+      properties:
+        clusters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterDetail'
+        total:
+          type: integer
+          description: Total number of clusters (across all pages)
+          example: 34
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        per_page:
+          type: integer
+          description: Items per page
+          example: 20
+        timestamp:
+          $ref: '#/components/schemas/DateTime'
+
+    # Cluster detail (full response)
+    ClusterDetail:
+      type: object
+      required:
+        - id
+        - name
+        - risk_score
+        - risk_delta
+        - event_count
+        - keywords
+        - avg_sentiment
+        - unique_sources
+        - is_active
+        - created_at
+        - last_updated
+        - timeline
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          example: Ukraine Defense War
+        risk_score:
+          type: number
+          format: float
+          description: Risk score (0-100)
+          example: 67.5
+        risk_delta:
+          type: number
+          format: float
+          description: Week-over-week change percentage
+          example: 12.3
+        event_count:
+          type: integer
+          example: 145
+        keywords:
+          type: array
+          items:
+            type: string
+          example: ["Ukraine", "War", "Defense"]
+        category:
+          type: string
+          nullable: true
+          enum: [geo, finance, tech, security, other]
+          example: geo
+        avg_sentiment:
+          type: number
+          format: float
+          description: Average sentiment across events (-1 to 1)
+          example: -0.35
+        unique_sources:
+          type: integer
+          description: Number of distinct news sources
+          example: 14
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          $ref: '#/components/schemas/DateTime'
+        last_updated:
+          $ref: '#/components/schemas/DateTime'
+        timeline:
+          type: array
+          description: Daily event and sentiment data (last 7 days)
+          items:
+            $ref: '#/components/schemas/TimelinePoint'
+
+    # Timeline point
+    TimelinePoint:
+      type: object
+      required:
+        - date
+        - event_count
+        - avg_sentiment
+      properties:
+        date:
+          $ref: '#/components/schemas/DateTime'
+        event_count:
+          type: integer
+          description: Events published on this date
+          example: 15
+        avg_sentiment:
+          type: number
+          format: float
+          description: Average sentiment for date
+          example: -0.4
+
+    # Cluster events response
+    ClusterEventsResponse:
+      type: object
+      required:
+        - cluster_id
+        - cluster_name
+        - events
+        - total
+        - page
+        - per_page
+        - total_pages
+      properties:
+        cluster_id:
+          $ref: '#/components/schemas/UUID'
+        cluster_name:
+          type: string
+          example: Ukraine Defense War
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventDetail'
+        total:
+          type: integer
+          example: 145
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 20
+        total_pages:
+          type: integer
+          example: 8
+
+    # Event detail
+    EventDetail:
+      type: object
+      required:
+        - id
+        - title
+        - source
+        - source_url
+        - published_at
+        - entities
+        - keywords
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+          description: Article title
+          example: Ukraine Reports Major Victory
+        description:
+          type: string
+          nullable: true
+          description: Article description/summary
+        source:
+          type: string
+          description: News source name
+          example: Reuters
+        source_url:
+          type: string
+          format: uri
+          description: Link to original article
+        published_at:
+          $ref: '#/components/schemas/DateTime'
+        entities:
+          type: object
+          description: Named entities extracted from article
+          properties:
+            persons:
+              type: array
+              items:
+                type: string
+              example: ["Zelensky", "Putin"]
+            organizations:
+              type: array
+              items:
+                type: string
+              example: ["Ukraine Army", "Reuters"]
+            locations:
+              type: array
+              items:
+                type: string
+              example: ["Donetsk", "Ukraine"]
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Extracted keywords/topics
+          example: ["Ukraine", "War", "Victory"]
+        sentiment:
+          type: number
+          format: float
+          nullable: true
+          description: Sentiment score (-1 to 1)
+          example: -0.2
+        bias_score:
+          type: number
+          format: float
+          nullable: true
+          description: Source bias rating (-1 to 1)
+          example: 0.1
+        confidence:
+          type: number
+          format: float
+          nullable: true
+          description: Analysis confidence (0 to 1)
+          example: 0.95
+
+    # Latest events response
+    LatestEventsResponse:
+      type: object
+      required:
+        - events
+        - total
+        - hours
+        - timestamp
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventWithCluster'
+        total:
+          type: integer
+          description: Number of events returned
+          example: 5
+        hours:
+          type: integer
+          description: Time window queried
+          example: 4
+        timestamp:
+          $ref: '#/components/schemas/DateTime'
+
+    # Event with cluster association
+    EventWithCluster:
+      allOf:
+        - $ref: '#/components/schemas/EventDetail'
+        - type: object
+          properties:
+            cluster:
+              $ref: '#/components/schemas/ClusterRef'
+
+    # Cluster reference (minimal)
+    ClusterRef:
+      type: object
+      nullable: true
+      required:
+        - id
+        - name
+        - risk_score
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          example: Ukraine Defense War
+        risk_score:
+          type: number
+          format: float
+          example: 67.5
+
+    # Subcategories response
+    SubcategoriesResponse:
+      type: object
+      properties:
+        geo:
+          type: array
+          description: Top 2 geopolitical sub-topics
+          items:
+            $ref: '#/components/schemas/Subcategory'
+        finance:
+          type: array
+          description: Top 2 financial sub-topics
+          items:
+            $ref: '#/components/schemas/Subcategory'
+        tech:
+          type: array
+          description: Top 2 technology sub-topics
+          items:
+            $ref: '#/components/schemas/Subcategory'
+        security:
+          type: array
+          description: Top 2 security/humanitarian sub-topics
+          items:
+            $ref: '#/components/schemas/Subcategory'
+
+    # Subcategory
+    Subcategory:
+      type: object
+      required:
+        - name
+        - risk_score
+        - event_count
+        - clusters
+      properties:
+        name:
+          type: string
+          description: Sub-topic name
+          example: Ukraine
+        risk_score:
+          type: number
+          format: float
+          description: Average risk for sub-topic
+          example: 65.0
+        event_count:
+          type: integer
+          description: Number of events in sub-topic
+          example: 85
+        clusters:
+          type: array
+          items:
+            $ref: '#/components/schemas/UUID'
+          description: Cluster IDs associated with sub-topic
+
+    # Risk history response
+    RiskHistoryResponse:
+      type: object
+      required:
+        - history
+        - days
+        - total_points
+      properties:
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskHistoryPoint'
+        days:
+          type: integer
+          description: Number of historical days
+          example: 7
+        total_points:
+          type: integer
+          description: Data points returned
+          example: 7
+
+    # Risk history point
+    RiskHistoryPoint:
+      type: object
+      required:
+        - date
+        - global_risk
+        - geo_risk
+        - finance_risk
+        - event_count
+      properties:
+        date:
+          type: string
+          format: date
+          description: Date in YYYY-MM-DD format
+          example: "2025-11-24"
+        global_risk:
+          type: number
+          format: float
+          description: Global risk index (0-100)
+          example: 44.1
+        geo_risk:
+          type: number
+          format: float
+          description: Geopolitical risk (0-100)
+          example: 56.2
+        finance_risk:
+          type: number
+          format: float
+          description: Financial risk (0-100)
+          example: 36.0
+        event_count:
+          type: integer
+          description: Total events on this date
+          example: 132
+
+# Security (if needed in future)
+securitySchemes:
+  bearerAuth:
+    type: http
+    scheme: bearer
+    bearerFormat: JWT
+    description: |
+      JWT token from Auth Service
+      Expected format: Authorization: Bearer <token>
+
+# Response headers (common to all endpoints)
+x-response-headers:
+  X-Total-Count:
+    description: Total number of items (for paginated responses)
+    schema:
+      type: integer
+  X-Page:
+    description: Current page number
+    schema:
+      type: integer
+  X-Per-Page:
+    description: Items per page
+    schema:
+      type: integer

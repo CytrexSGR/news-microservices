@@ -1,0 +1,344 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "f43d8fa6-60b1-4043-b224-318186d16a82",
+    "entities": [
+      {
+        "id": "1bdc0582-7e5a-4c1b-8ae4-a27268d78d34",
+        "text": "Federal Reserve",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 3
+      },
+      {
+        "id": "50495243-c00b-44f7-bd6c-a38fd34b1b17",
+        "text": "Jerome Powell",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "1249989c-632a-4c8a-8adf-44ce60dd84b9",
+        "text": "Silicon Valley Bank",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "63bd3118-7c6d-4b5f-ba2e-bb11b986b943",
+        "text": "Signature Bank",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "c5200ab4-a68f-4cd7-b583-97d1634640e2",
+        "text": "Brookings Institution",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "39f0010a-73bf-44fd-a7c8-6977e70d64d3",
+        "text": "Senate Banking Committee",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "5c64a229-87a4-4afd-846b-b620cb23b0e4",
+        "text": "Sherrod Brown",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "c3afe6a5-8973-4790-ab9b-4e466d79a7af",
+        "text": "Federal Deposit Insurance Corporation",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "21bab367-3e67-4f55-8d7d-321f97d49b3c",
+        "text": "Martin Gruenberg",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "3c70d790-25f4-4610-9c05-908de068e19a",
+        "text": "Treasury Secretary Janet Yellen",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "1ff1a4ea-7ea5-4d37-8696-965916c4bc04",
+        "text": "JPMorgan Chase",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "7e4000c1-028e-40b3-ac58-1c3aaad84829",
+        "text": "Jamie Dimon",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "73c41054-c788-455b-a97d-2cdb12ecc814",
+        "text": "First Republic Bank",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "f8807db0-c8c5-4902-a89e-2748695654b0",
+        "text": "Credit Suisse",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "e0bba6e5-af3a-44d0-a9d3-d31a7064d0a1",
+        "text": "UBS",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "18d34883-db52-4562-8920-ae7d63703a2a",
+        "text": "Thomas Jordan",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "46bf7c89-3a17-4bd4-8228-03dfa36b4f70",
+        "text": "Karin Keller-Sutter",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "5f49b7ad-9e8e-4e9d-8e85-5857f4fe6b20",
+        "text": "Bank of England",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "70428f94-b021-43ca-9932-edc6a304bd9d",
+        "text": "Andrew Bailey",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "ec31dc33-a297-4a7d-bb17-d3f9fec73bb4",
+        "text": "European Central Bank",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "c9de8ae5-dcaf-4d71-ab6e-8a4dff487b71",
+        "text": "Christine Lagarde",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "6d5c01a8-60ac-4fca-8d87-55a2f3af1f8e",
+        "text": "Bruno Le Maire",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "19c13823-8df1-4007-931f-1acd508f6fbd",
+        "text": "Goldman Sachs",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "3ef720fc-b1ce-4b07-a66c-c1d656b4340f",
+        "text": "Jan Hatzius",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "8ef642f3-2204-47ad-826c-1210981c6630",
+        "text": "Larry Fink",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "099dbbeb-8de8-4629-b507-a790d2bb8db8",
+        "text": "BlackRock",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "f923db7b-e4da-4bbd-b584-811494d0cc8d",
+        "text": "Morgan Stanley",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "c0457d20-83ba-4c7d-b4e1-6069c73a150f",
+        "text": "Michael Wilson",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "c79a8c49-376b-4322-9db6-d280c5fed598",
+        "text": "International Monetary Fund",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "6bf6dfb5-f31e-4c87-8eba-5005b8ff814a",
+        "text": "Kristalina Georgieva",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "0a2a73c1-06e5-4533-afd0-cc51e451383c",
+        "text": "World Bank",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "1ac37661-7580-49fd-8a7a-7087afd56162",
+        "text": "David Malpass",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "9a4a7cfe-23b1-4f5b-bb98-c7177ab589aa",
+        "text": "G20",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "ebc3d993-2087-4627-bbb2-2f3fa10cd237",
+        "text": "Bengaluru",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Federal Reserve",
+        "entity2": "Jerome Powell",
+        "type": "not_applicable",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Federal Reserve",
+        "entity2": "Silicon Valley Bank",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Federal Reserve",
+        "entity2": "Signature Bank",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Federal Deposit Insurance Corporation",
+        "entity2": "Martin Gruenberg",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "JPMorgan Chase",
+        "entity2": "Jamie Dimon",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Credit Suisse",
+        "entity2": "UBS",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Andrew Bailey",
+        "entity2": "Bank of England",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Christine Lagarde",
+        "entity2": "European Central Bank",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Jan Hatzius",
+        "entity2": "Goldman Sachs",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Larry Fink",
+        "entity2": "BlackRock",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Michael Wilson",
+        "entity2": "Morgan Stanley",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Kristalina Georgieva",
+        "entity2": "International Monetary Fund",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "David Malpass",
+        "entity2": "World Bank",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Kristalina Georgieva",
+        "entity2": "International Monetary Fund",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "David Malpass",
+        "entity2": "World Bank",
+        "type": "related_to",
+        "confidence": 0.9
+      }
+    ],
+    "entity_count": 34,
+    "relationship_count": 15,
+    "processing_time_ms": 26728,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:08:17.810527"
+}

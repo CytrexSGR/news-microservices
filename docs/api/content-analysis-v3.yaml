@@ -1,0 +1,708 @@
+openapi: 3.1.0
+info:
+  title: Content-Analysis-V3 API
+  description: |
+    Cost-optimized AI analysis pipeline with 4-tier progressive analysis.
+
+    96.7% cost reduction vs V2 through:
+    - Progressive tiering (60% discard rate at Tier0)
+    - 2-stage prompting (94.5% savings on irrelevant content)
+    - Budget redistribution (unused tokens reallocated)
+
+    API Flow:
+    1. POST /api/v1/analyze → Returns immediately
+    2. RabbitMQ consumer processes asynchronously
+    3. GET /api/v1/status/{article_id} → Check progress
+    4. GET /api/v1/results/{article_id} → Retrieve results
+
+    Default provider: Gemini 2.0 Flash ($0.00028/article)
+  version: 1.1.0
+  contact:
+    name: Andreas
+    email: andreas@test.com
+  license:
+    name: Internal Use Only
+
+servers:
+  - url: http://localhost:8117
+    description: Local development
+  - url: https://api.example.com/content-analysis-v3
+    description: Production
+
+tags:
+  - name: health
+    description: Service health and readiness checks
+  - name: analysis
+    description: Article analysis endpoints
+
+paths:
+  /:
+    get:
+      operationId: root
+      tags:
+        - health
+      summary: Service root endpoint
+      description: Returns service information, version, and available endpoints
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: content-analysis-v3
+                  version:
+                    type: string
+                    example: 1.0.0-alpha
+                  description:
+                    type: string
+                    example: Cost-optimized AI analysis pipeline (96.7% cost reduction)
+                  status:
+                    type: string
+                    enum: [active]
+                  endpoints:
+                    type: object
+                    properties:
+                      health:
+                        type: object
+                      analysis:
+                        type: object
+                      docs:
+                        type: object
+                  pipeline:
+                    type: object
+                    properties:
+                      tier0:
+                        type: object
+                      tier1:
+                        type: object
+                      tier2:
+                        type: object
+                      tier3:
+                        type: object
+                  cost_analysis:
+                    type: object
+                    properties:
+                      v2_cost_per_article:
+                        type: number
+                        example: 0.0085
+                      v3_cost_per_article:
+                        type: number
+                        example: 0.00028
+                      cost_reduction_percent:
+                        type: number
+                        example: 96.7
+
+  /health:
+    get:
+      operationId: health_basic
+      tags:
+        - health
+      summary: Basic health check
+      description: Quick health status
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+
+  /health/detailed:
+    get:
+      operationId: health_detailed
+      tags:
+        - health
+      summary: Detailed health check
+      description: Health status with database and provider information
+      responses:
+        '200':
+          description: Detailed health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      pool_size:
+                        type: integer
+                      available:
+                        type: integer
+                  rabbitmq:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      queue_name:
+                        type: string
+                      messages_pending:
+                        type: integer
+                  gemini:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      api_key_configured:
+                        type: boolean
+
+  /health/ready:
+    get:
+      operationId: health_ready
+      tags:
+        - health
+      summary: Kubernetes readiness probe
+      description: 200 if service is ready to accept traffic
+      responses:
+        '200':
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ready]
+
+  /health/live:
+    get:
+      operationId: health_live
+      tags:
+        - health
+      summary: Kubernetes liveness probe
+      description: 200 if service is alive
+      responses:
+        '200':
+          description: Alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [alive]
+
+  /api/v1/analyze:
+    post:
+      operationId: analyze_article
+      tags:
+        - analysis
+      summary: Analyze article through V3 pipeline
+      description: |
+        Submit an article for analysis.
+
+        Processing:
+        1. Request received and validated
+        2. Message published to RabbitMQ
+        3. API returns immediately (status=processing)
+        4. RabbitMQ consumer executes pipeline (Tier0→Tier1→Tier2)
+        5. Results available via /status and /results endpoints
+
+        Pipeline stages:
+        - Tier0: Triage (keep/discard decision)
+        - Tier1: Foundation extraction (entities, relations, topics, scores)
+        - Tier2: Specialist analysis (6 specialized modules)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeArticleRequest'
+      responses:
+        '200':
+          description: Analysis submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/status/{article_id}:
+    get:
+      operationId: get_status
+      tags:
+        - analysis
+      summary: Get analysis status
+      description: |
+        Check the progress of an article analysis.
+
+        Status values:
+        - pending: Queued in RabbitMQ
+        - tier0_complete: Triage finished
+        - tier1_complete: Foundation extraction finished
+        - tier2_complete: All specialist analysis finished
+        - failed: Pipeline error
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Article UUID
+      responses:
+        '200':
+          description: Analysis status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisStatus'
+        '404':
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/results/{article_id}:
+    get:
+      operationId: get_results
+      tags:
+        - analysis
+      summary: Get complete analysis results
+      description: |
+        Retrieve full analysis results for all completed tiers.
+
+        Data structure:
+        - tier0: Triage decision (priority score, category, keep flag)
+        - tier1: Foundation extraction (entities, relations, topics, scores)
+        - tier2: Specialist findings (all 6 specialists if executed)
+        - metadata: Cost, token, and timing information
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Article UUID
+      responses:
+        '200':
+          description: Complete analysis results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResults'
+        '404':
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/results/{article_id}/tier0:
+    get:
+      operationId: get_results_tier0
+      tags:
+        - analysis
+      summary: Get Tier0 (triage) results only
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tier0 results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageDecision'
+        '404':
+          description: Article not found
+
+  /api/v1/results/{article_id}/tier1:
+    get:
+      operationId: get_results_tier1
+      tags:
+        - analysis
+      summary: Get Tier1 (foundation) results only
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tier1 results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tier1Results'
+        '404':
+          description: Article not found
+
+  /api/v1/results/{article_id}/tier2:
+    get:
+      operationId: get_results_tier2
+      tags:
+        - analysis
+      summary: Get Tier2 (specialist) results only
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tier2 results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tier2Results'
+        '404':
+          description: Article not found
+
+components:
+  schemas:
+    AnalyzeArticleRequest:
+      type: object
+      required:
+        - article_id
+        - title
+        - url
+        - content
+      properties:
+        article_id:
+          type: string
+          format: uuid
+          description: Unique article identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Article title
+          example: Federal Reserve Raises Interest Rates by 0.5%
+        url:
+          type: string
+          format: uri
+          description: Article URL
+          example: https://example.com/fed-rates-2025
+        content:
+          type: string
+          minLength: 10
+          description: Full article content
+          example: The Federal Reserve announced today that it is raising the federal funds rate...
+        run_tier2:
+          type: boolean
+          default: true
+          description: Execute Tier2 specialist analysis
+
+    AnalysisResponse:
+      type: object
+      properties:
+        article_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [processing]
+        message:
+          type: string
+          example: Analysis submitted to RabbitMQ consumer queue
+        tier0_complete:
+          type: boolean
+        tier1_complete:
+          type: boolean
+        tier2_complete:
+          type: boolean
+
+    AnalysisStatus:
+      type: object
+      properties:
+        article_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, tier0_complete, tier1_complete, tier2_complete, failed]
+        tier0_complete:
+          type: boolean
+        tier1_complete:
+          type: boolean
+        tier2_complete:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+          description: Error message if status is failed
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AnalysisResults:
+      type: object
+      properties:
+        article_id:
+          type: string
+          format: uuid
+        tier0:
+          $ref: '#/components/schemas/TriageDecision'
+        tier1:
+          $ref: '#/components/schemas/Tier1Results'
+        tier2:
+          $ref: '#/components/schemas/Tier2Results'
+        metadata:
+          type: object
+          properties:
+            total_tokens:
+              type: integer
+            total_cost_usd:
+              type: number
+            analysis_time_ms:
+              type: integer
+            pipeline_version:
+              type: string
+              example: '3.0'
+
+    TriageDecision:
+      type: object
+      description: Tier0 triage output
+      properties:
+        priority_score:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Urgency score (0=noise, 10=critical)
+        category:
+          type: string
+          enum: [CONFLICT, FINANCE, POLITICS, HUMANITARIAN, SECURITY, TECHNOLOGY, HEALTH, OTHER]
+        keep:
+          type: boolean
+          description: True=continue to Tier1, False=discard
+        tokens_used:
+          type: integer
+        cost_usd:
+          type: number
+        model:
+          type: string
+          example: gemini-2.0-flash-exp
+
+    Entity:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        type:
+          type: string
+          enum: [PERSON, ORGANIZATION, LOCATION, EVENT, CONCEPT, TECHNOLOGY, PRODUCT, CURRENCY, FINANCIAL_INSTRUMENT, LAW, POLICY, TIME, OTHER]
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+        mentions:
+          type: integer
+          minimum: 1
+        aliases:
+          type: array
+          items:
+            type: string
+        role:
+          type: string
+          nullable: true
+          example: CEO
+
+    Relation:
+      type: object
+      properties:
+        subject:
+          type: string
+          description: Entity name
+        predicate:
+          type: string
+          description: Relation type
+        object:
+          type: string
+          description: Target entity name
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+
+    Topic:
+      type: object
+      properties:
+        keyword:
+          type: string
+          description: Topic category
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+        parent_category:
+          type: string
+
+    Tier1Results:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Relation'
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+        scores:
+          type: object
+          properties:
+            impact_score:
+              type: number
+              minimum: 0.0
+              maximum: 10.0
+              description: Global significance (0=local, 10=market-moving)
+            credibility_score:
+              type: number
+              minimum: 0.0
+              maximum: 10.0
+              description: Source reliability (0=unverified, 10=official)
+            urgency_score:
+              type: number
+              minimum: 0.0
+              maximum: 10.0
+              description: Time sensitivity (0=background, 10=critical alert)
+        tokens_used:
+          type: integer
+        cost_usd:
+          type: number
+        model:
+          type: string
+
+    SpecialistFindings:
+      type: object
+      properties:
+        specialist_name:
+          type: string
+          enum: [TOPIC_CLASSIFIER, ENTITY_EXTRACTOR, FINANCIAL_ANALYST, GEOPOLITICAL_ANALYST, SENTIMENT_ANALYZER, BIAS_SCORER]
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Relation'
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+        tokens_used:
+          type: integer
+        cost_usd:
+          type: number
+        model:
+          type: string
+        execution_time_ms:
+          type: number
+
+    Tier2Results:
+      type: object
+      description: All Tier2 specialist results
+      properties:
+        TOPIC_CLASSIFIER:
+          oneOf:
+            - $ref: '#/components/schemas/SpecialistFindings'
+            - type: 'null'
+        ENTITY_EXTRACTOR:
+          oneOf:
+            - $ref: '#/components/schemas/SpecialistFindings'
+            - type: 'null'
+        FINANCIAL_ANALYST:
+          oneOf:
+            - $ref: '#/components/schemas/SpecialistFindings'
+            - type: 'null'
+        GEOPOLITICAL_ANALYST:
+          oneOf:
+            - $ref: '#/components/schemas/SpecialistFindings'
+            - type: 'null'
+        SENTIMENT_ANALYZER:
+          oneOf:
+            - $ref: '#/components/schemas/SpecialistFindings'
+            - type: 'null'
+        BIAS_SCORER:
+          oneOf:
+            - $ref: '#/components/schemas/SpecialistFindings'
+            - type: 'null'
+        total_tokens:
+          type: integer
+        total_cost_usd:
+          type: number
+        specialists_executed:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: Article analysis not found
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              msg:
+                type: string
+              type:
+                type: string

@@ -1,0 +1,2606 @@
+# ============================================================================
+# News Microservices - Central Docker Compose
+# ============================================================================
+# Note: 'version' attribute removed (obsolete in Compose V2)
+# Single source of truth for all services and infrastructure
+# Last Updated: 2025-11-24 (Log Rotation Added - Disk Space Critical Fix)
+# ============================================================================
+
+# Global logging configuration to prevent disk overflow
+# Prevents: 314GB log files from knowledge-graph-service (2025-11-24)
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"      # Maximum size per log file
+    max-file: "3"        # Keep 3 rotated files = max 30MB per container
+    compress: "true"     # Compress rotated logs
+
+networks:
+  news_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  neo4j_data:
+  n8n_data:
+  prometheus_data:
+  grafana_data:
+
+services:
+  # ==========================================================================
+  # Infrastructure Services
+  # ==========================================================================
+
+  postgres:
+    logging: *default-logging
+    image: pgvector/pgvector:pg15  # Changed from postgres:15-alpine for Phase 4 memory
+    container_name: postgres
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 2g
+    command: postgres -c max_connections=100 -c shared_buffers=128MB -c effective_cache_size=512MB -c work_mem=2MB
+    environment:
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: news_mcp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - news_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U news_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    logging: *default-logging
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --auto-aof-rewrite-percentage 100
+      --auto-aof-rewrite-min-size 64mb
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass redis_secret_2024
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - news_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_secret_2024", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    logging: *default-logging
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 512m
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./certs/rabbitmq:/etc/rabbitmq/certs:ro           # TLS certificates (CVE-2025-002)
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro    # TLS configuration
+    ports:
+      - "5671:5671"   # AMQPS (TLS-encrypted)
+      - "5672:5672"   # AMQP (legacy, will be disabled by rabbitmq.conf)
+      - "15672:15672" # Management UI
+    networks:
+      - news_network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  neo4j:
+    logging: *default-logging
+    image: neo4j:5.25-community
+    container_name: neo4j
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 1536m
+    environment:
+      NEO4J_AUTH: neo4j/neo4j_password_2024
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    volumes:
+      - neo4j_data:/data
+    ports:
+      - "7474:7474"  # HTTP Browser UI
+      - "7687:7687"  # Bolt Protocol
+    networks:
+      - news_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  n8n:
+    logging: *default-logging
+    image: docker.n8n.io/n8nio/n8n:2.1.1
+    container_name: news-n8n
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 512m
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_SECURE_COOKIE=false
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_ENCRYPTION_KEY=mJX+qAI0/gegSrmTL2i/xe+hBJAp7Sjn
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      # RabbitMQ Connection (isolated vhost /n8n)
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=n8n_user
+      - RABBITMQ_PASSWORD=n8n_secret_2024
+      - RABBITMQ_VHOST=n8n
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  prometheus:
+    logging: *default-logging
+    image: prom/prometheus:latest
+    container_name: news-prometheus
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - news_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  grafana:
+    logging: *default-logging
+    image: grafana/grafana:latest
+    container_name: news-grafana
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3002
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - news_network
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
+  # Application Services
+  # ==========================================================================
+
+  auth-service:
+    logging: *default-logging
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile.dev
+    container_name: news-auth-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/auth-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8080", "http://localhost:3000", "http://localhost:5173", "http://localhost:5173", "http://77.24.99.81:3000", "http://77.24.99.81:5173"]'
+    ports:
+      - "8100:8000"
+    volumes:
+      - ./services/auth-service/app:/app/app
+      - ./services/auth-service/tests:/app/tests
+      - ./services/common:/app/common  # Mount common rate limiting module
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  feed-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/feed-service/Dockerfile.dev
+    container_name: news-feed-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 512m
+    command: >
+      sh -c "pip install --quiet -e /app/shared/news-mcp-common && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug"
+    env_file:
+      - ./services/feed-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app:/app/shared:/app/shared/news-mcp-common
+      NEMESIS_API_URL: "http://localhost:8765"
+      SCRAPING_SERVICE_URL: "http://scraping-service:8000"
+      SCHEDULER_ENABLED: "false"  # Disabled - using Celery Beat instead (single source)
+      SCHEDULER_FETCH_TOLERANCE_SECONDS: "30"  # 30 seconds tolerance for fetch timing
+    ports:
+      - "8101:8000"
+    volumes:
+      - ./services/feed-service/app:/app/app
+      - ./services/feed-service/tests:/app/tests
+      - ./shared:/app/shared
+      - ./services/common:/app/common  # Mount common rate limiting module
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  feed-service-celery-worker:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/feed-service/Dockerfile.dev
+    container_name: news-feed-service-celery-worker
+    restart: unless-stopped
+    pids_limit: 1024
+    mem_limit: 512m
+    command: >
+      sh -c "pip install --quiet -e /app/shared/news-mcp-common && celery -A app.celery_app worker --loglevel=info --concurrency=2 -Q feed_outbox,feed_fetches,feed_bulk,maintenance,health,celery"
+    env_file:
+      - ./services/feed-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app:/app/shared:/app/shared/news-mcp-common
+      NEMESIS_API_URL: "http://localhost:8765"
+      SCRAPING_SERVICE_URL: "http://scraping-service:8000"
+    volumes:
+      - ./services/feed-service/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      feed-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.celery_app", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  feed-service-celery-beat:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/feed-service/Dockerfile.dev
+    container_name: news-feed-service-celery-beat
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: >
+      sh -c "pip install --quiet -e /app/shared/news-mcp-common && celery -A app.celery_app beat --loglevel=info"
+    env_file:
+      - ./services/feed-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app:/app/shared:/app/shared/news-mcp-common
+      NEMESIS_API_URL: "http://localhost:8765"
+      SCRAPING_SERVICE_URL: "http://scraping-service:8000"
+    volumes:
+      - ./services/feed-service/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - news_network
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      feed-service:
+        condition: service_started
+      feed-service-celery-worker:
+        condition: service_started
+
+  feed-service-analysis-consumer:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/feed-service/Dockerfile.dev
+    container_name: news-feed-service-analysis-consumer
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: python -m app.workers.analysis_consumer
+    env_file:
+      - ./services/feed-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app:/app/shared
+    volumes:
+      - ./services/feed-service/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      feed-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os; exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================================
+  # Content-Analysis-V2 - DEACTIVATED (Replaced by V3)
+  # Kept for reference, uncomment if rollback needed
+  # ============================================================================
+  # content-analysis-v2:
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/content-analysis-v2/Dockerfile.dev
+  #   restart: unless-stopped
+  #   pids_limit: 1024
+  #   command: python -m app.workers.pipeline_worker
+  #   env_file:
+  #     - ./services/content-analysis-v2/.env
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_PORT: 5432
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     RABBITMQ_HOST: rabbitmq
+  #     RABBITMQ_PORT: 5672
+  #     PYTHONPATH: /app:/app/common
+  #     OPENAI_API_KEY: ${OPENAI_API_KEY}
+  #   volumes:
+  #     - ./services/content-analysis-v2/app:/app/app
+  #     - ./services/content-analysis-v2/config:/app/config
+  #     - ./services/content-analysis-v2/tests:/app/tests
+  #     - ./database:/app/database
+  #     - ./services/common:/app/common
+  #   networks:
+  #     - news_network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   deploy:
+  #     replicas: 3
+
+  # content-analysis-v2-api:
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/content-analysis-v2/Dockerfile.dev
+  #   container_name: news-content-analysis-v2-api
+  #   restart: unless-stopped
+  #   command: uvicorn app.api.main:app --host 0.0.0.0 --port 8114 --reload
+  #   env_file:
+  #     - ./services/content-analysis-v2/.env
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_PORT: 5432
+  #   ports:
+  #     - "8114:8114"
+  #   volumes:
+  #     - ./services/content-analysis-v2/app:/app/app
+  #   networks:
+  #     - news_network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+  # ============================================================================
+  # Content-Analysis-V3 API (Cost-Optimized Pipeline)
+  # 96.7% cost reduction vs V2 ($0.0085 → $0.00028 per article)
+  # ============================================================================
+  content-analysis-v3-api:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/content-analysis-v3/Dockerfile.dev
+    container_name: news-content-analysis-v3-api
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/content-analysis-v3/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: news_mcp
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app:/app/shared
+    ports:
+      - "8117:8117"
+    volumes:
+      - ./services/content-analysis-v3/app:/app/app
+      - ./services/content-analysis-v3/tests:/app/tests
+      - ./services/content-analysis-v3/.env:/app/.env
+      - ./shared:/app/shared  # Mount shared auth module
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8117/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Content-Analysis-V3 Consumer (RabbitMQ Worker)
+  content-analysis-v3-consumer:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/content-analysis-v3/Dockerfile.dev
+    container_name: news-content-analysis-v3-consumer
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: python -m app.messaging.request_consumer
+    env_file:
+      - ./services/content-analysis-v3/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: news_mcp
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app
+    volumes:
+      - ./services/content-analysis-v3/app:/app/app
+      - ./services/content-analysis-v3/.env:/app/.env
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os; exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  research-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/research-service/Dockerfile.dev
+    container_name: news-research-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: >
+      sh -c "pip install --quiet -e /app/shared/news-mcp-common && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - ./services/research-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app:/app/shared:/app/shared/news-mcp-common
+    ports:
+      - "8103:8000"
+    volumes:
+      - ./services/research-service/app:/app/app
+      - ./services/research-service/tests:/app/tests
+      - ./shared:/app/shared
+      - ./services/common:/app/common  # Mount common rate limiting module
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  research-celery-worker:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/research-service/Dockerfile.dev
+    container_name: news-research-celery-worker
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: >
+      sh -c "pip install --quiet -e /app/shared/news-mcp-common && celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 --queues=research,research_scheduled,research_batch,maintenance,health"
+    env_file:
+      - ./services/research-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app:/app/shared:/app/shared/news-mcp-common
+    volumes:
+      - ./services/research-service/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      research-service:
+        condition: service_started
+    # Override health check from Dockerfile (Celery worker has no HTTP server)
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$${HOSTNAME} -t 10 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+
+  # osint-service: ARCHIVED 2026-01-03
+  # Reason: Service was only a placeholder - no actual OSINT functionality implemented
+  # Templates existed but _execute_sources() only returned empty mock data
+  # Archived to: services/_archived/osint-service-20260103
+
+  # notification-service: ARCHIVED 2026-01-03
+  # Reason: Service functionality replaced by n8n workflows
+  # - High-Tension Alerts → n8n-workflows/narrative-intelligence/01-high-tension-alert.json
+  # - Daily Digests → n8n-workflows/narrative-intelligence/02-daily-intelligence-digest.json
+  # - Multi-Channel (Telegram, Slack, Discord) → n8n native integrations
+  # Service was running but received 0 successful API calls (all 401 Unauthorized)
+  # Archived to: services/_archived/notification-service-20260103
+
+  search-service:
+    logging: *default-logging
+    build:
+      context: ./services/search-service
+      dockerfile: Dockerfile.dev
+    container_name: news-search-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/search-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      JWT_SECRET_KEY: ef85d69e49bc971350142a18469c646d41addd16ac73d9b28392419b46000315
+      JWT_ALGORITHM: HS256
+      # Semantic Search (Layer 1) - uses same API key as clustering-service
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8106:8000"  # Bind to all interfaces for frontend access
+    volumes:
+      - ./services/search-service/app:/app/app
+      - ./services/search-service/tests:/app/tests
+      - ./services/common:/app/common  # Mount common rate limiting module
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  search-celery-worker:
+    logging: *default-logging
+    build:
+      context: ./services/search-service
+      dockerfile: Dockerfile.dev
+    container_name: news-search-celery-worker
+    restart: unless-stopped
+    pids_limit: 1024
+    mem_limit: 384m
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - ./services/search-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    volumes:
+      - ./services/search-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      search-service:
+        condition: service_started
+    # Override health check from Dockerfile (Celery worker has no HTTP server)
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$${HOSTNAME} -t 10 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+
+  analytics-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/analytics-service/Dockerfile.dev
+    container_name: news-analytics-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/analytics-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app  # Task 403: Allow shared imports
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8080", "http://localhost:3000", "http://localhost:5173", "http://localhost:5173", "http://77.24.99.81:3000", "http://77.24.99.81:5173"]'
+      OPENAI_API_KEY: ${OPENAI_API_KEY}  # RAG Ask Intelligence feature
+    ports:
+      - "8107:8000"
+    volumes:
+      - ./services/analytics-service/app:/app/app
+      - ./services/analytics-service/tests:/app/tests
+      - ./shared:/app/shared  # Task 403: Cache library
+      - /tmp:/host_tmp:ro  # Read-only access to host /tmp for docker-stats.json and alerts
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Read-only Docker socket for live stats
+      - ./services/common:/app/common  # Mount common rate limiting module
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  analytics-celery-worker:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/analytics-service/Dockerfile.dev
+    container_name: news-analytics-celery-worker
+    restart: unless-stopped
+    pids_limit: 1024
+    mem_limit: 384m
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 -Q analytics,celery
+    env_file:
+      - ./services/analytics-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    volumes:
+      - ./services/analytics-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      analytics-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$${HOSTNAME} -t 10 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+
+  analytics-celery-beat:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/analytics-service/Dockerfile.dev
+    container_name: news-analytics-celery-beat
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    env_file:
+      - ./services/analytics-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    volumes:
+      - ./services/analytics-service/app:/app/app
+    networks:
+      - news_network
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      analytics-service:
+        condition: service_started
+
+  scheduler-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/scheduler-service/Dockerfile.dev
+    container_name: news-scheduler-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    env_file:
+      - ./services/scheduler-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    ports:
+      - "8108:8008"
+    volumes:
+      - ./services/scheduler-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      feed-service:
+        condition: service_started
+
+  scraping-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/scraping-service/Dockerfile.dev
+    container_name: news-scraping-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/scraping-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: news_mcp
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_secret_2024
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    ports:
+      - "8009:8009"
+    volumes:
+      - ./services/scraping-service/app:/app/app
+      - ./services/scraping-service/tests:/app/tests
+      - ./services/scraping-service/pytest.ini:/app/pytest.ini
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ==========================================================================
+  # Nginx Reverse Proxy (for external access via single port)
+  # ==========================================================================
+
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: news-nginx-proxy
+    restart: unless-stopped
+    pids_limit: 256
+    mem_limit: 128m
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - news_network
+    depends_on:
+      - auth-service
+      - feed-service
+      - analytics-service
+      - search-service
+      - frontend
+
+  # ==========================================================================
+  # Frontend
+  # ==========================================================================
+
+  frontend:
+    logging: *default-logging
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: news-frontend
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 512m
+    environment:
+      # Browser-accessible API URLs - use localhost with direct ports for dev mode
+      # Port 3000 (Vite dev) calls services directly to avoid CORS issues
+      VITE_AUTH_API_URL: "http://localhost:8100/api/v1"
+      VITE_FEED_API_URL: "http://localhost:8101/api/v1"
+      VITE_ANALYSIS_V2_API_URL: "http://localhost:8117"
+      VITE_ANALYTICS_API_URL: "http://localhost:8107/api/v1"
+      VITE_SEARCH_API_URL: "http://localhost:8106/api/v1"
+      # Note: No /api/v1 suffix - API client adds paths like /health/ready and /api/v1/graph/stats
+      VITE_KG_API_URL: "http://localhost:8111"
+      VITE_FMP_API_URL: "http://localhost:8113/api/v1"
+      VITE_NLP_API_URL: "http://localhost:8115"
+      VITE_PREDICTION_API_URL: "http://localhost:8116/api/v1"
+      VITE_EXECUTION_API_URL: "http://localhost:8120/api/v1"
+      VITE_INTELLIGENCE_API_URL: "http://localhost:8118/api/v1/intelligence"
+      VITE_MCP_API_URL: "http://localhost:9008"
+    ports:
+      - "3000:3000"
+    volumes:
+      # ================================================================
+      # Source code - hot reload
+      # ================================================================
+      - ./frontend/src:/app/src
+      - ./frontend/packages:/app/packages
+      - ./frontend/public:/app/public
+
+      # ================================================================
+      # Entry point
+      # ================================================================
+      - ./frontend/index.html:/app/index.html
+
+      # ================================================================
+      # Configuration files (mounted for hot-reload config changes)
+      # ================================================================
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/components.json:/app/components.json
+
+      # ================================================================
+      # CRITICAL: Prevent host overwriting container's node_modules
+      # ================================================================
+      # Anonymous volumes protect these directories from being
+      # overwritten by host mounts (which would break Tailwind/Vite)
+      - /app/node_modules
+      - /app/.vite
+    networks:
+      - news_network
+    depends_on:
+      - auth-service
+      - feed-service
+
+  intelligence-frontend:
+    logging: *default-logging
+    build:
+      context: ./intelligence-frontend
+      dockerfile: Dockerfile.dev
+    container_name: intelligence-frontend
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 512m
+    environment:
+      VITE_API_URL: "http://localhost:8118"
+    ports:
+      - "3001:3001"
+    volumes:
+      # Source code - hot reload
+      - ./intelligence-frontend/src:/app/src
+      - ./intelligence-frontend/public:/app/public
+
+      # Entry point
+      - ./intelligence-frontend/index.html:/app/index.html
+
+      # Configuration files
+      - ./intelligence-frontend/vite.config.ts:/app/vite.config.ts
+      - ./intelligence-frontend/tsconfig.json:/app/tsconfig.json
+      - ./intelligence-frontend/tsconfig.node.json:/app/tsconfig.node.json
+      - ./intelligence-frontend/tsconfig.app.json:/app/tsconfig.app.json
+      - ./intelligence-frontend/postcss.config.js:/app/postcss.config.js
+      - ./intelligence-frontend/tailwind.config.js:/app/tailwind.config.js
+
+      # Protect node_modules
+      - /app/node_modules
+      - /app/.vite
+    networks:
+      - news_network
+    depends_on:
+      - intelligence-service
+
+  # ==========================================================================
+  # LLM Orchestrator Service (DIA System)
+  # ==========================================================================
+  # STATUS: DEACTIVATED (2025-11-08)
+  # REASON: Future feature - not yet integrated with content-analysis-v2
+  # TO ACTIVATE: docker compose --profile dia up -d llm-orchestrator-service
+  # DOCS: docs/future-features/dia-system.md
+  # ==========================================================================
+
+  llm-orchestrator-service:
+    logging: *default-logging
+    profiles: ["dia"]  # Only start with: docker compose --profile dia up
+    build:
+      context: ./services/llm-orchestrator-service
+      dockerfile: Dockerfile.dev
+    container_name: news-llm-orchestrator
+    restart: unless-stopped
+    pids_limit: 512
+    env_file:
+      - ./services/llm-orchestrator-service/.env
+    environment:
+      DATABASE_URL: postgresql://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY}
+      FMP_API_KEY: ${FMP_API_KEY}
+    ports:
+      - "8109:8109"
+    volumes:
+      - ./services/llm-orchestrator-service/app:/app/app
+      - ./services/llm-orchestrator-service/tests:/app/tests
+      - ./models:/app/models  # Access to shared models
+    networks:
+      - news_network
+    depends_on:
+      - postgres
+      - rabbitmq
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8109/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================================================
+  # Knowledge Graph Service (Neo4j Integration)
+  # ==========================================================================
+
+  knowledge-graph-service:
+    logging: *default-logging
+    build:
+      context: ./services/knowledge-graph-service
+      dockerfile: Dockerfile.dev
+    container_name: news-knowledge-graph-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/knowledge-graph-service/.env
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: neo4j_password_2024
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app:/app/common
+    ports:
+      - "8111:8111"
+    volumes:
+      - ./services/knowledge-graph-service/app:/app/app
+      - ./services/knowledge-graph-service/tests:/app/tests
+      - ./services/common:/app/common
+    networks:
+      - news_network
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8111/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # Narrative Intelligence Gateway (Unified Narrative Analysis API)
+  # ==========================================================================
+
+  narrative-intelligence-gateway:
+    logging: *default-logging
+    build:
+      context: ./services/narrative-intelligence-gateway
+      dockerfile: Dockerfile.dev
+    container_name: news-narrative-intelligence-gateway
+    restart: unless-stopped
+    pids_limit: 256
+    mem_limit: 384m
+    env_file:
+      - ./services/narrative-intelligence-gateway/.env
+    environment:
+      KNOWLEDGE_GRAPH_URL: http://knowledge-graph-service:8111
+      # NOTIFICATION_URL: REMOVED - notification-service archived 2026-01-03
+      LOG_LEVEL: INFO
+    ports:
+      - "8114:8114"
+    volumes:
+      - ./services/narrative-intelligence-gateway/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      knowledge-graph-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8114/health', timeout=5)\""]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+
+  # ==========================================================================
+  # Entity Canonicalization Service (Alias Management & Entity Linking)
+  # ==========================================================================
+
+  entity-canonicalization-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/entity-canonicalization-service/Dockerfile
+    container_name: news-entity-canonicalization
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/entity-canonicalization-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: news_mcp
+      WIKIDATA_API_URL: https://www.wikidata.org/w/api.php
+    ports:
+      - "8112:8112"
+    volumes:
+      - ./services/entity-canonicalization-service/app:/app/app
+      - ./services/entity-canonicalization-service/tests:/app/tests
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8112/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  entity-canonicalization-celery-worker:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/entity-canonicalization-service/Dockerfile
+    container_name: news-entity-canonicalization-celery
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - ./services/entity-canonicalization-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: news_mcp
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: redis_secret_2024
+      WIKIDATA_API_URL: https://www.wikidata.org/w/api.php
+    volumes:
+      - ./services/entity-canonicalization-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # Geolocation Service (News Map Visualization)
+  # ==========================================================================
+
+  geolocation-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/geolocation-service/Dockerfile.dev
+    container_name: news-geolocation-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/geolocation-service/.env
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_secret_2024
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      ENTITY_CANONICALIZATION_URL: http://entity-canonicalization-service:8112
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:5173"]'
+    ports:
+      - "8115:8115"
+    volumes:
+      - ./services/geolocation-service/app:/app/app
+      - ./services/geolocation-service/tests:/app/tests
+      - ./services/geolocation-service/data:/app/data
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      entity-canonicalization-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8115/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  geolocation-service-consumer:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/geolocation-service/Dockerfile.dev
+    container_name: news-geolocation-consumer
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: python -m app.workers.geo_consumer
+    env_file:
+      - ./services/geolocation-service/.env
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_secret_2024
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      ENTITY_CANONICALIZATION_URL: http://entity-canonicalization-service:8112
+    volumes:
+      - ./services/geolocation-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      geolocation-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os; exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================================================
+  # Clustering Service (News Article Clustering)
+  # Port: 8122 | Version: 1.0.0 | Epic 1.1 - Single-Pass Clustering
+  # ==========================================================================
+
+  clustering-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/clustering-service/Dockerfile
+    container_name: news-clustering-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    environment:
+      DATABASE_URL: postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_VHOST: /
+      SERVICE_NAME: clustering-service
+      LOG_LEVEL: INFO
+      SIMILARITY_THRESHOLD: 0.75
+      CLUSTER_MAX_AGE_HOURS: 72
+      BURST_ARTICLE_THRESHOLD: 5
+      BURST_WINDOW_MINUTES: 15  # Increased from 5min - articles arrive too slowly for 5min windows
+      JWT_SECRET_KEY: ef85d69e49bc971350142a18469c646d41addd16ac73d9b28392419b46000315
+      # OpenAI Embeddings for Semantic Topic Search
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # Feature Flag: Use article_clusters for profile matching (persistent, no duplicates)
+      USE_ARTICLE_CLUSTERS: "true"
+    ports:
+      - "8122:8122"
+    volumes:
+      - ./services/clustering-service/app:/app/app
+      - ./services/clustering-service/tests:/app/tests
+      - ./services/clustering-service/alembic:/app/alembic
+      - ./libs/news-intelligence-common:/tmp/news-intelligence-common
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8122/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
+  # Clustering Celery Worker (Batch UMAP+HDBSCAN)
+  # Runs periodic batch clustering for topic discovery (Epic 2)
+  # ==========================================================================
+
+  clustering-celery-worker:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/clustering-service/Dockerfile
+    container_name: news-clustering-celery-worker
+    restart: unless-stopped
+    pids_limit: 1024
+    command: celery -A app.workers.batch_clustering_worker worker --loglevel=info --concurrency=1 -Q batch-clustering
+    environment:
+      DATABASE_URL: postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      SYNC_DATABASE_URL: postgresql://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      CELERY_BROKER_URL: redis://:redis_secret_2024@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis_secret_2024@redis:6379/0
+      SERVICE_NAME: clustering-celery-worker
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app
+      # Batch clustering parameters
+      BATCH_CLUSTERING_INTERVAL_HOURS: 2
+      BATCH_MIN_CLUSTER_SIZE: 15
+      BATCH_UMAP_COMPONENTS: 10
+      BATCH_MAX_ARTICLES: 30000  # Limit for memory management
+    mem_limit: 2g
+    memswap_limit: 3g
+    volumes:
+      - ./services/clustering-service/app:/app/app
+      - ./libs/news-intelligence-common:/tmp/news-intelligence-common
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Note: Celery workers busy with long tasks (90s+) can't respond to pings
+      # Check if celery process exists via /proc
+      test: ["CMD-SHELL", "python -c \"import os; exit(0 if any('celery' in open(f'/proc/{p}/cmdline').read() for p in os.listdir('/proc') if p.isdigit()) else 1)\""]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  clustering-celery-beat:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/clustering-service/Dockerfile
+    container_name: news-clustering-celery-beat
+    restart: unless-stopped
+    pids_limit: 128
+    mem_limit: 256m
+    command: celery -A app.workers.batch_clustering_worker beat --loglevel=info
+    # Override Dockerfile healthcheck - celery-beat has no HTTP server
+    healthcheck:
+      test: ["CMD-SHELL", "cat /proc/1/cmdline | tr '\\0' ' ' | grep -q beat || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      DATABASE_URL: postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      SYNC_DATABASE_URL: postgresql://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      CELERY_BROKER_URL: redis://:redis_secret_2024@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis_secret_2024@redis:6379/0
+      SERVICE_NAME: clustering-celery-beat
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app
+      BATCH_CLUSTERING_INTERVAL_HOURS: 2
+    volumes:
+      - ./services/clustering-service/app:/app/app
+      - ./libs/news-intelligence-common:/tmp/news-intelligence-common
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      clustering-celery-worker:
+        condition: service_started
+  # ==========================================================================
+  # MediaStack Service (News API Integration)
+  # Port: 8121 | Thin API layer with n8n orchestration for news aggregation
+  # ==========================================================================
+
+  mediastack-service:
+    logging: *default-logging
+    build:
+      context: ./services/mediastack-service
+      dockerfile: Dockerfile.dev
+    container_name: news-mediastack-service
+    restart: unless-stopped
+    pids_limit: 256
+    mem_limit: 256m
+    env_file:
+      - ./services/mediastack-service/.env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://:redis_secret_2024@redis:6379/0
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      # MEDIASTACK_API_KEY loaded from .env file
+    ports:
+      - "8121:8121"
+    volumes:
+      - ./services/mediastack-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8121/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  ontology-proposals-service:
+    logging: *default-logging
+    build:
+      context: ./services/ontology-proposals-service
+      dockerfile: Dockerfile.dev
+    container_name: news-ontology-proposals-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: news_mcp
+      DEBUG: "true"
+      LOG_LEVEL: INFO
+    ports:
+      - "8109:8109"
+    volumes:
+      - ./services/ontology-proposals-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8109/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================================================
+  # OSS Service - Ontology Suggestion System
+  # ==========================================================================
+
+  oss-service:
+    logging: *default-logging
+    build:
+      context: ./services/oss-service
+      dockerfile: Dockerfile.dev
+    container_name: news-oss-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: neo4j_password_2024
+      NEO4J_DATABASE: neo4j
+      PROPOSALS_API_URL: http://ontology-proposals-service:8109
+      ANALYSIS_INTERVAL_SECONDS: 3600
+      MIN_PATTERN_OCCURRENCES: 10
+      CONFIDENCE_THRESHOLD: 0.7
+      DEBUG: "true"
+      LOG_LEVEL: INFO
+    ports:
+      - "8110:8110"
+    volumes:
+      - ./services/oss-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      ontology-proposals-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8110/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+  # ============================================================================
+  # nlp-extraction-api: (ARCHIVED - see header above)
+  #   logging: *default-logging
+  #   build:
+  #     context: .
+  #     dockerfile: services/nlp-extraction-service/Dockerfile.dev
+  #   container_name: news-nlp-extraction-api
+  #   restart: no
+  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8115 --reload
+  #   ports:
+  #     - "8115:8115"
+  #   environment:
+  #     SERVICE_NAME: nlp-extraction-service
+  #     SERVICE_PORT: 8115
+  #     LOG_LEVEL: INFO
+  #     EXTRACTOR_VERSION: base_v1
+  #     DATABASE_URL: postgresql://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+  #     DATABASE_SCHEMA: nlp_extractions
+  #     DATABASE_POOL_SIZE: 10
+  #     DATABASE_MAX_OVERFLOW: 20
+  #     REDIS_URL: redis://redis:6379/3
+  #     RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+  #     ENABLE_CACHE: "true"
+  #     CACHE_TTL: 86400
+  #     ENABLE_METRICS: "true"
+  #     METRICS_PORT: 9115
+  #   volumes:
+  #     - ./services/nlp-extraction-service/app:/app/app
+  #   networks:
+  #     - news_network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1G
+  #         cpus: '0.5'
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8115/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+
+  content-analysis-v3-consumer-2:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/content-analysis-v3/Dockerfile.dev
+    container_name: news-content-analysis-v3-consumer-2
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: python -m app.messaging.request_consumer
+    env_file:
+      - ./services/content-analysis-v3/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: news_mcp
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - news_network
+    volumes:
+      - ./services/content-analysis-v3:/app:delegated
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import os; exit(0 if os.path.exists(\"/proc/1/cmdline\") else 1)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  content-analysis-v3-consumer-3:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/content-analysis-v3/Dockerfile.dev
+    container_name: news-content-analysis-v3-consumer-3
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: python -m app.messaging.request_consumer
+    env_file:
+      - ./services/content-analysis-v3/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: news_mcp
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - news_network
+    volumes:
+      - ./services/content-analysis-v3:/app:delegated
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import os; exit(0 if os.path.exists(\"/proc/1/cmdline\") else 1)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
+  # Intelligence Service - InfiniMind Intelligence (Port 8118)
+  # Event Detection, Clustering & Risk Scoring
+  # ==========================================================================
+
+  intelligence-service:
+    logging: *default-logging
+    build:
+      context: ./services/intelligence-service
+      dockerfile: Dockerfile.dev
+    container_name: news-intelligence-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/intelligence-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:3001", "http://localhost:3000", "http://localhost:3001", "http://77.24.99.81:3000", "http://77.24.99.81:3001"]'
+    ports:
+      - "8118:8000"
+    volumes:
+      - ./services/intelligence-service/app:/app/app
+      - ./services/intelligence-service/tests:/app/tests
+      - ./services/intelligence-service/migrations:/app/migrations
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)\""]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+
+  intelligence-celery-worker:
+    logging: *default-logging
+    mem_limit: 512m
+    build:
+      context: ./services/intelligence-service
+      dockerfile: Dockerfile.dev
+    container_name: news-intelligence-celery-worker
+    restart: unless-stopped
+    pids_limit: 1024
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2 -Q intelligence-ingestion,intelligence-clustering,celery
+    env_file:
+      - ./services/intelligence-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: news_mcp
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_URL: postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      REDIS_URL: redis://:redis_secret_2024@redis:6379/0
+      REDIS_PASSWORD: redis_secret_2024
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app
+    volumes:
+      - ./services/intelligence-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  intelligence-celery-beat:
+    logging: *default-logging
+    build:
+      context: ./services/intelligence-service
+      dockerfile: Dockerfile.dev
+    container_name: news-intelligence-celery-beat
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file:
+      - ./services/intelligence-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: news_mcp
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_URL: postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      REDIS_URL: redis://:redis_secret_2024@redis:6379/0
+      REDIS_PASSWORD: redis_secret_2024
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app
+    volumes:
+      - ./services/intelligence-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      intelligence-celery-worker:
+        condition: service_healthy
+
+  # ==========================================================================
+  # Narrative Service - InfiniMind Narrative Analysis (Port 8119)
+  # Frame Detection, Bias Analysis & Propaganda Detection
+  # ==========================================================================
+
+  narrative-service:
+    logging: *default-logging
+    build:
+      context: ./services/narrative-service
+      dockerfile: Dockerfile.dev
+    container_name: news-narrative-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/narrative-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      PYTHONPATH: /app
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:3001", "http://localhost:3000", "http://localhost:3001", "http://77.24.99.81:3000", "http://77.24.99.81:3001"]'
+    ports:
+      - "8119:8000"
+    volumes:
+      - ./services/narrative-service/app:/app/app
+      - ./services/narrative-service/tests:/app/tests
+      - ./services/narrative-service/migrations:/app/migrations
+      - ./shared:/app/shared  # Mount shared auth module
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  narrative-celery-worker:
+    logging: *default-logging
+    build:
+      context: ./services/narrative-service
+      dockerfile: Dockerfile.dev
+    container_name: news-narrative-celery-worker
+    restart: unless-stopped
+    pids_limit: 1024
+    mem_limit: 384m
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 -Q narrative,celery
+    env_file:
+      - ./services/narrative-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    volumes:
+      - ./services/narrative-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  narrative-celery-beat:
+    logging: *default-logging
+    build:
+      context: ./services/narrative-service
+      dockerfile: Dockerfile.dev
+    container_name: news-narrative-celery-beat
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    env_file:
+      - ./services/narrative-service/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    volumes:
+      - ./services/narrative-service/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ==========================================================================
+  # Execution Service (Crypto Trading) - ARCHIVED 2025-12-28
+  # Reason: Live trading not needed, prediction-service has paper trading
+  # Location: services/_archived/execution-service-20251228
+  # ==========================================================================
+
+  # ==========================================================================
+  # MCP Intelligence Server (Port 9001)
+  # Model Context Protocol Gateway for Intelligence Services
+  # ==========================================================================
+
+  mcp-intelligence-server:
+    logging: *default-logging
+    build:
+      context: ./services/mcp-intelligence-server
+      dockerfile: Dockerfile.dev
+    container_name: mcp-intelligence-server
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: >
+      sh -c "pip install --quiet -e /app/shared/news-mcp-common &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - ./services/mcp-intelligence-server/.env
+    environment:
+      # Server Config
+      HOST: 0.0.0.0
+      PORT: 8000
+      DEBUG: true
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app:/app/shared:/app/shared/news-mcp-common
+
+      # Backend Service URLs (Docker internal network)
+      CONTENT_ANALYSIS_URL: http://content-analysis-v3-api:8117
+      ENTITY_CANON_URL: http://entity-canonicalization-service:8112
+      INTELLIGENCE_URL: http://intelligence-service:8000
+      NARRATIVE_URL: http://narrative-service:8000
+      # NOTE: OSINT_URL removed 2026-01-03 - osint-service was archived (placeholder only)
+
+      # Circuit Breaker Settings
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      CIRCUIT_BREAKER_RECOVERY_TIMEOUT: 60
+
+      # Timeout Settings
+      HTTP_TIMEOUT: 30
+      HTTP_CONNECT_TIMEOUT: 5
+
+      # Retry Settings
+      MAX_RETRIES: 3
+      RETRY_BACKOFF_FACTOR: 2
+
+      # Redis Cache Settings
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 5
+      REDIS_PASSWORD: redis_secret_2024
+      CACHE_TTL_SHORT: 300      # 5 minutes for fast-changing data
+      CACHE_TTL_MEDIUM: 1800    # 30 minutes for moderate data
+      CACHE_TTL_LONG: 3600      # 1 hour for stable data
+    ports:
+      - "9001:8000"
+    volumes:
+      - ./services/mcp-intelligence-server/app:/app/app
+      - ./services/mcp-intelligence-server/tests:/app/tests
+      - ./shared/news-mcp-common:/app/shared/news-mcp-common
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_started
+      content-analysis-v3-api:
+        condition: service_healthy
+      entity-canonicalization-service:
+        condition: service_healthy
+      # osint-service removed 2026-01-03 - service was archived
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)\""]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+
+  mcp-search-server:
+    logging: *default-logging
+    build:
+      context: ./services/mcp-search-server
+      dockerfile: Dockerfile.dev
+    container_name: mcp-search-server
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    command: >
+      sh -c "pip install --quiet -e /app/shared/news-mcp-common &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - ./services/mcp-search-server/.env
+    environment:
+      # Server Config
+      HOST: 0.0.0.0
+      PORT: 8000
+      DEBUG: true
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app:/app/shared:/app/shared/news-mcp-common
+
+      # Backend Service URLs (Docker internal network)
+      SEARCH_URL: http://news-search-service:8000
+      FEED_URL: http://news-feed-service:8000
+      RESEARCH_URL: http://news-research-service:8000
+
+      # Circuit Breaker Settings
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      CIRCUIT_BREAKER_RECOVERY_TIMEOUT: 60
+
+      # Timeout Settings
+      HTTP_TIMEOUT: 30
+      HTTP_CONNECT_TIMEOUT: 5
+
+      # Retry Settings
+      MAX_RETRIES: 3
+      RETRY_BACKOFF_FACTOR: 2
+
+      # Redis Cache Settings
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 6
+      REDIS_PASSWORD: redis_secret_2024
+      CACHE_TTL_SHORT: 300      # 5 minutes for fast-changing data
+      CACHE_TTL_MEDIUM: 1800    # 30 minutes for moderate data
+      CACHE_TTL_LONG: 3600      # 1 hour for stable data
+    ports:
+      - "9002:8000"
+    volumes:
+      - ./services/mcp-search-server/app:/app/app
+      - ./services/mcp-search-server/tests:/app/tests
+      - ./shared/news-mcp-common:/app/shared/news-mcp-common
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_started
+      search-service:
+        condition: service_started
+      feed-service:
+        condition: service_started
+      research-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================================================
+  # MCP Analytics Server (Port 9003) - Phase 1 Server 3
+  # Gateway for Analytics and Prediction services
+  # Note: execution-service removed (archived 2025-12-28)
+  # ============================================================================
+  mcp-analytics-server:
+    logging: *default-logging
+    build:
+      context: ./services/mcp-analytics-server
+      dockerfile: Dockerfile.dev
+    container_name: mcp-analytics-server
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: >
+      sh -c "pip install --quiet -e /app/shared/news-mcp-common &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - ./services/mcp-analytics-server/.env
+    environment:
+      # Server Config
+      HOST: 0.0.0.0
+      PORT: 8000
+      DEBUG: true
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app:/app/shared:/app/shared/news-mcp-common
+
+      # Backend Service URLs (Docker internal network)
+      ANALYTICS_URL: http://news-analytics-service:8000
+      # EXECUTION_URL removed - service archived 2025-12-28
+
+      # Circuit Breaker Settings
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      CIRCUIT_BREAKER_RECOVERY_TIMEOUT: 60
+
+      # Timeout Settings
+      HTTP_TIMEOUT: 30
+      HTTP_CONNECT_TIMEOUT: 5
+
+      # Retry Settings
+      MAX_RETRIES: 3
+      RETRY_BACKOFF_FACTOR: 2
+
+      # Redis Cache Settings
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 6
+      REDIS_PASSWORD: redis_secret_2024
+      CACHE_TTL_SHORT: 300      # 5 minutes for fast-changing data
+      CACHE_TTL_MEDIUM: 1800    # 30 minutes for moderate data
+      CACHE_TTL_LONG: 3600      # 1 hour for stable data
+    ports:
+      - "9003:8000"
+    volumes:
+      - ./services/mcp-analytics-server/app:/app/app
+      - ./services/mcp-analytics-server/tests:/app/tests
+      - ./shared/news-mcp-common:/app/shared/news-mcp-common
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mcp-knowledge-graph-server:
+    logging: *default-logging
+    build:
+      context: ./services/mcp-knowledge-graph-server
+      dockerfile: Dockerfile
+    container_name: mcp-knowledge-graph-server
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    env_file:
+      - ./services/mcp-knowledge-graph-server/.env
+    environment:
+      # Server Config
+      HOST: 0.0.0.0
+      PORT: 9004
+      LOG_LEVEL: INFO
+
+      # Backend Service URLs (Docker internal network)
+      KNOWLEDGE_GRAPH_URL: http://knowledge-graph-service:8111
+
+      # HTTP Client
+      HTTP_TIMEOUT: 30
+      MAX_CONNECTIONS: 100
+      MAX_KEEPALIVE_CONNECTIONS: 20
+
+      # Circuit Breaker Settings
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      CIRCUIT_BREAKER_RECOVERY_TIMEOUT: 60
+
+      # Redis Cache Settings
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 7
+      REDIS_PASSWORD: redis_secret_2024
+      CACHE_TTL_SHORT: 60       # 1 min for volatile data
+      CACHE_TTL_MEDIUM: 300     # 5 min for semi-stable data
+      CACHE_TTL_LONG: 3600      # 1 hour for stable data
+      CACHE_TTL_ENTITY: 300     # Entity connections
+      CACHE_TTL_STATS: 60       # Statistics (frequent changes)
+      CACHE_TTL_SEARCH: 300     # Search results
+      CACHE_TTL_ANALYTICS: 600  # Analytics (10 min)
+      CACHE_TTL_MARKET: 60      # Market data (volatile)
+    ports:
+      - "9004:9004"
+    volumes:
+      - ./services/mcp-knowledge-graph-server/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_started
+      knowledge-graph-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  # ==========================================================================
+  # MCP Integration Server (Port 9005)
+  # Model Context Protocol Gateway for Integration Services (FMP, Research, Notification)
+  # ==========================================================================
+
+  mcp-integration-server:
+    logging: *default-logging
+    build:
+      context: ./services/mcp-integration-server
+      dockerfile: Dockerfile.dev
+    container_name: mcp-integration-server
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: uvicorn app.main:app --host 0.0.0.0 --port 9005 --reload
+    env_file:
+      - ./services/mcp-integration-server/.env
+    environment:
+      # Server Config
+      MCP_INTEGRATION_LOG_LEVEL: INFO
+
+      # Backend Service URLs
+      # FMP uses host network mode, so we use docker host gateway IP
+      MCP_INTEGRATION_FMP_SERVICE_URL: http://172.17.0.1:8113
+      # Internal Docker ports are 8000, not the external mapped ports
+      MCP_INTEGRATION_RESEARCH_SERVICE_URL: http://research-service:8000
+      # MCP_INTEGRATION_NOTIFICATION_SERVICE_URL: REMOVED - notification-service archived 2026-01-03
+
+      # Redis Cache Settings
+      MCP_INTEGRATION_REDIS_HOST: redis
+      MCP_INTEGRATION_REDIS_PORT: 6379
+      MCP_INTEGRATION_REDIS_DB: 7
+      MCP_INTEGRATION_REDIS_PASSWORD: redis_secret_2024
+
+      # Circuit Breaker Settings
+      MCP_INTEGRATION_CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      MCP_INTEGRATION_CIRCUIT_BREAKER_RECOVERY_TIMEOUT: 30
+    ports:
+      - "9005:9005"
+    volumes:
+      - ./services/mcp-integration-server/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_started
+      research-service:
+        condition: service_started
+      # notification-service: REMOVED - archived 2026-01-03
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================================================
+  # MCP Core Server (Port 9006)
+  # Model Context Protocol Gateway for Core Services (Auth, Analytics)
+  # ==========================================================================
+
+  mcp-core-server:
+    logging: *default-logging
+    build:
+      context: ./services/mcp-core-server
+      dockerfile: Dockerfile.dev
+    container_name: mcp-core-server
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: uvicorn app.main:app --host 0.0.0.0 --port 9006 --reload
+    env_file:
+      - ./services/mcp-core-server/.env
+    environment:
+      # Server Config
+      MCP_CORE_LOG_LEVEL: INFO
+
+      # Backend Service URLs (internal port 8000)
+      MCP_CORE_AUTH_SERVICE_URL: http://auth-service:8000
+      MCP_CORE_ANALYTICS_SERVICE_URL: http://analytics-service:8000
+
+      # Redis Cache Settings
+      MCP_CORE_REDIS_HOST: redis
+      MCP_CORE_REDIS_PORT: 6379
+      MCP_CORE_REDIS_DB: 8
+      MCP_CORE_REDIS_PASSWORD: redis_secret_2024
+
+      # Circuit Breaker Settings
+      MCP_CORE_CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      MCP_CORE_CIRCUIT_BREAKER_RECOVERY_TIMEOUT: 30
+    ports:
+      - "9006:9006"
+    volumes:
+      - ./services/mcp-core-server/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_started
+      auth-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================================================
+  # MCP Content Server (Port 9007)
+  # Model Context Protocol Gateway for Content Services (Feed)
+  # ==========================================================================
+
+  mcp-content-server:
+    logging: *default-logging
+    build:
+      context: ./services/mcp-content-server
+      dockerfile: Dockerfile.dev
+    container_name: mcp-content-server
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: uvicorn app.main:app --host 0.0.0.0 --port 9007 --reload
+    env_file:
+      - ./services/mcp-content-server/.env
+    environment:
+      # Server Config
+      MCP_CONTENT_LOG_LEVEL: INFO
+
+      # Backend Service URL (internal port 8000)
+      MCP_CONTENT_FEED_SERVICE_URL: http://feed-service:8000
+
+      # Redis Cache Settings
+      MCP_CONTENT_REDIS_HOST: redis
+      MCP_CONTENT_REDIS_PORT: 6379
+      MCP_CONTENT_REDIS_DB: 9
+      MCP_CONTENT_REDIS_PASSWORD: redis_secret_2024
+
+      # Circuit Breaker Settings
+      MCP_CONTENT_CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      MCP_CONTENT_CIRCUIT_BREAKER_RECOVERY_TIMEOUT: 30
+    ports:
+      - "9007:9007"
+    volumes:
+      - ./services/mcp-content-server/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_started
+      feed-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================================================
+  # MCP Orchestration Server (Port 9008)
+  # Model Context Protocol Gateway for Orchestration Services (Scheduler)
+  # ==========================================================================
+
+  mcp-orchestration-server:
+    logging: *default-logging
+    build:
+      context: ./services/mcp-orchestration-server
+      dockerfile: Dockerfile.dev
+    container_name: mcp-orchestration-server
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 256m
+    command: uvicorn app.main:app --host 0.0.0.0 --port 9008 --reload
+    env_file:
+      - ./services/mcp-orchestration-server/.env
+    environment:
+      # Server Config
+      MCP_ORCH_LOG_LEVEL: INFO
+
+      # Backend Service URLs
+      MCP_ORCH_SCHEDULER_SERVICE_URL: http://scheduler-service:8008
+      MCP_ORCH_MEDIASTACK_SERVICE_URL: http://mediastack-service:8121
+      MCP_ORCH_INTELLIGENCE_SERVICE_URL: http://mcp-intelligence-server:8000
+
+      # Redis Cache Settings
+      MCP_ORCH_REDIS_HOST: redis
+      MCP_ORCH_REDIS_PORT: 6379
+      MCP_ORCH_REDIS_DB: 10
+      MCP_ORCH_REDIS_PASSWORD: redis_secret_2024
+
+      # Circuit Breaker Settings
+      MCP_ORCH_CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      MCP_ORCH_CIRCUIT_BREAKER_RECOVERY_TIMEOUT: 30
+    ports:
+      - "9008:9008"
+    volumes:
+      - ./services/mcp-orchestration-server/app:/app/app
+    networks:
+      - news_network
+    depends_on:
+      redis:
+        condition: service_started
+      scheduler-service:
+        condition: service_started
+      mediastack-service:
+        condition: service_healthy
+      mcp-intelligence-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================================================
+  # SITREP Service (Situation Report Generation)
+  # Port: 8123 | Intelligence Briefing Generation from News Clusters
+  # Epic 1.5: Consumes cluster events, applies time-decay, generates AI reports
+  # ==========================================================================
+
+  sitrep-service:
+    logging: *default-logging
+    build:
+      context: .
+      dockerfile: ./services/sitrep-service/Dockerfile
+    container_name: news-sitrep-service
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    environment:
+      DATABASE_URL: postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_VHOST: /
+      RABBITMQ_EXCHANGE: news.events
+      SERVICE_NAME: sitrep-service
+      LOG_LEVEL: INFO
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: gpt-4o-mini
+      SITREP_TOP_STORIES_COUNT: 10
+      SITREP_MIN_CLUSTER_SIZE: 3
+      SITREP_GENERATION_HOUR: 6
+      JWT_SECRET_KEY: ef85d69e49bc971350142a18469c646d41addd16ac73d9b28392419b46000315
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./services/sitrep-service/app:/app/app
+      - ./services/sitrep-service/tests:/app/tests
+      - ./libs/news-intelligence-common:/tmp/news-intelligence-common
+    networks:
+      - news_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      clustering-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8123/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
+  # NEXUS Agent (Port 8120)
+  # AI Co-Pilot for News Microservices Platform
+  # LangGraph + OpenAI powered intelligent assistant
+  # ==========================================================================
+
+  nexus-agent:
+    logging: *default-logging
+    build:
+      context: ./services/nexus-agent
+      dockerfile: Dockerfile.dev
+    container_name: news-nexus-agent
+    restart: unless-stopped
+    pids_limit: 512
+    mem_limit: 384m
+    env_file:
+      - ./services/nexus-agent/.env
+    environment:
+      # OpenAI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: gpt-4o-mini
+      OPENAI_TEMPERATURE: 0.7
+      OPENAI_MAX_TOKENS: 1000
+
+      # Phase 2: Database and Perplexity
+      DATABASE_URL: postgresql+asyncpg://news_user:${POSTGRES_PASSWORD}@postgres:5432/news_mcp
+      PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY}
+      PERPLEXITY_BASE_URL: https://api.perplexity.ai
+      PERPLEXITY_TIMEOUT: 30
+      PERPLEXITY_MODEL: sonar
+
+      # Service Configuration
+      SERVICE_NAME: nexus-agent
+      SERVICE_VERSION: 1.0.0
+      SERVICE_PORT: 8120
+      DEBUG: false
+
+      # Logging
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+
+      # CORS
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8120:8000"
+    volumes:
+      - ./services/nexus-agent/app:/app/app
+      - ./services/nexus-agent/prompts:/app/prompts
+    networks:
+      - news_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+

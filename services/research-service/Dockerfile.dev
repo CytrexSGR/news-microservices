@@ -1,0 +1,47 @@
+# Development Dockerfile for Research Service
+# Fast rebuilds, hot-reload enabled, optimized for development workflow
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy shared library first
+COPY shared/news-mcp-common /tmp/news-mcp-common
+
+# Copy dependency files
+COPY services/research-service/requirements.txt* services/research-service/pyproject.toml* services/research-service/poetry.lock* ./
+COPY services/research-service/alembic.ini ./
+COPY services/research-service/alembic ./alembic
+
+# Install dependencies
+# Try Poetry first, fallback to pip with news-mcp-common handling
+RUN if [ -f "pyproject.toml" ]; then \
+        pip install --no-cache-dir /tmp/news-mcp-common && \
+        pip install --no-cache-dir poetry==1.7.0 && \
+        poetry config virtualenvs.create false && \
+        poetry install --no-interaction --no-ansi --no-root; \
+    elif [ -f "requirements.txt" ]; then \
+        grep -v 'news-mcp-common' requirements.txt > requirements-filtered.txt && \
+        pip install --no-cache-dir /tmp/news-mcp-common && \
+        pip install --no-cache-dir -r requirements-filtered.txt; \
+    fi
+
+# Health check script
+
+# Copy and setup health check script
+COPY services/research-service/healthcheck.sh /usr/local/bin/healthcheck.sh
+RUN chmod +x /usr/local/bin/healthcheck.sh
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]

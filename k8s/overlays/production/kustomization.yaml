@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: news-mcp-prod
+
+bases:
+  - ../../base
+
+namePrefix: prod-
+
+commonLabels:
+  environment: production
+
+patchesStrategicMerge:
+  - config-patch.yaml
+  - resource-patch.yaml
+
+configMapGenerator:
+  - name: news-mcp-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - LOG_LEVEL=WARNING
+
+replicas:
+  - name: postgres
+    count: 1  # In production, consider using managed database
+  - name: redis
+    count: 1  # In production, consider Redis cluster
+  - name: rabbitmq
+    count: 1  # In production, consider RabbitMQ cluster
+  - name: minio
+    count: 1  # In production, consider S3 or distributed MinIO

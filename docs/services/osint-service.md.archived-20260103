@@ -1,0 +1,1911 @@
+# OSINT Service Documentation
+
+## Overview
+
+The OSINT (Open Source Intelligence) Service is a comprehensive monitoring and analysis platform that provides automated intelligence gathering capabilities across 50+ pre-built templates spanning social media, threat intelligence, domain analysis, cryptocurrency, dark web monitoring, and more. It features built-in scheduling (APScheduler), statistical anomaly detection (Z-score analysis), and multi-level alerting for real-time threat and event monitoring.
+
+**Key Responsibilities:**
+- Execute OSINT monitoring tasks based on configurable templates
+- Schedule recurring analysis jobs with flexible interval/cron-based triggers
+- Detect anomalies in collected metrics using statistical analysis
+- Generate and dispatch multi-level alerts (info, warning, critical, emergency)
+- Track execution history and metrics for audit and analysis
+- Maintain baseline statistics for anomaly detection
+
+**Service Type:** Analysis & Monitoring Service
+**Default Port:** 8004
+**Database Schema:** `public` (tables: `osint_analysis_templates`, `osint_analysis_instances`, `osint_analysis_executions`, `osint_analysis_alerts`, `osint_baseline_metrics`, `osint_execution_metrics`)
+
+---
+
+## Table of Contents
+
+1. [Architecture](#architecture)
+2. [API Documentation](#api-documentation)
+3. [Code Structure](#code-structure)
+4. [Configuration](#configuration)
+5. [Template System](#template-system)
+6. [Usage Examples](#usage-examples)
+7. [Deployment](#deployment)
+8. [Troubleshooting](#troubleshooting)
+9. [Development](#development)
+10. [Testing](#testing)
+
+---
+
+## Architecture
+
+### System Components
+
+```mermaid
+graph TB
+    subgraph "OSINT Service"
+        API[FastAPI Application]
+        TMPL[Template Loader<br/>50+ YAML Templates]
+        SCHED[APScheduler Manager<br/>Cron & Interval Jobs]
+        ANOM[Anomaly Detector<br/>Z-Score Analysis]
+        ALERT[Alert Manager<br/>Multi-Level Alerts]
+
+        API --> TMPL
+        API --> SCHED
+        SCHED --> EXEC[Job Executor]
+        EXEC --> ANOM
+        EXEC --> ALERT
+    end
+
+    subgraph "Data Storage"
+        PG[(PostgreSQL<br/>Templates, Instances,<br/>Executions, Metrics)]
+        REDIS[(Redis<br/>Cache & Session)]
+    end
+
+    subgraph "External Services"
+        AUTH[Auth Service<br/>JWT Validation]
+        NOTIF[Notification Service<br/>Email/Webhook]
+    end
+
+    API --> PG
+    API --> REDIS
+    API --> AUTH
+    ALERT --> NOTIF
+    SCHED --> PG
+    EXEC --> PG
+
+    CLIENT[Client/API Consumer] --> API
+
+    style API fill:#4CAF50,stroke:#333,stroke-width:2px
+    style SCHED fill:#FF9800,stroke:#333,stroke-width:2px
+    style ANOM fill:#2196F3,stroke:#333,stroke-width:2px
+    style ALERT fill:#F44336,stroke:#333,stroke-width:2px
+```
+
+### Data Flow: Template Execution
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant API
+    participant Scheduler
+    participant Executor
+    participant AnomalyDetector
+    participant AlertManager
+    participant Database
+
+    User->>API: POST /schedules (schedule template)
+    API->>Scheduler: add_job(template, trigger)
+    Scheduler->>Database: Store instance configuration
+    Scheduler-->>API: job_id
+    API-->>User: Schedule created
+
+    Note over Scheduler: Time trigger fires
+
+    Scheduler->>Executor: execute_template(instance)
+    Executor->>Database: Create execution record (status: running)
+    Executor->>Executor: Collect metrics from sources
+    Executor->>Database: Store metrics
+
+    Executor->>AnomalyDetector: check_anomalies(metrics)
+    AnomalyDetector->>AnomalyDetector: Calculate z-scores
+    AnomalyDetector-->>Executor: anomalies[]
+
+    Executor->>AlertManager: evaluate_alerts(template, metrics, anomalies)
+    AlertManager->>AlertManager: Evaluate alert rules
+    AlertManager->>Database: Store alerts
+    AlertManager->>Notification Service: Dispatch notifications
+    AlertManager-->>Executor: alerts[]
+
+    Executor->>Database: Update execution (status: completed)
+    Executor->>Database: Update instance (last_execution, next_execution)
+```
+
+### Database Schema
+
+```mermaid
+erDiagram
+    osint_analysis_templates ||--o{ osint_analysis_instances : "defines"
+    osint_analysis_instances ||--o{ osint_analysis_executions : "runs"
+    osint_analysis_executions ||--o{ osint_analysis_alerts : "generates"
+    osint_analysis_instances ||--o{ osint_analysis_alerts : "triggers"
+    osint_analysis_instances ||--o{ osint_baseline_metrics : "tracks"
+    osint_analysis_instances ||--o{ osint_execution_metrics : "collects"
+    osint_analysis_executions ||--o{ osint_execution_metrics : "contains"
+
+    osint_analysis_templates {
+        uuid template_id PK
+        string name UK
+        string category
+        text description
+        jsonb data_sources
+        jsonb queries
+        jsonb metrics
+        jsonb alert_thresholds
+        jsonb parameters
+        uuid created_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    osint_analysis_instances {
+        uuid instance_id PK
+        uuid template_id FK
+        string name UK
+        jsonb parameter_values
+        jsonb schedule_config
+        string status
+        timestamp last_execution
+        timestamp next_execution
+        uuid created_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    osint_analysis_executions {
+        uuid execution_id PK
+        uuid instance_id FK
+        string status
+        string trigger_type
+        timestamp started_at
+        timestamp completed_at
+        integer duration_seconds
+        jsonb metrics_collected
+        integer alerts_generated
+        text error_message
+        timestamp created_at
+    }
+
+    osint_analysis_alerts {
+        uuid alert_id PK
+        uuid instance_id FK
+        uuid execution_id FK
+        string alert_level
+        text alert_message
+        string metric_name
+        jsonb metric_values
+        jsonb conditions
+        boolean acknowledged
+        uuid acknowledged_by
+        timestamp acknowledged_at
+        timestamp created_at
+    }
+
+    osint_baseline_metrics {
+        uuid baseline_id PK
+        uuid instance_id FK
+        string metric_name
+        float mean_value
+        float std_deviation
+        float min_value
+        float max_value
+        integer sample_count
+        timestamp calculation_window_start
+        timestamp calculation_window_end
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    osint_execution_metrics {
+        uuid metric_id PK
+        uuid execution_id FK
+        uuid instance_id FK
+        string metric_name
+        float metric_value
+        string metric_type
+        jsonb metadata
+        timestamp collected_at
+    }
+```
+
+### Integration Points
+
+**Consumes:**
+- `auth-service` (port 8100): JWT token validation for authenticated endpoints
+- External OSINT data sources (defined in templates): Twitter API, WHOIS services, threat intelligence feeds, etc.
+
+**Publishes:**
+- None (service does not publish to message queue; alerts dispatched via HTTP)
+
+**Dependencies:**
+- PostgreSQL 14+ (primary data store)
+- Redis 7+ (caching and session management)
+- APScheduler 3.10+ (job scheduling)
+- NumPy 1.26+ (statistical calculations for anomaly detection)
+
+---
+
+## API Documentation
+
+### Base URL
+```
+http://localhost:8004/api/v1
+```
+
+### Authentication
+
+Most endpoints require JWT Bearer token authentication (obtained from auth-service).
+
+```bash
+Authorization: Bearer <jwt_token>
+```
+
+### Endpoints Overview
+
+| Category | Endpoint | Method | Auth | Description |
+|----------|----------|--------|------|-------------|
+| **Health** | `/health` | GET | No | Service health check |
+| **Health** | `/health/ready` | GET | No | Service readiness check |
+| **Templates** | `/templates/` | GET | No | List all templates |
+| **Templates** | `/templates/categories` | GET | No | List template categories |
+| **Templates** | `/templates/{name}` | GET | No | Get specific template |
+| **Templates** | `/templates/reload` | POST | Yes | Reload templates from disk |
+| **Templates** | `/templates/validate` | POST | Yes | Validate template configuration |
+| **Instances** | `/instances/` | POST | Yes | Create monitoring instance |
+| **Instances** | `/instances/` | GET | Yes | List instances |
+| **Instances** | `/instances/{instance_id}` | GET | Yes | Get instance details |
+| **Instances** | `/instances/{instance_id}` | PUT | Yes | Update instance |
+| **Instances** | `/instances/{instance_id}` | DELETE | Yes | Delete instance |
+| **Instances** | `/instances/{instance_id}/execute` | POST | Yes | Execute instance manually |
+| **Instances** | `/instances/{instance_id}/pause` | POST | Yes | Pause instance |
+| **Instances** | `/instances/{instance_id}/resume` | POST | Yes | Resume instance |
+| **Executions** | `/executions/` | POST | Yes | Execute OSINT analysis |
+| **Executions** | `/executions/` | GET | Yes | List executions |
+| **Executions** | `/executions/{execution_id}` | GET | Yes | Get execution results |
+| **Schedules** | `/schedules/` | POST | Yes | Schedule template execution |
+| **Schedules** | `/schedules/` | GET | Yes | List scheduled jobs |
+| **Schedules** | `/schedules/{job_id}` | GET | Yes | Get job details |
+| **Schedules** | `/schedules/{job_id}` | DELETE | Yes | Delete schedule |
+| **Schedules** | `/schedules/{job_id}/pause` | POST | Yes | Pause scheduled job |
+| **Schedules** | `/schedules/{job_id}/resume` | POST | Yes | Resume scheduled job |
+| **Anomalies** | `/anomalies/baselines` | GET | Yes | Get baseline statistics |
+| **Anomalies** | `/anomalies/baselines/{template}/{metric}` | GET | Yes | Get metric baseline |
+| **Anomalies** | `/anomalies/baselines/{template}` | DELETE | Yes | Reset template baseline |
+| **Anomalies** | `/anomalies/tracked` | GET | Yes | Get tracked metrics list |
+| **Alerts** | `/alerts/` | GET | Yes | List alerts (filterable) |
+| **Alerts** | `/alerts/stats` | GET | Yes | Get alert statistics |
+| **Alerts** | `/alerts/{alert_id}` | GET | Yes | Get specific alert |
+| **Alerts** | `/alerts/{alert_id}/acknowledge` | POST | Yes | Acknowledge alert |
+
+### Detailed Endpoint Specifications
+
+#### Health Check
+
+**GET** `/health`
+
+Returns service health status.
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "service": "osint-service",
+  "version": "1.0.0",
+  "scheduler": true
+}
+```
+
+---
+
+#### Readiness Check
+
+**GET** `/health/ready`
+
+Returns service readiness status (templates loaded, scheduler running).
+
+**Response:**
+```json
+{
+  "ready": true,
+  "checks": {
+    "templates_loaded": true,
+    "template_count": 50,
+    "scheduler_running": true
+  },
+  "timestamp": "2024-11-24T10:00:00Z"
+}
+```
+
+---
+
+#### List Templates
+
+**GET** `/api/v1/templates/`
+
+List all available OSINT templates with optional filtering.
+
+**Query Parameters:**
+- `category` (optional): Filter by category (e.g., "social_media", "threat_intelligence")
+- `search` (optional): Search templates by name/description
+
+**Response:**
+```json
+{
+  "templates": [
+    {
+      "name": "Twitter Account Monitoring",
+      "category": "social_media",
+      "description": "Monitor Twitter/X accounts for activity patterns",
+      "version": "1.0",
+      "author": "OSINT Service",
+      "parameters": [
+        {
+          "name": "username",
+          "type": "string",
+          "required": true,
+          "description": "Twitter username to monitor"
+        }
+      ],
+      "sources": [...],
+      "metrics": [...],
+      "alerts": [...],
+      "schedule": {...},
+      "file_path": "/app/templates/social_media/twitter_monitoring.yaml",
+      "loaded_at": "2024-11-24T10:00:00Z"
+    }
+  ],
+  "count": 50
+}
+```
+
+---
+
+#### Schedule Template Execution
+
+**POST** `/api/v1/schedules/`
+
+Schedule a template for periodic execution.
+
+**Request Body:**
+```json
+{
+  "template_name": "Twitter Account Monitoring",
+  "parameters": {
+    "username": "example_user",
+    "monitor_followers": true,
+    "track_hashtags": ["#news", "#tech"]
+  },
+  "trigger_type": "interval",
+  "interval": "30m"
+}
+```
+
+**Trigger Types:**
+- `interval`: Execute at regular intervals (e.g., "5m", "1h", "30s", "2d")
+- `cron`: Execute based on cron schedule
+
+**For Cron Triggers:**
+```json
+{
+  "template_name": "Domain WHOIS Lookup",
+  "parameters": {
+    "domain": "example.com"
+  },
+  "trigger_type": "cron",
+  "cron_minute": "0",
+  "cron_hour": "*/6",
+  "cron_day": "*",
+  "cron_month": "*",
+  "cron_day_of_week": "*"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Template scheduled successfully",
+  "job_id": "Twitter Account Monitoring_scheduled",
+  "job_info": {
+    "id": "Twitter Account Monitoring_scheduled",
+    "name": "execute_job",
+    "next_run_time": "2024-11-24T10:30:00Z",
+    "trigger": "interval[0:30:00]",
+    "pending": false,
+    "misfire_grace_time": 300,
+    "max_instances": 3,
+    "coalesce": false
+  }
+}
+```
+
+---
+
+#### Create Monitoring Instance
+
+**POST** `/api/v1/instances/`
+
+Create a new OSINT monitoring instance from a template.
+
+**Request Body:**
+```json
+{
+  "template_id": 1,
+  "name": "Production Twitter Monitor",
+  "description": "Monitor company Twitter account",
+  "status": "active",
+  "config_overrides": {
+    "check_interval": "15m"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "id": 42,
+  "template_id": 1,
+  "name": "Production Twitter Monitor",
+  "description": "Monitor company Twitter account",
+  "status": "active",
+  "config_overrides": {
+    "check_interval": "15m"
+  },
+  "created_by": "user_uuid",
+  "created_at": "2024-11-24T10:00:00Z",
+  "updated_at": "2024-11-24T10:00:00Z"
+}
+```
+
+---
+
+#### List Instances
+
+**GET** `/api/v1/instances/`
+
+List all monitoring instances with filtering and pagination.
+
+**Query Parameters:**
+- `skip` (optional): Number of records to skip (default: 0)
+- `limit` (optional): Maximum records to return (default: 100, max: 100)
+- `status` (optional): Filter by status (active, paused, error)
+- `template_id` (optional): Filter by template ID
+
+**Response:**
+```json
+{
+  "instances": [
+    {
+      "id": 42,
+      "template_id": 1,
+      "name": "Production Twitter Monitor",
+      "status": "active",
+      "created_at": "2024-11-24T10:00:00Z"
+    }
+  ],
+  "total": 1,
+  "skip": 0,
+  "limit": 100
+}
+```
+
+---
+
+#### Get Instance Details
+
+**GET** `/api/v1/instances/{instance_id}`
+
+Get detailed information about a specific instance.
+
+**Response:**
+```json
+{
+  "id": 42,
+  "template_id": 1,
+  "name": "Production Twitter Monitor",
+  "description": "Monitor company Twitter account",
+  "status": "active",
+  "config_overrides": {
+    "check_interval": "15m"
+  },
+  "created_by": "user_uuid",
+  "created_at": "2024-11-24T10:00:00Z",
+  "updated_at": "2024-11-24T10:00:00Z"
+}
+```
+
+---
+
+#### Update Instance
+
+**PUT** `/api/v1/instances/{instance_id}`
+
+Update instance configuration.
+
+**Request Body:**
+```json
+{
+  "name": "Updated Monitor Name",
+  "description": "Updated description",
+  "status": "active",
+  "config_overrides": {
+    "check_interval": "30m"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "id": 42,
+  "template_id": 1,
+  "name": "Updated Monitor Name",
+  "description": "Updated description",
+  "status": "active",
+  "config_overrides": {
+    "check_interval": "30m"
+  },
+  "updated_at": "2024-11-24T11:00:00Z"
+}
+```
+
+---
+
+#### Delete Instance
+
+**DELETE** `/api/v1/instances/{instance_id}`
+
+Delete a monitoring instance (also removes from scheduler).
+
+**Response:** 204 No Content
+
+---
+
+#### Execute Instance Manually
+
+**POST** `/api/v1/instances/{instance_id}/execute`
+
+Manually trigger an execution for an instance (bypasses schedule).
+
+**Response:**
+```json
+{
+  "execution_id": "exec_uuid",
+  "instance_id": 42,
+  "status": "pending",
+  "started_at": "2024-11-24T10:00:00Z",
+  "created_at": "2024-11-24T10:00:00Z"
+}
+```
+
+---
+
+#### Pause Instance
+
+**POST** `/api/v1/instances/{instance_id}/pause`
+
+Pause scheduled executions for an instance.
+
+**Response:**
+```json
+{
+  "id": 42,
+  "status": "paused",
+  "updated_at": "2024-11-24T10:00:00Z"
+}
+```
+
+---
+
+#### Resume Instance
+
+**POST** `/api/v1/instances/{instance_id}/resume`
+
+Resume scheduled executions for a paused instance.
+
+**Response:**
+```json
+{
+  "id": 42,
+  "status": "active",
+  "updated_at": "2024-11-24T10:00:00Z"
+}
+```
+
+---
+
+#### Execute OSINT Analysis
+
+**POST** `/api/v1/executions/`
+
+Execute OSINT analysis for an instance (creates execution record and queues job).
+
+**Request Body:**
+```json
+{
+  "instance_id": "instance_uuid"
+}
+```
+
+**Response (202 Accepted):**
+```json
+{
+  "execution_id": "exec_uuid",
+  "instance_id": "instance_uuid",
+  "status": "queued",
+  "trigger_type": "manual",
+  "started_at": "2024-11-24T10:00:00Z",
+  "created_at": "2024-11-24T10:00:00Z"
+}
+```
+
+---
+
+#### List Executions
+
+**GET** `/api/v1/executions/`
+
+List execution history with filtering and pagination.
+
+**Query Parameters:**
+- `instance_id` (optional): Filter by instance UUID
+- `status` (optional): Filter by status (queued, running, completed, failed)
+- `skip` (optional): Number of records to skip (default: 0)
+- `limit` (optional): Maximum records to return (default: 100, max: 100)
+
+**Response:**
+```json
+{
+  "executions": [
+    {
+      "execution_id": "exec_uuid",
+      "instance_id": "instance_uuid",
+      "status": "completed",
+      "trigger_type": "manual",
+      "started_at": "2024-11-24T10:00:00Z",
+      "completed_at": "2024-11-24T10:05:00Z",
+      "duration_seconds": 300,
+      "metrics_collected": 15,
+      "alerts_generated": 2
+    }
+  ],
+  "total": 1,
+  "skip": 0,
+  "limit": 100
+}
+```
+
+---
+
+#### Get Execution Results
+
+**GET** `/api/v1/executions/{execution_id}`
+
+Get detailed results for a specific execution.
+
+**Response:**
+```json
+{
+  "execution_id": "exec_uuid",
+  "instance_id": "instance_uuid",
+  "status": "completed",
+  "trigger_type": "manual",
+  "started_at": "2024-11-24T10:00:00Z",
+  "completed_at": "2024-11-24T10:05:00Z",
+  "duration_seconds": 300,
+  "metrics_collected": {
+    "follower_count": 15420,
+    "tweet_frequency": 12.3
+  },
+  "alerts_generated": 2,
+  "error_message": null,
+  "created_at": "2024-11-24T10:00:00Z"
+}
+```
+
+---
+
+#### Get Tracked Metrics
+
+**GET** `/api/v1/anomalies/tracked`
+
+Get list of all metrics being tracked for anomaly detection.
+
+**Response:**
+```json
+{
+  "tracked_metrics": [
+    {
+      "template_name": "Twitter Account Monitoring",
+      "metrics": ["follower_count", "tweet_frequency", "engagement_rate"]
+    },
+    {
+      "template_name": "Domain WHOIS Lookup",
+      "metrics": ["expiration_days", "nameserver_count"]
+    }
+  ],
+  "template_count": 2
+}
+```
+
+---
+
+#### Get Anomaly Baselines
+
+**GET** `/api/v1/anomalies/baselines`
+
+Retrieve baseline statistics for all tracked metrics.
+
+**Response:**
+```json
+{
+  "Twitter Account Monitoring": {
+    "follower_count": {
+      "statistics": {
+        "mean": 15420.5,
+        "std": 342.8,
+        "min": 14800,
+        "max": 16200,
+        "count": 120
+      },
+      "sample_count": 120
+    },
+    "tweet_frequency": {
+      "statistics": {
+        "mean": 12.3,
+        "std": 2.1,
+        "min": 8.0,
+        "max": 18.0,
+        "count": 120
+      },
+      "sample_count": 120
+    }
+  }
+}
+```
+
+---
+
+#### List Alerts
+
+**GET** `/api/v1/alerts/`
+
+List alerts with optional filtering.
+
+**Query Parameters:**
+- `level` (optional): Filter by alert level (info, warning, critical, emergency)
+- `acknowledged` (optional): Filter by acknowledgement status (true/false)
+- `limit` (optional): Maximum number of alerts to return (default: 100)
+
+**Response:**
+```json
+{
+  "alerts": [
+    {
+      "alert_id": "Twitter Account Monitoring_1_1732445600",
+      "level": "warning",
+      "message": "Significant follower count change detected",
+      "template_name": "Twitter Account Monitoring",
+      "metric_name": "follower_count",
+      "metric_value": 17500,
+      "condition": "follower_count_change > 1000",
+      "metadata": {
+        "metrics": {
+          "follower_count": 17500,
+          "following_count": 850
+        }
+      },
+      "created_at": "2024-11-24T10:00:00Z",
+      "acknowledged": false,
+      "acknowledged_at": null
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+## Code Structure
+
+```
+osint-service/
+├── app/
+│   ├── main.py                      # FastAPI application entry point
+│   ├── __init__.py
+│   │
+│   ├── api/                         # API endpoints (FastAPI routers)
+│   │   ├── __init__.py             # API router aggregation
+│   │   ├── health.py               # Health check endpoints
+│   │   ├── templates.py            # Template management endpoints
+│   │   ├── schedules.py            # Schedule management endpoints
+│   │   ├── anomalies.py            # Anomaly detection endpoints
+│   │   ├── alerts.py               # Alert management endpoints
+│   │   ├── instances.py            # Instance management (CRUD)
+│   │   └── executions.py           # Execution history queries
+│   │
+│   ├── core/                        # Core utilities
+│   │   ├── __init__.py
+│   │   ├── config.py               # Configuration settings (Pydantic)
+│   │   ├── database.py             # SQLAlchemy async engine/session
+│   │   ├── redis.py                # Redis connection pool
+│   │   └── auth.py                 # JWT authentication utilities
+│   │
+│   ├── models/                      # SQLAlchemy ORM models
+│   │   ├── __init__.py
+│   │   ├── base.py                 # Base model with common fields
+│   │   ├── templates.py            # OSINTAnalysisTemplate model
+│   │   ├── instances.py            # OSINTAnalysisInstance model
+│   │   ├── executions.py           # OSINTAnalysisExecution model
+│   │   ├── alerts.py               # OSINTAnalysisAlert model
+│   │   ├── baselines.py            # OSINTBaselineMetric model
+│   │   ├── metrics.py              # OSINTExecutionMetric model
+│   │   └── osint.py                # Legacy/additional OSINT models
+│   │
+│   ├── schemas/                     # Pydantic schemas for API validation
+│   │   ├── __init__.py
+│   │   └── osint.py                # Request/response schemas
+│   │
+│   ├── services/                    # Business logic layer
+│   │   ├── __init__.py
+│   │   ├── osint_service.py        # Core OSINT logic
+│   │   ├── analysis.py             # Analysis orchestration
+│   │   ├── anomaly.py              # Anomaly detection service
+│   │   └── scheduler.py            # Scheduler service wrapper
+│   │
+│   ├── scheduler/                   # APScheduler integration
+│   │   ├── __init__.py
+│   │   ├── manager.py              # SchedulerManager (job management)
+│   │   └── jobs.py                 # OSINTJobExecutor (job execution logic)
+│   │
+│   ├── anomaly/                     # Anomaly detection system
+│   │   ├── __init__.py
+│   │   └── detector.py             # AnomalyDetector (z-score analysis)
+│   │
+│   ├── alerts/                      # Alert management system
+│   │   ├── __init__.py
+│   │   ├── manager.py              # AlertManager (alert lifecycle)
+│   │   └── rules.py                # RulesEngine (condition evaluation)
+│   │
+│   ├── templates/                   # OSINT template system
+│   │   ├── __init__.py
+│   │   ├── loader.py               # TemplateLoader (YAML parsing)
+│   │   ├── validator.py            # TemplateValidator (schema validation)
+│   │   ├── prebuilt.py             # Pre-built template registry
+│   │   │
+│   │   ├── social_media/           # 11 social media templates
+│   │   │   ├── twitter_monitoring.yaml
+│   │   │   ├── linkedin_profile.yaml
+│   │   │   ├── facebook_page.yaml
+│   │   │   ├── instagram_profile.yaml
+│   │   │   ├── reddit_user.yaml
+│   │   │   ├── youtube_channel.yaml
+│   │   │   ├── tiktok_profile.yaml
+│   │   │   ├── telegram_channel.yaml
+│   │   │   ├── github_user.yaml
+│   │   │   ├── discord_server.yaml
+│   │   │   └── stackoverflow_user.yaml
+│   │   │
+│   │   ├── threat_intelligence/    # 7 threat intelligence templates
+│   │   │   ├── malware_hash.yaml
+│   │   │   ├── ip_reputation.yaml
+│   │   │   ├── cve_monitoring.yaml
+│   │   │   ├── phishing_detection.yaml
+│   │   │   ├── ransomware_tracker.yaml
+│   │   │   ├── botnet_monitor.yaml
+│   │   │   └── exploit_database.yaml
+│   │   │
+│   │   ├── domain_analysis/        # 8 domain analysis templates
+│   │   │   ├── whois_lookup.yaml
+│   │   │   ├── dns_records.yaml
+│   │   │   ├── ssl_certificate.yaml
+│   │   │   ├── website_change.yaml
+│   │   │   ├── technology_stack.yaml
+│   │   │   ├── subdomain_enum.yaml
+│   │   │   ├── backlink_monitor.yaml
+│   │   │   ├── robots_txt.yaml
+│   │   │   └── sitemap_analysis.yaml
+│   │   │
+│   │   ├── data_breach/            # 4 data breach templates
+│   │   │   ├── haveibeenpwned.yaml
+│   │   │   ├── credential_leak.yaml
+│   │   │   ├── database_leak.yaml
+│   │   │   └── password_leak.yaml
+│   │   │
+│   │   ├── network_analysis/       # 5 network analysis templates
+│   │   │   ├── port_scan.yaml
+│   │   │   ├── subdomain_enum.yaml
+│   │   │   ├── asn_monitor.yaml
+│   │   │   ├── cdn_detection.yaml
+│   │   │   └── firewall_detection.yaml
+│   │   │
+│   │   ├── email_analysis/         # 4 email analysis templates
+│   │   │   ├── email_verification.yaml
+│   │   │   ├── email_header.yaml
+│   │   │   ├── mx_record.yaml
+│   │   │   └── dmarc_policy.yaml
+│   │   │
+│   │   ├── dark_web/               # 3 dark web templates
+│   │   │   ├── onion_monitor.yaml
+│   │   │   ├── marketplace_monitor.yaml
+│   │   │   └── forum_monitor.yaml
+│   │   │
+│   │   ├── cryptocurrency/         # 4 cryptocurrency templates
+│   │   │   ├── wallet_monitor.yaml
+│   │   │   ├── exchange_monitor.yaml
+│   │   │   ├── ico_tracker.yaml
+│   │   │   └── nft_collection.yaml
+│   │   │
+│   │   └── geolocation/            # 4 geolocation templates
+│   │       ├── ip_geolocation.yaml
+│   │       ├── device_tracking.yaml
+│   │       ├── cell_tower.yaml
+│   │       └── satellite_imagery.yaml
+│   │
+│   ├── workers/                     # Celery workers (optional)
+│   │   ├── __init__.py
+│   │   ├── celery_app.py           # Celery app configuration
+│   │   └── tasks.py                # Async task definitions
+│   │
+│   ├── utils/                       # Utility modules
+│   │   ├── __init__.py
+│   │   └── database_types.py       # Custom SQLAlchemy types (JSONType)
+│   │
+│   └── db_utils.py                  # Database utility functions
+│
+├── alembic/                         # Database migrations
+│   ├── env.py                      # Alembic environment config
+│   └── versions/
+│       └── 001_initial_schema.py   # Initial schema migration
+│
+├── tests/                           # Test suite (967 lines)
+│   ├── __init__.py
+│   ├── conftest.py                 # Pytest fixtures
+│   │
+│   ├── unit/                       # Unit tests
+│   │   ├── test_templates.py       # Template loader tests
+│   │   ├── test_anomaly_detection.py # Anomaly detector tests
+│   │   ├── test_alerts.py          # Alert manager tests
+│   │   └── test_scheduler.py       # Scheduler manager tests
+│   │
+│   ├── models/                      # Model tests
+│   │   ├── __init__.py
+│   │   ├── test_templates.py       # Template model tests
+│   │   ├── test_executions.py      # Execution model tests
+│   │   └── test_baselines.py       # Baseline model tests
+│   │
+│   ├── integration/                 # Integration tests
+│   │   └── test_api.py             # End-to-end API tests
+│   │
+│   ├── test_health.py              # Health check tests
+│   └── test_anomaly.py             # Anomaly detection tests
+│
+├── .env.example                     # Environment variables template
+├── requirements.txt                 # Python dependencies
+├── requirements-dev.txt             # Development dependencies
+├── Dockerfile.dev                   # Development Docker image
+├── alembic.ini                      # Alembic configuration
+├── pytest.ini                       # Pytest configuration
+├── healthcheck.sh                   # Health check script
+└── README.md                        # Service README
+
+Total: ~15,400 lines of Python code across 100+ files
+Templates: 50+ YAML templates across 9 categories
+Tests: 967 lines of test code
+```
+
+---
+
+## Configuration
+
+### Environment Variables
+
+#### Required Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `DATABASE_URL` | string | PostgreSQL connection string (format: `postgresql://user:pass@host:port/db`) |
+| `REDIS_URL` | string | Redis connection string (format: `redis://:password@host:port/db`) |
+| `JWT_SECRET_KEY` | string | JWT signing secret (minimum 32 characters, must match auth-service) |
+
+#### Service Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `SERVICE_NAME` | `osint-service` | Service identifier |
+| `SERVICE_PORT` | `8004` | HTTP server port |
+| `DEBUG` | `false` | Enable debug mode (auto-reload, verbose logging) |
+
+#### Database Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `DATABASE_POOL_SIZE` | `20` | Maximum database connections in pool |
+| `DATABASE_MAX_OVERFLOW` | `10` | Maximum overflow connections beyond pool size |
+| `DATABASE_ECHO` | `false` | Log all SQL queries (use for debugging) |
+
+#### Redis Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `REDIS_CACHE_TTL` | `3600` | Default cache TTL in seconds (1 hour) |
+
+#### Scheduler Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `SCHEDULER_ENABLED` | `true` | Enable APScheduler (set to false to disable scheduling) |
+| `SCHEDULER_MAX_INSTANCES` | `50` | Maximum concurrent job instances |
+| `SCHEDULER_TIMEZONE` | `UTC` | Timezone for cron triggers |
+
+#### Analysis Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `MAX_CONCURRENT_EXECUTIONS` | `10` | Maximum concurrent template executions |
+| `EXECUTION_TIMEOUT_SECONDS` | `300` | Timeout for single template execution (5 minutes) |
+| `BASELINE_CALCULATION_WINDOW` | `30d` | Time window for baseline calculation |
+
+#### Anomaly Detection Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `ANOMALY_DETECTION_ENABLED` | `true` | Enable anomaly detection system |
+| `ANOMALY_Z_SCORE_THRESHOLD` | `3.0` | Z-score threshold for anomaly classification |
+| `ANOMALY_MIN_SAMPLES` | `30` | Minimum samples required before anomaly detection |
+
+#### Alerting Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `ALERTING_ENABLED` | `true` | Enable alert system |
+| `ALERT_EMAIL_ENABLED` | `false` | Enable email notifications |
+| `ALERT_WEBHOOK_ENABLED` | `false` | Enable webhook notifications |
+| `ALERT_WEBHOOK_URL` | (empty) | Webhook URL for alert notifications |
+
+#### External Services
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `AUTH_SERVICE_URL` | `http://localhost:8000` | Auth service URL for JWT validation |
+| `CONTENT_ANALYSIS_SERVICE_URL` | `http://localhost:8002` | Content analysis service URL |
+| `RESEARCH_SERVICE_URL` | `http://localhost:8003` | Research service URL |
+| `FEED_SERVICE_URL` | `http://localhost:8001` | Feed service URL |
+
+#### JWT Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
+
+#### External API Keys (Optional)
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `SHODAN_API_KEY` | (empty) | Shodan API key for network scanning |
+| `VIRUSTOTAL_API_KEY` | (empty) | VirusTotal API key for threat intelligence |
+| `WHOIS_XML_API_KEY` | (empty) | WHOIS XML API key for domain analysis |
+| `IPINFO_TOKEN` | (empty) | IPInfo token for IP geolocation |
+
+### Configuration File
+
+Example `.env` configuration:
+
+```bash
+# Service
+SERVICE_NAME=osint-service
+SERVICE_PORT=8004
+DEBUG=false
+
+# Database
+DATABASE_URL=postgresql://news_user:your_db_password@localhost:5432/news_mcp
+DATABASE_POOL_SIZE=20
+DATABASE_MAX_OVERFLOW=10
+
+# Redis
+REDIS_URL=redis://:redis_secret_2024@localhost:6379/0
+REDIS_CACHE_TTL=3600
+
+# Scheduler
+SCHEDULER_ENABLED=true
+SCHEDULER_MAX_INSTANCES=50
+SCHEDULER_TIMEZONE=UTC
+
+# Analysis
+MAX_CONCURRENT_EXECUTIONS=10
+EXECUTION_TIMEOUT_SECONDS=300
+BASELINE_CALCULATION_WINDOW=30d
+
+# Anomaly Detection
+ANOMALY_DETECTION_ENABLED=true
+ANOMALY_Z_SCORE_THRESHOLD=3.0
+ANOMALY_MIN_SAMPLES=30
+
+# Alerting
+ALERTING_ENABLED=true
+ALERT_EMAIL_ENABLED=false
+ALERT_WEBHOOK_ENABLED=false
+ALERT_WEBHOOK_URL=
+
+# External Services
+AUTH_SERVICE_URL=http://localhost:8000
+CONTENT_ANALYSIS_SERVICE_URL=http://localhost:8002
+RESEARCH_SERVICE_URL=http://localhost:8003
+FEED_SERVICE_URL=http://localhost:8001
+
+# JWT (must match auth-service)
+JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production-must-be-32-chars-minimum
+JWT_ALGORITHM=HS256
+
+# External APIs (optional)
+SHODAN_API_KEY=
+VIRUSTOTAL_API_KEY=
+WHOIS_XML_API_KEY=
+IPINFO_TOKEN=
+```
+
+---
+
+## Template System
+
+### Template Structure
+
+OSINT templates are YAML files defining reusable intelligence gathering configurations.
+
+**Example: Twitter Monitoring Template**
+
+```yaml
+name: "Twitter Account Monitoring"
+category: "social_media"
+description: "Monitor Twitter/X accounts for activity patterns and content"
+version: "1.0"
+author: "OSINT Service"
+
+parameters:
+  - name: username
+    type: string
+    required: true
+    description: "Twitter username to monitor"
+
+  - name: monitor_followers
+    type: boolean
+    default: true
+    description: "Track follower count changes"
+
+  - name: track_hashtags
+    type: array
+    default: []
+    description: "Hashtags to monitor in user's tweets"
+
+sources:
+  - name: twitter_profile
+    url: "https://twitter.com/{username}"
+    method: GET
+    rate_limit: 100
+
+  - name: twitter_api
+    url: "https://api.twitter.com/2/users/by/username/{username}"
+    method: GET
+    auth_required: true
+    rate_limit: 300
+
+metrics:
+  - name: follower_count
+    type: integer
+    anomaly_detection: true
+
+  - name: following_count
+    type: integer
+    anomaly_detection: true
+
+  - name: tweet_frequency
+    type: float
+    anomaly_detection: true
+    unit: "tweets_per_day"
+
+alerts:
+  - condition: "follower_count_change > 1000"
+    level: warning
+    message: "Significant follower count change detected"
+
+  - condition: "tweet_frequency > avg * 3"
+    level: info
+    message: "Unusually high tweet activity"
+
+schedule:
+  interval: "1h"
+  max_failures: 3
+```
+
+### Template Categories
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| `social_media` | 11 | Twitter, LinkedIn, Facebook, Instagram, Reddit, YouTube, TikTok, Telegram, GitHub, Discord, StackOverflow |
+| `threat_intelligence` | 7 | Malware hashes, IP reputation, CVE monitoring, phishing, ransomware, botnets, exploits |
+| `domain_analysis` | 8 | WHOIS, DNS, SSL certificates, website changes, tech stack, subdomains, backlinks, robots.txt, sitemaps |
+| `data_breach` | 4 | HaveIBeenPwned, credential leaks, database leaks, password breaches |
+| `network_analysis` | 5 | Port scanning, subdomain enumeration, ASN monitoring, CDN detection, firewall detection |
+| `email_analysis` | 4 | Email verification, header analysis, MX records, DMARC policies |
+| `dark_web` | 3 | Onion site monitoring, marketplace tracking, forum monitoring |
+| `cryptocurrency` | 4 | Wallet monitoring, exchange tracking, ICO tracking, NFT collections |
+| `geolocation` | 4 | IP geolocation, device tracking, cell tower data, satellite imagery |
+
+### Adding Custom Templates
+
+1. Create a new YAML file in the appropriate category directory:
+   ```bash
+   touch app/templates/my_category/my_template.yaml
+   ```
+
+2. Define template structure following the schema above
+
+3. Reload templates:
+   ```bash
+   curl -X POST http://localhost:8004/api/v1/templates/reload \
+     -H "Authorization: Bearer <token>"
+   ```
+
+---
+
+## Usage Examples
+
+### Example 1: Schedule Twitter Monitoring
+
+**Scenario:** Monitor a Twitter account every 30 minutes for follower changes.
+
+```bash
+# Obtain JWT token from auth service
+TOKEN=$(curl -X POST http://localhost:8100/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "password"}' \
+  | jq -r '.access_token')
+
+# Schedule Twitter monitoring
+curl -X POST http://localhost:8004/api/v1/schedules/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_name": "Twitter Account Monitoring",
+    "parameters": {
+      "username": "example_user",
+      "monitor_followers": true,
+      "track_hashtags": ["#news", "#technology"]
+    },
+    "trigger_type": "interval",
+    "interval": "30m"
+  }'
+```
+
+**Response:**
+```json
+{
+  "message": "Template scheduled successfully",
+  "job_id": "Twitter Account Monitoring_scheduled",
+  "job_info": {
+    "id": "Twitter Account Monitoring_scheduled",
+    "next_run_time": "2024-11-24T11:00:00Z",
+    "trigger": "interval[0:30:00]"
+  }
+}
+```
+
+---
+
+### Example 2: Domain WHOIS Monitoring (Cron)
+
+**Scenario:** Check domain WHOIS information every 6 hours.
+
+```bash
+curl -X POST http://localhost:8004/api/v1/schedules/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_name": "Domain WHOIS Lookup",
+    "parameters": {
+      "domain": "example.com"
+    },
+    "trigger_type": "cron",
+    "cron_minute": "0",
+    "cron_hour": "*/6",
+    "cron_day": "*",
+    "cron_month": "*",
+    "cron_day_of_week": "*"
+  }'
+```
+
+---
+
+### Example 3: Check Anomaly Baselines
+
+**Scenario:** View baseline statistics for Twitter monitoring.
+
+```bash
+curl http://localhost:8004/api/v1/anomalies/baselines \
+  -H "Authorization: Bearer $TOKEN" \
+  | jq '.["Twitter Account Monitoring"]'
+```
+
+**Response:**
+```json
+{
+  "follower_count": {
+    "statistics": {
+      "mean": 15420.5,
+      "std": 342.8,
+      "min": 14800,
+      "max": 16200,
+      "count": 120
+    },
+    "sample_count": 120
+  },
+  "tweet_frequency": {
+    "statistics": {
+      "mean": 12.3,
+      "std": 2.1,
+      "min": 8.0,
+      "max": 18.0,
+      "count": 120
+    },
+    "sample_count": 120
+  }
+}
+```
+
+---
+
+### Example 4: List Recent Critical Alerts
+
+**Scenario:** Retrieve all unacknowledged critical alerts.
+
+```bash
+curl "http://localhost:8004/api/v1/alerts/?level=critical&acknowledged=false&limit=10" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Example 5: Acknowledge Alert
+
+**Scenario:** Acknowledge a specific alert.
+
+```bash
+curl -X POST http://localhost:8004/api/v1/alerts/alert_id_123/acknowledge \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## Deployment
+
+### Docker Deployment
+
+**Development:**
+
+```bash
+# Build image
+docker build -f Dockerfile.dev -t osint-service:dev .
+
+# Run container
+docker run -d \
+  --name osint-service \
+  -p 8004:8004 \
+  -e DATABASE_URL=postgresql://user:pass@postgres:5432/db \
+  -e REDIS_URL=redis://:pass@redis:6379/0 \
+  -e JWT_SECRET_KEY=your-secret-key \
+  osint-service:dev
+```
+
+**Production (Docker Compose):**
+
+```yaml
+version: '3.8'
+
+services:
+  osint-service:
+    image: osint-service:latest
+    container_name: osint-service
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql://news_user:your_db_password@postgres:5432/news_mcp
+      REDIS_URL: redis://:redis_secret_2024@redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SCHEDULER_ENABLED: "true"
+      ANOMALY_DETECTION_ENABLED: "true"
+      ALERTING_ENABLED: "true"
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - news-network
+
+networks:
+  news-network:
+    external: true
+```
+
+### Health Checks
+
+**HTTP Health Check:**
+```bash
+curl http://localhost:8004/health
+```
+
+**Script-based Health Check:**
+```bash
+#!/bin/bash
+# healthcheck.sh
+
+RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8004/health)
+
+if [ "$RESPONSE" -eq 200 ]; then
+  exit 0
+else
+  exit 1
+fi
+```
+
+### Scaling Considerations
+
+**Horizontal Scaling:**
+- Service is stateless (except for in-memory scheduler state)
+- Can run multiple instances behind a load balancer
+- ⚠️ **WARNING:** APScheduler uses in-memory job store; scaling requires:
+  - Shared job store (PostgreSQL or Redis backend for APScheduler)
+  - Distributed locking to prevent duplicate executions
+
+**Vertical Scaling:**
+- Increase `DATABASE_POOL_SIZE` for higher concurrent executions
+- Increase `MAX_CONCURRENT_EXECUTIONS` for more parallel jobs
+- Allocate more memory for NumPy calculations in anomaly detection
+
+**Recommended Resources:**
+- **CPU:** 2+ cores (for APScheduler thread pool)
+- **Memory:** 2-4 GB (depends on template execution load)
+- **Disk:** 10 GB+ (for logs and temporary data)
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### Issue: Service Won't Start
+
+**Symptom:**
+```
+ERROR: Could not connect to database
+```
+
+**Solution:**
+1. Verify `DATABASE_URL` format:
+   ```bash
+   postgresql://user:password@host:port/database
+   ```
+2. Test database connection:
+   ```bash
+   docker exec -it news-postgres psql -U news_user -d news_mcp -c "SELECT 1"
+   ```
+3. Check database is running:
+   ```bash
+   docker ps | grep postgres
+   ```
+
+---
+
+#### Issue: Scheduler Not Starting Jobs
+
+**Symptom:** Jobs scheduled but never execute.
+
+**Solution:**
+1. Check `SCHEDULER_ENABLED` is set to `true`
+2. Verify scheduler status:
+   ```bash
+   curl http://localhost:8004/health
+   # Look for "scheduler": true
+   ```
+3. Check logs for scheduler errors:
+   ```bash
+   docker logs osint-service | grep -i "scheduler\|apscheduler"
+   ```
+
+---
+
+#### Issue: Anomaly Detection Not Working
+
+**Symptom:** No anomalies detected despite unusual metric values.
+
+**Solution:**
+1. Check `ANOMALY_DETECTION_ENABLED` is `true`
+2. Verify minimum samples collected:
+   ```bash
+   curl http://localhost:8004/api/v1/anomalies/baselines \
+     -H "Authorization: Bearer $TOKEN" \
+     | jq '.["TemplateName"]["metric_name"].sample_count'
+   # Must be >= ANOMALY_MIN_SAMPLES (default: 30)
+   ```
+3. Adjust `ANOMALY_Z_SCORE_THRESHOLD` if needed (lower = more sensitive)
+
+---
+
+#### Issue: High Memory Usage
+
+**Symptom:** Container OOM killed or high memory consumption.
+
+**Solution:**
+1. Reduce `DATABASE_POOL_SIZE` (default: 20)
+2. Reduce `MAX_CONCURRENT_EXECUTIONS` (default: 10)
+3. Increase container memory limit:
+   ```yaml
+   deploy:
+     resources:
+       limits:
+         memory: 4G
+   ```
+
+---
+
+#### Issue: Alerts Not Being Sent
+
+**Symptom:** Alerts created but not dispatched.
+
+**Solution:**
+1. Check `ALERTING_ENABLED` is `true`
+2. Verify alert channel configuration:
+   - Email: `ALERT_EMAIL_ENABLED=true`
+   - Webhook: `ALERT_WEBHOOK_ENABLED=true` and `ALERT_WEBHOOK_URL` set
+3. Check logs for dispatch errors:
+   ```bash
+   docker logs osint-service | grep -i "alert\|dispatch"
+   ```
+
+---
+
+#### Issue: Template Not Found
+
+**Symptom:**
+```
+{"detail": "Template not found"}
+```
+
+**Solution:**
+1. List available templates:
+   ```bash
+   curl http://localhost:8004/api/v1/templates/
+   ```
+2. Reload templates from disk:
+   ```bash
+   curl -X POST http://localhost:8004/api/v1/templates/reload \
+     -H "Authorization: Bearer $TOKEN"
+   ```
+3. Verify template YAML syntax:
+   ```bash
+   python3 -c "import yaml; yaml.safe_load(open('template.yaml'))"
+   ```
+
+---
+
+### Debug Strategies
+
+**Enable Debug Mode:**
+```bash
+DEBUG=true uvicorn app.main:app --reload
+```
+
+**Verbose Logging:**
+```python
+# In app/main.py
+logging.basicConfig(level=logging.DEBUG)
+```
+
+**Database Query Logging:**
+```bash
+DATABASE_ECHO=true
+```
+
+**Check APScheduler State:**
+```python
+from app.scheduler.manager import scheduler_manager
+
+# In Python shell
+jobs = scheduler_manager.get_all_jobs()
+for job in jobs:
+    print(f"{job.id}: {job.next_run_time}")
+```
+
+---
+
+### Log Locations
+
+**Docker Container:**
+```bash
+docker logs osint-service
+docker logs -f osint-service  # Follow logs
+docker logs --tail 100 osint-service  # Last 100 lines
+```
+
+**Log Levels:**
+- `INFO`: Normal operations (startup, job execution, alerts)
+- `WARNING`: Non-critical issues (expired tokens, anomalies detected)
+- `ERROR`: Critical failures (database errors, scheduler crashes)
+- `DEBUG`: Detailed execution traces (only in DEBUG mode)
+
+---
+
+## Development
+
+### Setup
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd news-microservices/services/osint-service
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Copy environment file
+cp .env.example .env
+# Edit .env with your configuration
+
+# Run database migrations
+alembic upgrade head
+
+# Start development server (auto-reload enabled)
+uvicorn app.main:app --host 0.0.0.0 --port 8004 --reload
+```
+
+---
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app --cov-report=html --cov-report=term
+
+# Run specific test file
+pytest tests/unit/test_templates.py
+
+# Run with verbose output
+pytest -v
+
+# Run only unit tests
+pytest tests/unit/
+
+# Run only integration tests
+pytest tests/integration/
+```
+
+**Coverage Report:**
+```bash
+# Generate HTML coverage report
+pytest --cov=app --cov-report=html
+open htmlcov/index.html
+```
+
+---
+
+### Code Quality Tools
+
+```bash
+# Format code with black
+black app/ tests/
+
+# Sort imports with isort
+isort app/ tests/
+
+# Lint with ruff
+ruff check app/ tests/
+
+# Type checking (if using mypy)
+mypy app/
+```
+
+---
+
+### Adding New Features
+
+**1. Add New Template Category:**
+
+```bash
+# Create category directory
+mkdir -p app/templates/my_category
+
+# Add templates
+vim app/templates/my_category/my_template.yaml
+
+# Reload templates
+curl -X POST http://localhost:8004/api/v1/templates/reload
+```
+
+**2. Add New API Endpoint:**
+
+```python
+# app/api/my_endpoint.py
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/my-endpoint")
+async def my_endpoint():
+    return {"message": "Hello"}
+
+# app/api/__init__.py
+from app.api import my_endpoint
+api_router.include_router(my_endpoint.router, prefix="/my", tags=["my"])
+```
+
+**3. Add New Database Model:**
+
+```bash
+# Create model in app/models/my_model.py
+# Create Alembic migration
+alembic revision --autogenerate -m "Add my_model table"
+
+# Review migration
+cat alembic/versions/<revision>_add_my_model_table.py
+
+# Apply migration
+alembic upgrade head
+```
+
+---
+
+## Testing
+
+### Test Coverage Summary
+
+**Total Test Lines:** 967 lines
+**Test Files:** 13 files
+
+**Coverage by Module:**
+- `app/templates/`: Template loading and validation
+- `app/scheduler/`: Job scheduling and management
+- `app/anomaly/`: Anomaly detection and z-score calculations
+- `app/alerts/`: Alert generation and dispatch
+- `app/models/`: Database model validation
+- `app/api/`: API endpoint integration tests
+
+### Test Structure
+
+```
+tests/
+├── conftest.py                    # Shared fixtures (database, client, auth)
+├── unit/
+│   ├── test_templates.py          # Template loader tests
+│   ├── test_anomaly_detection.py  # Anomaly detector tests
+│   ├── test_alerts.py             # Alert manager tests
+│   └── test_scheduler.py          # Scheduler manager tests
+├── models/
+│   ├── test_templates.py          # Template model tests
+│   ├── test_executions.py         # Execution model tests
+│   └── test_baselines.py          # Baseline model tests
+├── integration/
+│   └── test_api.py                # End-to-end API tests
+├── test_health.py                 # Health check tests
+└── test_anomaly.py                # Anomaly detection tests
+```
+
+### Running Specific Test Suites
+
+```bash
+# Unit tests only
+pytest tests/unit/ -v
+
+# Model tests only
+pytest tests/models/ -v
+
+# Integration tests only
+pytest tests/integration/ -v
+
+# Test specific functionality
+pytest -k "template" -v        # All template-related tests
+pytest -k "anomaly" -v         # All anomaly-related tests
+pytest -k "scheduler" -v       # All scheduler-related tests
+```
+
+### Writing New Tests
+
+**Example: Test New Template**
+
+```python
+# tests/unit/test_my_template.py
+import pytest
+from app.templates.loader import template_loader
+
+def test_my_template_loading():
+    """Test my new template loads correctly."""
+    template = template_loader.get_template("My Template Name")
+
+    assert template is not None
+    assert template.category == "my_category"
+    assert len(template.parameters) > 0
+
+def test_my_template_validation():
+    """Test parameter validation."""
+    template = template_loader.get_template("My Template Name")
+
+    # Valid parameters
+    is_valid, error = template.validate_parameters({
+        "param1": "value1",
+        "param2": 123
+    })
+    assert is_valid
+
+    # Missing required parameter
+    is_valid, error = template.validate_parameters({})
+    assert not is_valid
+    assert "Missing required parameter" in error
+```
+
+---
+
+## Tech Stack
+
+| Component | Technology | Version | Purpose |
+|-----------|-----------|---------|---------|
+| Framework | FastAPI | 0.115.0 | Async web framework |
+| ASGI Server | Uvicorn | 0.30.0 | Production ASGI server |
+| Database ORM | SQLAlchemy | 2.0.35 | Async ORM for PostgreSQL |
+| Migration Tool | Alembic | 1.13.0 | Database schema migrations |
+| Database Driver | asyncpg | 0.29.0 | Async PostgreSQL driver |
+| Database Driver | psycopg2-binary | 2.9.9 | Sync PostgreSQL driver (health checks) |
+| Cache | Redis | 5.0.1 | Caching and session management |
+| Message Queue | aio-pika | 9.4.0 | Async RabbitMQ client |
+| Authentication | python-jose[cryptography] | 3.3.0 | JWT token validation |
+| HTTP Client | httpx | 0.27.0 | Async HTTP client for external APIs |
+| HTTP Client | requests | 2.32.3 | Sync HTTP client (health checks) |
+| Scheduler | APScheduler | 3.10.4 | Job scheduling (cron & interval) |
+| Task Queue | Celery | 5.3.4 | Distributed task execution (optional) |
+| Numerical Computing | NumPy | 1.26.2 | Statistical calculations (z-scores) |
+| Configuration | PyYAML | 6.0.1 | YAML template parsing |
+| Validation | Pydantic | 2.8.0 | Data validation and settings |
+| Validation | pydantic-settings | 2.4.0 | Environment variable management |
+| Logging | structlog | 24.4.0 | Structured logging |
+| Testing | pytest | 8.2.0 | Test framework |
+| Testing | pytest-asyncio | 0.24.0 | Async test support |
+| Testing | pytest-cov | 4.1.0 | Coverage reporting |
+| Testing | pytest-mock | 3.12.0 | Mocking utilities |
+| Code Quality | ruff | 0.1.6 | Fast Python linter |
+
+---
+
+## Related Documentation
+
+- [API Specification (OpenAPI)](/home/cytrex/userdocs/doku-update241125/openapi-specs/osint-service.yaml)
+- [Code Quality Report](/home/cytrex/userdocs/doku-update241125/issues/osint-service-issues.md)
+- [OSINT Templates Reference](/home/cytrex/news-microservices/services/osint-service/app/templates/)
+- [Database Migrations](/home/cytrex/news-microservices/services/osint-service/alembic/versions/)
+- [Architecture Overview](/home/cytrex/news-microservices/ARCHITECTURE.md)
+- [Backend Development Guide](/home/cytrex/news-microservices/CLAUDE.backend.md)
+
+---
+
+**Service Version:** 1.0.0
+**Default Port:** 8004
+**Last Updated:** 2024-11-24
+**Status:** Production-Ready
+**Lines of Code:** ~15,400 Python LOC
+**Test Coverage:** 967 test lines across 13 test files
+**Templates:** 50+ YAML templates across 9 categories

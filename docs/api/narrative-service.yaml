@@ -1,0 +1,1005 @@
+openapi: 3.1.0
+info:
+  title: Narrative Service API
+  description: |
+    **Narrative Analysis & Bias Detection Service**
+
+    The Narrative Service provides comprehensive analysis of news narratives, including:
+    - **Frame Detection**: Identifies 6 narrative frame types (victim, hero, threat, solution, conflict, economic)
+    - **Bias Analysis**: Measures political spectrum positioning (-1 left to +1 right)
+    - **Narrative Clustering**: Groups related frames to identify dominant narrative patterns
+    - **Cross-Source Comparison**: Compares bias and sentiment across news sources
+
+    ## Features
+
+    - **Pattern Matching**: Regex-based frame detection with spaCy entity extraction
+    - **Lexicon-Based Analysis**: Political bias detection using curated keyword lists
+    - **Temporal Clustering**: Groups frames from last 7 days by type and entity overlap
+    - **Real-time Analysis**: Ad-hoc text analysis without database persistence
+
+    ## Integration Points
+
+    - **Content Analysis v3**: Creates narrative frames after article processing
+    - **Frontend UI**: Displays narrative trends, bias charts, cluster explorer
+    - **PostgreSQL**: Stores frames, clusters, and bias analyses
+
+    ## Performance
+
+    - Frame Detection: ~100-200ms per article
+    - Bias Analysis: ~50-100ms per article
+    - Clustering: Batch process (~1-2s for 100 frames)
+
+    ## Authentication
+
+    ⚠️ **Currently NOT IMPLEMENTED**. All endpoints are public.
+    Authentication via JWT planned for Q1 2026.
+
+  version: 1.0.0
+  contact:
+    name: Backend Team
+    email: backend@example.com
+  license:
+    name: Proprietary
+    url: https://example.com/license
+
+servers:
+  - url: http://localhost:8119
+    description: Development server
+  - url: http://narrative-service:8119
+    description: Docker network (internal)
+  - url: https://api.example.com/narrative
+    description: Production server (future)
+
+tags:
+  - name: narrative
+    description: Narrative frames, clusters, and bias analysis
+  - name: health
+    description: Service health and monitoring
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check service health and database connectivity
+      tags:
+        - health
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, unhealthy]
+                    example: healthy
+                  service:
+                    type: string
+                    example: narrative
+                  version:
+                    type: string
+                    example: 1.0.0
+                  checks:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [ok, error]
+                      spacy_model:
+                        type: string
+                        enum: [ok, error]
+
+  /:
+    get:
+      summary: Root endpoint
+      description: Service information and documentation link
+      tags:
+        - health
+      operationId: root
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: Narrative Service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  docs:
+                    type: string
+                    example: /docs
+
+  /api/v1/narrative/overview:
+    get:
+      summary: Get narrative overview statistics
+      description: |
+        Returns comprehensive narrative analysis statistics including:
+        - Total frames and clusters
+        - Frame type distribution (victim, hero, threat, etc.)
+        - Bias distribution across political spectrum
+        - Average bias score and sentiment
+        - Top 10 active narratives by frame count
+
+        **Use Case**: Dashboard overview widget, executive summary
+      tags:
+        - narrative
+      operationId: getNarrativeOverview
+      parameters:
+        - name: days
+          in: query
+          description: Number of days to look back (1-30)
+          required: false
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 30
+          example: 7
+      responses:
+        '200':
+          description: Narrative overview statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NarrativeOverviewResponse'
+              example:
+                total_frames: 150
+                total_clusters: 8
+                frame_distribution:
+                  victim: 45
+                  hero: 20
+                  threat: 35
+                  solution: 18
+                  conflict: 22
+                  economic: 10
+                bias_distribution:
+                  left: 15
+                  center-left: 20
+                  center: 30
+                  center-right: 18
+                  right: 12
+                avg_bias_score: 0.052
+                avg_sentiment: -0.123
+                top_narratives:
+                  - id: 123e4567-e89b-12d3-a456-426614174000
+                    name: Biden - White House - Washington
+                    dominant_frame: victim
+                    frame_count: 15
+                    bias_score: -0.3
+                    keywords: [Biden, White House, Congress]
+                    entities:
+                      persons: [Biden]
+                      organizations: [White House, Congress]
+                      locations: [Washington]
+                    sentiment: -0.2
+                    perspectives:
+                      pro: 30
+                      con: 50
+                      neutral: 20
+                    is_active: true
+                    created_at: '2025-11-20T10:00:00Z'
+                    updated_at: '2025-11-24T15:00:00Z'
+                timestamp: '2025-11-24T16:30:00Z'
+
+  /api/v1/narrative/frames:
+    get:
+      summary: List narrative frames
+      description: |
+        List narrative frames with pagination and optional filters.
+
+        **Frame Types**:
+        - `victim`: Entity portrayed as suffering/victim
+        - `hero`: Entity portrayed as savior/hero
+        - `threat`: Entity portrayed as danger/threat
+        - `solution`: Entity/action as solution to problem
+        - `conflict`: Conflict/opposition framing
+        - `economic`: Economic impact/consequences framing
+
+        **Use Cases**:
+        - Frame browsing UI
+        - Frame timeline visualization
+        - Entity-specific frame search
+      tags:
+        - narrative
+      operationId: listNarrativeFrames
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          example: 1
+        - name: per_page
+          in: query
+          description: Items per page (1-100)
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          example: 50
+        - name: frame_type
+          in: query
+          description: Filter by frame type
+          required: false
+          schema:
+            type: string
+            enum: [victim, hero, threat, solution, conflict, economic]
+          example: victim
+        - name: event_id
+          in: query
+          description: Filter by event ID (UUID)
+          required: false
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        - name: min_confidence
+          in: query
+          description: Minimum confidence threshold (0.0-1.0)
+          required: false
+          schema:
+            type: number
+            format: float
+            default: 0.0
+            minimum: 0.0
+            maximum: 1.0
+          example: 0.5
+      responses:
+        '200':
+          description: List of narrative frames
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FramesListResponse'
+
+    post:
+      summary: Create narrative frame
+      description: |
+        Create a new narrative frame. Typically called by content-analysis-v3
+        after article processing.
+
+        **Required Fields**:
+        - `event_id`: UUID of the article/event
+        - `frame_type`: One of 6 frame types
+        - `confidence`: Detection confidence (0-1)
+
+        **Optional Fields**:
+        - `text_excerpt`: Supporting text (±50 chars around match)
+        - `entities`: Extracted named entities (persons, orgs, locations)
+        - `frame_metadata`: Additional metadata (source, article_id, etc.)
+      tags:
+        - narrative
+      operationId: createNarrativeFrame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NarrativeFrameCreate'
+            example:
+              event_id: 123e4567-e89b-12d3-a456-426614174000
+              frame_type: victim
+              confidence: 0.85
+              text_excerpt: Communities affected by rising costs...
+              entities:
+                persons: [Joe Biden]
+                organizations: [White House]
+                locations: [Washington]
+              frame_metadata:
+                source: content-analysis-v3
+                article_id: 456e7890-e12d-34a5-b678-426614174001
+      responses:
+        '201':
+          description: Frame created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NarrativeFrameResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/narrative/clusters:
+    get:
+      summary: List narrative clusters
+      description: |
+        List narrative clusters (grouped frames).
+
+        Clusters group similar narrative frames by:
+        - Same frame type
+        - Overlapping entities (persons, orgs, locations)
+        - Temporal proximity (last 7 days)
+
+        **Minimum Cluster Size**: 3 frames
+
+        **Use Cases**:
+        - Narrative cluster explorer UI
+        - Dominant narrative identification
+        - Cluster trend analysis
+      tags:
+        - narrative
+      operationId: listNarrativeClusters
+      parameters:
+        - name: active_only
+          in: query
+          description: Only return active clusters
+          required: false
+          schema:
+            type: boolean
+            default: true
+          example: true
+        - name: min_frame_count
+          in: query
+          description: Minimum frame count per cluster
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          example: 5
+        - name: limit
+          in: query
+          description: Maximum number of results (1-100)
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          example: 50
+      responses:
+        '200':
+          description: List of narrative clusters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NarrativeClusterResponse'
+
+  /api/v1/narrative/clusters/update:
+    post:
+      summary: Update narrative clusters
+      description: |
+        Trigger narrative clustering from recent frames (last 7 days).
+
+        **Algorithm**:
+        1. Fetch all frames from last 7 days
+        2. Group by frame type
+        3. Create clusters for groups with ≥3 frames
+        4. Aggregate entities and generate cluster metadata
+        5. Persist clusters to database
+
+        **Typically called by**:
+        - Scheduler service (daily at 2 AM)
+        - Manual trigger via API
+
+        **Processing Time**: 1-2 seconds for 100 frames
+      tags:
+        - narrative
+      operationId: updateNarrativeClusters
+      responses:
+        '202':
+          description: Clustering job accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success, no_frames]
+                    example: success
+                  frames_processed:
+                    type: integer
+                    example: 87
+                  clusters_created:
+                    type: integer
+                    example: 5
+
+  /api/v1/narrative/bias:
+    get:
+      summary: Get bias comparison across sources
+      description: |
+        Compare political bias across news sources.
+
+        **Bias Spectrum**:
+        - `left`: Strong left bias (score ≤ -0.5)
+        - `center-left`: Moderate left bias (-0.5 < score ≤ -0.15)
+        - `center`: Neutral/balanced (-0.15 < score < 0.15)
+        - `center-right`: Moderate right bias (0.15 ≤ score < 0.5)
+        - `right`: Strong right bias (score ≥ 0.5)
+
+        **Returns**:
+        - Source count
+        - Spectrum distribution (counts per bias label)
+        - Average bias score and sentiment
+        - Individual source analyses
+
+        **Use Cases**:
+        - Source bias comparison chart
+        - Media bias dashboard
+        - Cross-source analysis
+      tags:
+        - narrative
+      operationId: getBiasComparison
+      parameters:
+        - name: event_id
+          in: query
+          description: Filter by event ID (UUID)
+          required: false
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        - name: days
+          in: query
+          description: Number of days to look back (1-30)
+          required: false
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 30
+          example: 7
+      responses:
+        '200':
+          description: Bias comparison results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiasComparisonResponse'
+
+  /api/v1/narrative/analyze/text:
+    post:
+      summary: Analyze text for frames and bias
+      description: |
+        Analyze arbitrary text for narrative frames and political bias
+        **without persisting** to database.
+
+        **Use Cases**:
+        - Ad-hoc analysis
+        - Testing frame/bias detection
+        - API playground/demo
+        - Research tool
+
+        **Processing**:
+        1. Frame Detection: Pattern matching + spaCy entity extraction (~100-200ms)
+        2. Bias Analysis: Lexicon-based scoring (~50-100ms)
+
+        **Total Latency**: 150-300ms
+
+        **Minimum Text Length**: 50 characters
+      tags:
+        - narrative
+      operationId: analyzeText
+      parameters:
+        - name: text
+          in: query
+          description: Text to analyze (min 50 characters)
+          required: true
+          schema:
+            type: string
+            minLength: 50
+          example: Communities are suffering from rising costs and struggling families are hurt by inflation.
+        - name: source
+          in: query
+          description: Source name (optional, for context)
+          required: false
+          schema:
+            type: string
+          example: CNN
+      responses:
+        '200':
+          description: Analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  frames:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FrameDetectionResult'
+                  bias:
+                    $ref: '#/components/schemas/BiasAnalysisResult'
+                  text_length:
+                    type: integer
+                    example: 1250
+                  analyzed_at:
+                    type: string
+                    format: date-time
+                    example: '2025-11-24T16:40:00Z'
+        '400':
+          description: Invalid input (text too short)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Text must be at least 50 characters
+
+components:
+  schemas:
+    NarrativeFrameCreate:
+      type: object
+      required:
+        - event_id
+        - frame_type
+        - confidence
+      properties:
+        event_id:
+          type: string
+          format: uuid
+          description: UUID of the article/event
+          example: 123e4567-e89b-12d3-a456-426614174000
+        frame_type:
+          type: string
+          enum: [victim, hero, threat, solution, conflict, economic]
+          description: Type of narrative frame
+          example: victim
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Detection confidence (0-1)
+          example: 0.85
+        text_excerpt:
+          type: string
+          nullable: true
+          description: Supporting text excerpt (±50 chars around match)
+          maxLength: 500
+          example: Communities affected by rising costs...
+        entities:
+          type: object
+          nullable: true
+          description: Extracted named entities
+          properties:
+            persons:
+              type: array
+              items:
+                type: string
+              example: [Joe Biden, Kamala Harris]
+            organizations:
+              type: array
+              items:
+                type: string
+              example: [White House, Democratic Party]
+            locations:
+              type: array
+              items:
+                type: string
+              example: [Washington, United States]
+        frame_metadata:
+          type: object
+          nullable: true
+          description: Additional metadata
+          additionalProperties: true
+          example:
+            source: content-analysis-v3
+            article_id: 456e7890-e12d-34a5-b678-426614174001
+
+    NarrativeFrameResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Frame UUID
+          example: 789e0123-e45f-67g8-h901-234567890abc
+        event_id:
+          type: string
+          format: uuid
+          description: Event UUID
+          example: 123e4567-e89b-12d3-a456-426614174000
+        frame_type:
+          type: string
+          enum: [victim, hero, threat, solution, conflict, economic]
+          example: victim
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.85
+        text_excerpt:
+          type: string
+          nullable: true
+          example: Communities affected by rising costs...
+        entities:
+          type: object
+          nullable: true
+          properties:
+            persons:
+              type: array
+              items:
+                type: string
+            organizations:
+              type: array
+              items:
+                type: string
+            locations:
+              type: array
+              items:
+                type: string
+        created_at:
+          type: string
+          format: date-time
+          example: '2025-11-24T10:00:00Z'
+
+    FramesListResponse:
+      type: object
+      properties:
+        frames:
+          type: array
+          items:
+            $ref: '#/components/schemas/NarrativeFrameResponse'
+        total:
+          type: integer
+          description: Total number of frames matching filters
+          example: 150
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+          example: 1
+        per_page:
+          type: integer
+          description: Items per page
+          example: 50
+
+    NarrativeClusterResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 234e5678-e90b-12d3-a456-426614174001
+        name:
+          type: string
+          description: Cluster name (generated from top entities)
+          example: Biden - White House - Washington
+        dominant_frame:
+          type: string
+          enum: [victim, hero, threat, solution, conflict, economic]
+          description: Most common frame type in cluster
+          example: victim
+        frame_count:
+          type: integer
+          description: Number of frames in cluster
+          example: 15
+        bias_score:
+          type: number
+          format: float
+          nullable: true
+          minimum: -1.0
+          maximum: 1.0
+          description: Average bias score (-1 left to +1 right)
+          example: -0.3
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Keywords extracted from entities
+          example: [Biden, White House, Congress]
+        entities:
+          type: object
+          nullable: true
+          description: Top entities in cluster
+          properties:
+            persons:
+              type: array
+              items:
+                type: string
+              example: [Biden]
+            organizations:
+              type: array
+              items:
+                type: string
+              example: [White House, Congress]
+            locations:
+              type: array
+              items:
+                type: string
+              example: [Washington]
+        sentiment:
+          type: number
+          format: float
+          nullable: true
+          minimum: -1.0
+          maximum: 1.0
+          description: Average sentiment (-1 negative to +1 positive)
+          example: -0.2
+        perspectives:
+          type: object
+          nullable: true
+          description: Distribution of perspectives (percentages)
+          properties:
+            pro:
+              type: integer
+              example: 30
+            con:
+              type: integer
+              example: 50
+            neutral:
+              type: integer
+              example: 20
+        is_active:
+          type: boolean
+          description: Whether cluster is currently active
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: '2025-11-20T10:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2025-11-24T15:00:00Z'
+
+    BiasAnalysisResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 345e6789-e01c-23d4-a567-426614174002
+        event_id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        source:
+          type: string
+          nullable: true
+          description: News source name
+          example: CNN
+        bias_score:
+          type: number
+          format: float
+          minimum: -1.0
+          maximum: 1.0
+          description: Political bias score (-1 left to +1 right)
+          example: -0.65
+        bias_label:
+          type: string
+          enum: [left, center-left, center, center-right, right]
+          description: Bias classification label
+          example: left
+        sentiment:
+          type: number
+          format: float
+          minimum: -1.0
+          maximum: 1.0
+          description: Sentiment score (-1 negative to +1 positive)
+          example: -0.3
+        language_indicators:
+          type: object
+          nullable: true
+          description: Language feature counts
+          properties:
+            left_markers:
+              type: integer
+              example: 12
+            right_markers:
+              type: integer
+              example: 2
+            emotional_positive:
+              type: integer
+              example: 3
+            emotional_negative:
+              type: integer
+              example: 8
+        perspective:
+          type: string
+          nullable: true
+          enum: [pro, con, neutral]
+          description: Stance on topic
+          example: pro
+        created_at:
+          type: string
+          format: date-time
+          example: '2025-11-24T10:00:00Z'
+
+    BiasComparisonResponse:
+      type: object
+      properties:
+        source_count:
+          type: integer
+          description: Number of sources analyzed
+          example: 8
+        spectrum_distribution:
+          type: object
+          description: Count of sources per bias category
+          properties:
+            left:
+              type: integer
+              example: 2
+            center-left:
+              type: integer
+              example: 2
+            center:
+              type: integer
+              example: 2
+            center-right:
+              type: integer
+              example: 1
+            right:
+              type: integer
+              example: 1
+        avg_bias_score:
+          type: number
+          format: float
+          minimum: -1.0
+          maximum: 1.0
+          description: Average bias score across all sources
+          example: 0.05
+        avg_sentiment:
+          type: number
+          format: float
+          minimum: -1.0
+          maximum: 1.0
+          description: Average sentiment across all sources
+          example: -0.12
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/BiasAnalysisResponse'
+
+    NarrativeOverviewResponse:
+      type: object
+      properties:
+        total_frames:
+          type: integer
+          description: Total frames in time window
+          example: 150
+        total_clusters:
+          type: integer
+          description: Total active clusters
+          example: 8
+        frame_distribution:
+          type: object
+          description: Count of frames per type
+          additionalProperties:
+            type: integer
+          example:
+            victim: 45
+            hero: 20
+            threat: 35
+            solution: 18
+            conflict: 22
+            economic: 10
+        bias_distribution:
+          type: object
+          description: Count of analyses per bias label
+          additionalProperties:
+            type: integer
+          example:
+            left: 15
+            center-left: 20
+            center: 30
+            center-right: 18
+            right: 12
+        avg_bias_score:
+          type: number
+          format: float
+          minimum: -1.0
+          maximum: 1.0
+          description: Average bias score
+          example: 0.052
+        avg_sentiment:
+          type: number
+          format: float
+          minimum: -1.0
+          maximum: 1.0
+          description: Average sentiment
+          example: -0.123
+        top_narratives:
+          type: array
+          items:
+            $ref: '#/components/schemas/NarrativeClusterResponse'
+          description: Top 10 narratives by frame count
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-11-24T16:30:00Z'
+
+    FrameDetectionResult:
+      type: object
+      properties:
+        frame_type:
+          type: string
+          enum: [victim, hero, threat, solution, conflict, economic]
+          example: victim
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.7
+        text_excerpt:
+          type: string
+          nullable: true
+          example: ...communities affected...
+        entities:
+          type: object
+          nullable: true
+          properties:
+            persons:
+              type: array
+              items:
+                type: string
+            organizations:
+              type: array
+              items:
+                type: string
+            locations:
+              type: array
+              items:
+                type: string
+        match_count:
+          type: integer
+          description: Number of pattern matches found
+          example: 5
+
+    BiasAnalysisResult:
+      type: object
+      properties:
+        bias_score:
+          type: number
+          format: float
+          minimum: -1.0
+          maximum: 1.0
+          example: -0.25
+        bias_label:
+          type: string
+          enum: [left, center-left, center, center-right, right]
+          example: center-left
+        sentiment:
+          type: number
+          format: float
+          minimum: -1.0
+          maximum: 1.0
+          example: -0.15
+        language_indicators:
+          type: object
+          properties:
+            left_markers:
+              type: integer
+            right_markers:
+              type: integer
+            emotional_positive:
+              type: integer
+            emotional_negative:
+              type: integer
+        perspective:
+          type: string
+          enum: [pro, con, neutral]
+          example: neutral
+        source:
+          type: string
+          nullable: true
+          example: NYTimes
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: Text must be at least 50 characters

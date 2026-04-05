@@ -1,0 +1,134 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "fe252143-9376-4458-8fd6-186dffca3fea",
+    "entities": [
+      {
+        "id": "de480c63-13e3-4f9a-a1d6-9927e4f7f762",
+        "text": "iPhone 15 Pro",
+        "type": "PRODUCT",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "dfb62d3b-def5-4d37-a60c-c183138ee23a",
+        "text": "Super Retina XDR",
+        "type": "PRODUCT",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "e7150f39-0a5b-436e-b056-bff46c318f3e",
+        "text": "A17 Pro",
+        "type": "PRODUCT",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "5522b0e2-8eeb-4c3b-8a9b-7770f7492dba",
+        "text": "128GB",
+        "type": "PRODUCT",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "d30ccc26-4de0-42d8-92e0-f73c63652437",
+        "text": "256GB",
+        "type": "PRODUCT",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "b9199636-c9c0-4e59-87f0-7685b1643370",
+        "text": "512GB",
+        "type": "PRODUCT",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "5fbe0cbb-2d90-4683-9c53-a4289b141791",
+        "text": "1TB",
+        "type": "PRODUCT",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "933754de-0a7d-4f2c-bdd8-6997a2f7d6bc",
+        "text": "48MP",
+        "type": "PRODUCT",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "9d5529c7-a08d-4ae4-a5ee-400e341f5954",
+        "text": "12MP",
+        "type": "PRODUCT",
+        "confidence": 0.8,
+        "mention_count": 2
+      },
+      {
+        "id": "6aa581c1-b62f-4ce5-a413-39c9bfff4e7f",
+        "text": "5G",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "4d553c77-9b0f-4a9d-9b6b-d68e4ca571d1",
+        "text": "Wi-Fi 6E",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "aeed67b4-24ad-4bcc-9e9f-39ec2e13b73c",
+        "text": "Bluetooth 5.3",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "7d9db803-ff60-439c-82eb-6cdb13a7e07c",
+        "text": "Natural Titanium",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "11f03795-049b-4c9f-8888-b12c88869f3c",
+        "text": "Blue Titanium",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "d60c84ba-14c8-4839-b3a0-d0e215c03487",
+        "text": "White Titanium",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "153396d6-e517-4784-9a7c-b39e2488e742",
+        "text": "Black Titanium",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.8,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "A17 Pro",
+        "entity2": "iPhone 15 Pro",
+        "type": "related_to",
+        "confidence": 0.9
+      }
+    ],
+    "entity_count": 16,
+    "relationship_count": 1,
+    "processing_time_ms": 14964,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:12:03.821729"
+}

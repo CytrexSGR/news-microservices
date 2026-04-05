@@ -1,0 +1,1442 @@
+openapi: 3.1.0
+info:
+  title: Prediction Service API
+  version: 0.1.0
+  description: |
+    **Predictive Analytics Service** combining news sentiment analysis with financial market data.
+
+    ## Features
+    - **Multi-Model ML Framework**: 3 prediction models (Sentiment, Topic Volume, ARIMA)
+    - **Multi-Horizon Forecasts**: 1-day, 1-week, 1-month predictions
+    - **Trading Signals**: BUY/SELL/HOLD with risk management (stop-loss, take-profit)
+    - **Portfolio Optimization**: Modern Portfolio Theory (Markowitz)
+    - **Event Impact Analysis**: Geopolitical event market impact predictions
+    - **Backtesting Framework**: Historical validation with performance metrics
+
+    ## Architecture
+    - **Technology**: FastAPI, Python 3.11, PostgreSQL, Redis
+    - **External Dependencies**: content-analysis-v3 (8114), fmp-service (8109)
+    - **ML Models**: Sentiment predictor, Topic volume predictor, ARIMA predictor
+    - **Caching**: Redis (1h TTL for features, 6h for covariance matrices)
+
+    ## Authentication
+    Currently no authentication (internal service). Phase 5 will add JWT authentication.
+
+    ## Rate Limiting
+    No rate limiting currently implemented. Phase 5 will add per-user quotas.
+  contact:
+    name: News Microservices Team
+    email: andreas@test.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8116
+    description: Development server
+  - url: https://prediction.news-microservices.internal:8116
+    description: Production server (internal)
+
+tags:
+  - name: Health
+    description: Health check and monitoring endpoints
+  - name: Features
+    description: Feature engineering endpoints
+  - name: Predictions
+    description: ML prediction endpoints (main functionality)
+  - name: Signals
+    description: Trading signal generation
+  - name: Events
+    description: Geopolitical event impact analysis
+  - name: Portfolio
+    description: Portfolio optimization (Markowitz MPT)
+  - name: Backtests
+    description: Historical model validation
+  - name: Performance
+    description: Model performance metrics
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Check if service is healthy and all dependencies are reachable
+      operationId: health_check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: prediction-service
+                  version:
+                    type: string
+                    example: 0.1.0
+                  status:
+                    type: string
+                    example: healthy
+                    enum: [healthy, degraded, unhealthy]
+                required: [service, version, status]
+
+  /cache/stats:
+    get:
+      tags: [Health]
+      summary: Cache statistics
+      description: Get Redis cache hit/miss statistics
+      operationId: cache_stats
+      responses:
+        '200':
+          description: Cache statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: prediction-service
+                  cache_enabled:
+                    type: boolean
+                    example: true
+                  cache_connected:
+                    type: boolean
+                    example: true
+                  cache_ttl_seconds:
+                    type: integer
+                    example: 3600
+                  statistics:
+                    type: object
+                    properties:
+                      hits:
+                        type: integer
+                        example: 1247
+                      misses:
+                        type: integer
+                        example: 318
+                      hit_rate:
+                        type: number
+                        format: float
+                        example: 0.797
+
+  /metrics:
+    get:
+      tags: [Health]
+      summary: Prometheus metrics
+      description: Prometheus-compatible metrics endpoint
+      operationId: metrics
+      responses:
+        '200':
+          description: Prometheus metrics in plain text format
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP prediction_cache_hits_total Cache hit count
+                  # TYPE prediction_cache_hits_total counter
+                  prediction_cache_hits_total 1247
+
+  /:
+    get:
+      tags: [Health]
+      summary: Root endpoint
+      description: Service information and available endpoints
+      operationId: root
+      responses:
+        '200':
+          description: Service info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  description:
+                    type: string
+                  features:
+                    type: array
+                    items:
+                      type: string
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+
+  /api/v1/features/{article_id}:
+    get:
+      tags: [Features]
+      summary: Get article features
+      description: Retrieve extracted features for a specific article
+      operationId: get_features
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          description: Article UUID from content-analysis-v3
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Article features
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Features'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/features/extract:
+    post:
+      tags: [Features]
+      summary: Extract features
+      description: Extract features for one or more articles
+      operationId: extract_features
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                article_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 100
+                  example: [550e8400-e29b-41d4-a716-446655440000]
+              required: [article_ids]
+      responses:
+        '200':
+          description: Extracted features
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  features:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Features'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/predictions/:
+    post:
+      tags: [Predictions]
+      summary: Generate predictions
+      description: |
+        Generate market predictions using one or more ML models. Supports ensemble predictions.
+
+        **Models Available:**
+        - `sentiment_v1`: Sentiment-based predictor (64% accuracy, 850ms avg)
+        - `topic_volume_v1`: Topic frequency analysis (58% accuracy, 180ms avg)
+        - `arima_v1`: Time series ARIMA model (61% accuracy, 850ms avg)
+
+        **Ensemble:** When multiple models are specified, predictions are combined using confidence-weighted voting.
+      operationId: create_prediction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionRequest'
+      responses:
+        '200':
+          description: Predictions generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnsemblePredictionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags: [Predictions]
+      summary: List predictions
+      description: List predictions with optional filters
+      operationId: list_predictions
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          description: Filter by symbol (e.g., AAPL)
+          schema:
+            type: string
+          example: AAPL
+        - name: model_name
+          in: query
+          required: false
+          description: Filter by model name
+          schema:
+            type: string
+          example: sentiment_v1
+        - name: horizon
+          in: query
+          required: false
+          description: Filter by forecast horizon
+          schema:
+            $ref: '#/components/schemas/ForecastHorizon'
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          description: Pagination offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of predictions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PredictionResponse'
+
+  /api/v1/predictions/{prediction_id}:
+    get:
+      tags: [Predictions]
+      summary: Get prediction
+      description: Retrieve a specific prediction by ID
+      operationId: get_prediction
+      parameters:
+        - name: prediction_id
+          in: path
+          required: true
+          description: Prediction UUID
+          schema:
+            type: string
+            format: uuid
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+      responses:
+        '200':
+          description: Prediction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/predictions/{prediction_id}/outcome:
+    post:
+      tags: [Predictions]
+      summary: Update prediction outcome
+      description: Update prediction with actual outcome (for performance tracking)
+      operationId: update_prediction_outcome
+      parameters:
+        - name: prediction_id
+          in: path
+          required: true
+          description: Prediction UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actual_value:
+                  type: number
+                  format: float
+                  description: Actual observed value (e.g., 0.032 for +3.2% return)
+                  example: 0.032
+              required: [actual_value]
+      responses:
+        '200':
+          description: Outcome updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  prediction_id:
+                    type: string
+                    format: uuid
+                  actual_value:
+                    type: number
+                    format: float
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/signals/generate:
+    post:
+      tags: [Signals]
+      summary: Generate trading signal
+      description: |
+        Generate trading signal from a forecast with risk management parameters.
+
+        **Requirements:**
+        - Minimum confidence: 60%
+        - Minimum risk-reward ratio: 2:1
+        - Position size: 5-10% based on confidence
+
+        **Strategies:**
+        - `MOMENTUM`: Follow the trend (UP → BUY, DOWN → SELL)
+        - `MEAN_REVERSION`: Contrarian (DOWN → BUY, UP → SELL)
+        - `EVENT_DRIVEN`: Trade on geopolitical events
+      operationId: generate_signal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalRequest'
+      responses:
+        '200':
+          description: Signal generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalResponse'
+        '400':
+          description: No signal generated (confidence too low or neutral prediction)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/signals/:
+    get:
+      tags: [Signals]
+      summary: List trading signals
+      description: List active trading signals with optional filters
+      operationId: list_signals
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          description: Filter by symbol
+          schema:
+            type: string
+          example: AAPL
+        - name: strategy
+          in: query
+          required: false
+          description: Filter by strategy
+          schema:
+            $ref: '#/components/schemas/SignalStrategy'
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: List of signals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    symbol:
+                      type: string
+                    signal_type:
+                      $ref: '#/components/schemas/SignalType'
+                    signal_strength:
+                      type: number
+                      format: float
+                    confidence:
+                      type: number
+                      format: float
+                    strategy:
+                      $ref: '#/components/schemas/SignalStrategy'
+                    status:
+                      type: string
+                      enum: [ACTIVE, CLOSED, EXPIRED]
+                    generated_at:
+                      type: string
+                      format: date-time
+
+  /api/v1/signals/events/predict:
+    post:
+      tags: [Events]
+      summary: Predict event impact
+      description: |
+        Predict market impact of a geopolitical event based on article analysis.
+
+        **Impact Classification:**
+        - **Direction**: POSITIVE, NEGATIVE, NEUTRAL, VOLATILE
+        - **Magnitude**: NEGLIGIBLE (<0.5%), LOW (0.5-1.5%), MODERATE (1.5-3%), HIGH (3-5%), SEVERE (>5%)
+        - **Duration**: IMMEDIATE (<1d), SHORT_TERM (1-7d), MEDIUM_TERM (1-4w), LONG_TERM (>1m)
+      operationId: predict_event_impact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventImpactRequest'
+      responses:
+        '200':
+          description: Event impact predicted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventImpactResponse'
+        '404':
+          description: Event not significant enough or analysis not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/signals/events/:
+    get:
+      tags: [Events]
+      summary: List event impacts
+      description: List recent event impact predictions
+      operationId: list_event_impacts
+      parameters:
+        - name: days
+          in: query
+          required: false
+          description: Lookback period in days
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 7
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: List of event impacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    impact_id:
+                      type: string
+                      format: uuid
+                    event_summary:
+                      type: string
+                    impact_magnitude:
+                      $ref: '#/components/schemas/ImpactMagnitude'
+                    event_severity:
+                      type: number
+                      format: float
+                    created_at:
+                      type: string
+                      format: date-time
+
+  /api/v1/signals/portfolio/optimize:
+    post:
+      tags: [Portfolio]
+      summary: Optimize portfolio
+      description: |
+        Optimize portfolio allocation using Modern Portfolio Theory (Markowitz).
+
+        **Optimization Objectives:**
+        - `MAX_SHARPE`: Maximize Sharpe ratio (risk-adjusted return)
+        - `MIN_VARIANCE`: Minimize portfolio volatility
+        - `MAX_RETURN`: Maximize expected return
+        - `RISK_PARITY`: Equal risk contribution from each asset
+        - `MAX_DIVERSIFICATION`: Maximize diversification ratio
+
+        **Risk Tolerance:**
+        - `CONSERVATIVE`: 10% target volatility
+        - `MODERATE`: 15% target volatility
+        - `AGGRESSIVE`: 25% target volatility
+      operationId: optimize_portfolio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioOptimizationRequest'
+      responses:
+        '200':
+          description: Optimized portfolio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioOptimizationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/signals/portfolio/efficient-frontier:
+    post:
+      tags: [Portfolio]
+      summary: Calculate efficient frontier
+      description: |
+        Calculate efficient frontier for portfolio visualization.
+        Returns N points representing optimal portfolios at different risk/return levels.
+      operationId: calculate_efficient_frontier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EfficientFrontierRequest'
+      responses:
+        '200':
+          description: Efficient frontier points
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  frontier_points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        expected_return:
+                          type: number
+                          format: float
+                        expected_volatility:
+                          type: number
+                          format: float
+                        sharpe_ratio:
+                          type: number
+                          format: float
+                        weights:
+                          type: object
+                          additionalProperties:
+                            type: number
+                            format: float
+                  n_points:
+                    type: integer
+                  symbols:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/backtests/run:
+    post:
+      tags: [Backtests]
+      summary: Run backtest
+      description: |
+        Run backtest on historical data using walk-forward analysis.
+
+        **Metrics Calculated:**
+        - Classification: Accuracy, Precision, Recall, F1 Score
+        - Regression: MAE, RMSE, MAPE
+        - Trading: Sharpe Ratio, Max Drawdown, Total Return, Win Rate
+      operationId: run_backtest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbol:
+                  type: string
+                  example: AAPL
+                horizon:
+                  $ref: '#/components/schemas/ForecastHorizon'
+                model_name:
+                  type: string
+                  example: sentiment_v1
+                start_date:
+                  type: string
+                  format: date
+                  example: '2024-01-01'
+                end_date:
+                  type: string
+                  format: date
+                  example: '2024-06-30'
+              required: [symbol, horizon, model_name, start_date, end_date]
+      responses:
+        '200':
+          description: Backtest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/backtests/:
+    get:
+      tags: [Backtests]
+      summary: List backtests
+      description: List backtests with optional filters
+      operationId: list_backtests
+      parameters:
+        - name: model_name
+          in: query
+          required: false
+          description: Filter by model name
+          schema:
+            type: string
+        - name: symbol
+          in: query
+          required: false
+          description: Filter by symbol
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: List of backtests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BacktestResponse'
+
+  /api/v1/backtests/{backtest_id}:
+    get:
+      tags: [Backtests]
+      summary: Get backtest
+      description: Retrieve specific backtest results
+      operationId: get_backtest
+      parameters:
+        - name: backtest_id
+          in: path
+          required: true
+          description: Backtest UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Backtest details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/performance/metrics:
+    get:
+      tags: [Performance]
+      summary: Get performance metrics
+      description: Get real-time performance metrics for all models
+      operationId: get_performance_metrics
+      parameters:
+        - name: days
+          in: query
+          required: false
+          description: Lookback period in days
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: Performance metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  evaluation_date:
+                    type: string
+                    format: date
+                  lookback_days:
+                    type: integer
+                  models:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        model_name:
+                          type: string
+                        accuracy:
+                          type: number
+                          format: float
+                        sharpe_ratio:
+                          type: number
+                          format: float
+                        predictions_count:
+                          type: integer
+                        drift_detected:
+                          type: boolean
+
+  /api/v1/performance/model-comparison:
+    get:
+      tags: [Performance]
+      summary: Compare models
+      description: Compare performance across models
+      operationId: compare_models
+      parameters:
+        - name: horizon
+          in: query
+          required: false
+          description: Filter by forecast horizon
+          schema:
+            $ref: '#/components/schemas/ForecastHorizon'
+        - name: days
+          in: query
+          required: false
+          description: Lookback period in days
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: Model comparison
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comparison:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        model_name:
+                          type: string
+                        1DAY:
+                          type: object
+                        1WEEK:
+                          type: object
+                        1MONTH:
+                          type: object
+                  best_model:
+                    type: string
+                  evaluation_period:
+                    type: object
+                    properties:
+                      start:
+                        type: string
+                        format: date
+                      end:
+                        type: string
+                        format: date
+
+components:
+  schemas:
+    ForecastHorizon:
+      type: string
+      enum: ['1DAY', '1WEEK', '1MONTH']
+      description: Prediction time horizon
+      example: '1WEEK'
+
+    PredictionDirection:
+      type: string
+      enum: [UP, DOWN, FLAT]
+      description: Market direction prediction
+      example: UP
+
+    SignalType:
+      type: string
+      enum: [BUY, SELL, HOLD]
+      description: Trading signal type
+      example: BUY
+
+    SignalStrategy:
+      type: string
+      enum: [MOMENTUM, MEAN_REVERSION, EVENT_DRIVEN]
+      description: Trading strategy
+      example: MOMENTUM
+
+    ImpactDirection:
+      type: string
+      enum: [POSITIVE, NEGATIVE, NEUTRAL, VOLATILE]
+      description: Event impact direction
+      example: NEGATIVE
+
+    ImpactMagnitude:
+      type: string
+      enum: [NEGLIGIBLE, LOW, MODERATE, HIGH, SEVERE]
+      description: Event impact magnitude
+      example: HIGH
+
+    ImpactDuration:
+      type: string
+      enum: [IMMEDIATE, SHORT_TERM, MEDIUM_TERM, LONG_TERM]
+      description: Event impact duration
+      example: LONG_TERM
+
+    OptimizationObjective:
+      type: string
+      enum: [MAX_SHARPE, MIN_VARIANCE, MAX_RETURN, RISK_PARITY, MAX_DIVERSIFICATION]
+      description: Portfolio optimization objective
+      example: MAX_SHARPE
+
+    RiskTolerance:
+      type: string
+      enum: [CONSERVATIVE, MODERATE, AGGRESSIVE]
+      description: Risk tolerance level
+      example: MODERATE
+
+    Features:
+      type: object
+      properties:
+        article_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        features:
+          type: object
+          properties:
+            sentiment_mean:
+              type: number
+              format: float
+              description: Average sentiment score
+              example: 0.72
+            sentiment_std:
+              type: number
+              format: float
+              description: Sentiment volatility
+              example: 0.15
+            bullish_ratio:
+              type: number
+              format: float
+              description: Percentage of bullish articles
+              example: 0.65
+            bearish_ratio:
+              type: number
+              format: float
+              description: Percentage of bearish articles
+              example: 0.20
+            topic_frequency:
+              type: object
+              additionalProperties:
+                type: integer
+              example: {"military_conflict": 12, "election": 5}
+            geographic_concentration:
+              type: number
+              format: float
+              description: HHI of country distribution
+              example: 0.32
+            article_count:
+              type: integer
+              example: 45
+
+    PredictionRequest:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Target symbol (e.g., AAPL)
+          example: AAPL
+        sector:
+          type: string
+          description: Target sector (alternative to symbol)
+          example: Technology
+        horizon:
+          $ref: '#/components/schemas/ForecastHorizon'
+        target_date:
+          type: string
+          format: date
+          description: Specific target date (optional)
+          example: '2025-12-01'
+        models:
+          type: array
+          items:
+            type: string
+          description: Models to use for prediction
+          default: [sentiment_v1, topic_volume_v1, arima_v1]
+          example: [sentiment_v1, topic_volume_v1]
+      required: [horizon]
+
+    PredictionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        target_type:
+          type: string
+          example: DIRECTION
+        target_symbol:
+          type: string
+          example: AAPL
+        forecast_horizon:
+          $ref: '#/components/schemas/ForecastHorizon'
+        forecast_target_date:
+          type: string
+          format: date
+          example: '2025-12-01'
+        predicted_value:
+          type: number
+          format: float
+          nullable: true
+          description: Predicted return percentage
+          example: 0.025
+        predicted_direction:
+          $ref: '#/components/schemas/PredictionDirection'
+        confidence:
+          type: number
+          format: float
+          description: Confidence score (0-1)
+          example: 0.72
+        model_name:
+          type: string
+          example: sentiment_v1
+        created_at:
+          type: string
+          format: date-time
+          example: '2025-11-24T10:30:00Z'
+      required: [id, target_type, forecast_horizon, forecast_target_date, confidence, model_name, created_at]
+
+    EnsemblePredictionResponse:
+      type: object
+      properties:
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionResponse'
+        ensemble_direction:
+          $ref: '#/components/schemas/PredictionDirection'
+        ensemble_confidence:
+          type: number
+          format: float
+          description: Weighted ensemble confidence
+          example: 0.68
+        consensus:
+          type: boolean
+          description: True if all models agree
+          example: false
+      required: [predictions]
+
+    SignalRequest:
+      type: object
+      properties:
+        forecast_id:
+          type: string
+          format: uuid
+          description: Forecast UUID
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        strategy:
+          $ref: '#/components/schemas/SignalStrategy'
+        current_price:
+          type: number
+          format: float
+          description: Current market price (for stop-loss/take-profit)
+          example: 150.25
+      required: [forecast_id]
+
+    SignalResponse:
+      type: object
+      properties:
+        signal_id:
+          type: string
+          format: uuid
+          example: 9f3d2a8b-1c7e-4d2f-9a8b-7c3e9d2f1a8b
+        symbol:
+          type: string
+          example: AAPL
+        signal_type:
+          $ref: '#/components/schemas/SignalType'
+        signal_strength:
+          type: number
+          format: float
+          description: Signal strength (0-1)
+          example: 0.75
+        confidence:
+          type: number
+          format: float
+          description: Prediction confidence
+          example: 0.72
+        strategy:
+          $ref: '#/components/schemas/SignalStrategy'
+        expected_return:
+          type: number
+          format: float
+          description: Expected percentage return
+          example: 0.025
+        risk_reward_ratio:
+          type: number
+          format: float
+          description: Reward/risk ratio
+          example: 3.0
+        position_size:
+          type: number
+          format: float
+          description: Position size as percentage of portfolio
+          example: 0.08
+        entry_price:
+          type: number
+          format: float
+          nullable: true
+          example: 150.25
+        stop_loss:
+          type: number
+          format: float
+          nullable: true
+          example: 147.25
+        take_profit:
+          type: number
+          format: float
+          nullable: true
+          example: 159.27
+        reasoning:
+          type: string
+          example: BUY signal based on momentum strategy. Model sentiment_v1 predicts UP direction (+2.50%) with 72% confidence.
+      required: [signal_id, symbol, signal_type, signal_strength, confidence, strategy, expected_return, risk_reward_ratio, position_size, reasoning]
+
+    EventImpactRequest:
+      type: object
+      properties:
+        article_id:
+          type: string
+          format: uuid
+          description: Article UUID from content-analysis-v3
+          example: 550e8400-e29b-41d4-a716-446655440000
+      required: [article_id]
+
+    EventImpactResponse:
+      type: object
+      properties:
+        impact_id:
+          type: string
+          format: uuid
+          example: a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d
+        article_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        event_summary:
+          type: string
+          example: Ukraine conflict escalation near key infrastructure
+        impact_direction:
+          $ref: '#/components/schemas/ImpactDirection'
+        impact_magnitude:
+          $ref: '#/components/schemas/ImpactMagnitude'
+        impact_duration:
+          $ref: '#/components/schemas/ImpactDuration'
+        expected_market_move:
+          type: number
+          format: float
+          description: Expected percentage market move
+          example: -0.035
+        volatility_increase:
+          type: number
+          format: float
+          description: Expected volatility increase
+          example: 0.025
+        confidence:
+          type: number
+          format: float
+          description: Confidence score (0-1)
+          example: 0.72
+        affected_sectors:
+          type: array
+          items:
+            type: string
+          example: [Energy, Defense, Aerospace]
+        affected_symbols:
+          type: array
+          items:
+            type: string
+          example: [XLE, LMT, NOC]
+        event_severity:
+          type: number
+          format: float
+          description: Event severity score (0-1)
+          example: 0.85
+        event_topics:
+          type: array
+          items:
+            type: string
+          example: [military_conflict, infrastructure]
+      required: [impact_id, article_id, event_summary, impact_direction, impact_magnitude, impact_duration, expected_market_move, volatility_increase, confidence, affected_sectors, affected_symbols, event_severity, event_topics]
+
+    PortfolioOptimizationRequest:
+      type: object
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 50
+          description: Symbols to include in portfolio
+          example: [AAPL, MSFT, GOOGL, AMZN, TSLA]
+        objective:
+          $ref: '#/components/schemas/OptimizationObjective'
+        risk_tolerance:
+          $ref: '#/components/schemas/RiskTolerance'
+        current_weights:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+          nullable: true
+          description: Current portfolio weights (for rebalancing)
+          example: {"AAPL": 0.3, "MSFT": 0.4, "GOOGL": 0.3}
+        min_weight:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 0.0
+          description: Minimum position size
+          example: 0.05
+        max_weight:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 0.3
+          description: Maximum position size
+          example: 0.30
+        lookback_days:
+          type: integer
+          minimum: 30
+          maximum: 1000
+          default: 252
+          description: Historical data period (trading days)
+          example: 252
+      required: [symbols]
+
+    PortfolioOptimizationResponse:
+      type: object
+      properties:
+        weights:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+          description: Optimal weights for each symbol
+          example: {"AAPL": 0.25, "MSFT": 0.30, "GOOGL": 0.20, "AMZN": 0.15, "TSLA": 0.10}
+        expected_return:
+          type: number
+          format: float
+          description: Expected annualized return
+          example: 0.125
+        expected_volatility:
+          type: number
+          format: float
+          description: Expected annualized volatility
+          example: 0.18
+        sharpe_ratio:
+          type: number
+          format: float
+          description: Sharpe ratio (risk-adjusted return)
+          example: 0.47
+        diversification_ratio:
+          type: number
+          format: float
+          description: Diversification ratio
+          example: 1.23
+        rebalancing_trades:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+          nullable: true
+          description: Required trades to rebalance (if current_weights provided)
+          example: {"AAPL": 0.05, "MSFT": -0.02}
+        turnover:
+          type: number
+          format: float
+          nullable: true
+          description: Portfolio turnover (if current_weights provided)
+          example: 0.12
+      required: [weights, expected_return, expected_volatility, sharpe_ratio, diversification_ratio]
+
+    EfficientFrontierRequest:
+      type: object
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 50
+          example: [AAPL, MSFT, GOOGL]
+        n_points:
+          type: integer
+          minimum: 10
+          maximum: 200
+          default: 50
+          description: Number of frontier points
+          example: 50
+        lookback_days:
+          type: integer
+          minimum: 30
+          maximum: 1000
+          default: 252
+          description: Historical data period
+          example: 252
+      required: [symbols]
+
+    BacktestResponse:
+      type: object
+      properties:
+        backtest_id:
+          type: string
+          format: uuid
+          example: b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e
+        symbol:
+          type: string
+          example: AAPL
+        horizon:
+          $ref: '#/components/schemas/ForecastHorizon'
+        model_name:
+          type: string
+          example: sentiment_v1
+        start_date:
+          type: string
+          format: date
+          example: '2024-01-01'
+        end_date:
+          type: string
+          format: date
+          example: '2024-06-30'
+        total_predictions:
+          type: integer
+          example: 156
+        correct_predictions:
+          type: integer
+          example: 100
+        accuracy:
+          type: number
+          format: float
+          example: 0.641
+        precision:
+          type: number
+          format: float
+          example: 0.682
+        recall:
+          type: number
+          format: float
+          example: 0.615
+        f1_score:
+          type: number
+          format: float
+          example: 0.647
+        mae:
+          type: number
+          format: float
+          description: Mean Absolute Error
+          example: 0.018
+        rmse:
+          type: number
+          format: float
+          description: Root Mean Squared Error
+          example: 0.025
+        mape:
+          type: number
+          format: float
+          description: Mean Absolute Percentage Error
+          example: 12.5
+        sharpe_ratio:
+          type: number
+          format: float
+          example: 0.85
+        max_drawdown:
+          type: number
+          format: float
+          example: -0.12
+        total_return:
+          type: number
+          format: float
+          example: 0.18
+        win_rate:
+          type: number
+          format: float
+          example: 0.64
+        confusion_matrix:
+          type: object
+          nullable: true
+          description: Confusion matrix for classification
+      required: [backtest_id, symbol, horizon, model_name, start_date, end_date, total_predictions, accuracy]
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: Error message describing what went wrong
+      required: [detail]
+
+  responses:
+    BadRequest:
+      description: Bad request (invalid input parameters)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: Either symbol or sector must be provided
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: Prediction not found
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: Prediction failed for model sentiment_v1

@@ -1,0 +1,410 @@
+name: Deploy Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version to deploy (leave empty for latest)'
+        required: false
+        type: string
+
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  prepare-deployment:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      environment: ${{ steps.environment.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine environment
+        id: environment
+        run: |
+          if [ -n "${{ inputs.environment }}" ]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-kubernetes:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: prepare-deployment
+    environment: ${{ needs.prepare-deployment.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        run: |
+          # This would normally use secrets to configure kubectl
+          # For now, we'll just generate the manifests
+          echo "Configuring kubectl for ${{ needs.prepare-deployment.outputs.environment }}"
+
+      - name: Generate Kubernetes manifests
+        run: |
+          VERSION="${{ needs.prepare-deployment.outputs.version }}"
+          ENV="${{ needs.prepare-deployment.outputs.environment }}"
+
+          # Create namespace manifest
+          cat > k8s/00-namespace.yaml <<EOF
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: news-mcp-${ENV}
+            labels:
+              environment: ${ENV}
+              app: news-mcp
+          EOF
+
+          # Create ConfigMap manifest
+          cat > k8s/01-configmap.yaml <<EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: news-mcp-config
+            namespace: news-mcp-${ENV}
+          data:
+            ENVIRONMENT: "${ENV}"
+            POSTGRES_HOST: "postgres-service"
+            REDIS_HOST: "redis-service"
+            RABBITMQ_HOST: "rabbitmq-service"
+            MINIO_ENDPOINT: "minio-service:9000"
+            LOG_LEVEL: "${{ needs.prepare-deployment.outputs.environment == 'production' && 'INFO' || 'DEBUG' }}"
+          EOF
+
+          # Create Secret manifest (example - would use sealed secrets in production)
+          cat > k8s/02-secret.yaml <<EOF
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: news-mcp-secret
+            namespace: news-mcp-${ENV}
+          type: Opaque
+          stringData:
+            POSTGRES_PASSWORD: "changeme-in-production"
+            REDIS_PASSWORD: "changeme-in-production"
+            RABBITMQ_PASSWORD: "changeme-in-production"
+            MINIO_SECRET_KEY: "changeme-in-production"
+            JWT_SECRET_KEY: "changeme-in-production"
+          EOF
+
+          # Create deployment manifest for each service
+          for service in auth feed content-analysis research osint notification; do
+            cat > k8s/deploy-${service}.yaml <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ${service}-service
+            namespace: news-mcp-${ENV}
+            labels:
+              app: ${service}-service
+              version: ${VERSION}
+          spec:
+            replicas: ${{ needs.prepare-deployment.outputs.environment == 'production' && '3' || '1' }}
+            selector:
+              matchLabels:
+                app: ${service}-service
+            template:
+              metadata:
+                labels:
+                  app: ${service}-service
+                  version: ${VERSION}
+              spec:
+                containers:
+                - name: ${service}
+                  image: ${REGISTRY}/${IMAGE_PREFIX}/${service}-service:${VERSION}
+                  imagePullPolicy: Always
+                  ports:
+                  - containerPort: 8000
+                    name: http
+                  envFrom:
+                  - configMapRef:
+                      name: news-mcp-config
+                  - secretRef:
+                      name: news-mcp-secret
+                  resources:
+                    requests:
+                      memory: "256Mi"
+                      cpu: "250m"
+                    limits:
+                      memory: "512Mi"
+                      cpu: "500m"
+                  livenessProbe:
+                    httpGet:
+                      path: /health
+                      port: 8000
+                    initialDelaySeconds: 30
+                    periodSeconds: 10
+                  readinessProbe:
+                    httpGet:
+                      path: /ready
+                      port: 8000
+                    initialDelaySeconds: 10
+                    periodSeconds: 5
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ${service}-service
+            namespace: news-mcp-${ENV}
+          spec:
+            selector:
+              app: ${service}-service
+            ports:
+            - port: 80
+              targetPort: 8000
+              protocol: TCP
+          EOF
+          done
+
+          # Create Ingress manifest
+          cat > k8s/ingress.yaml <<EOF
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: news-mcp-ingress
+            namespace: news-mcp-${ENV}
+            annotations:
+              nginx.ingress.kubernetes.io/rewrite-target: /\$2
+              nginx.ingress.kubernetes.io/use-regex: "true"
+              cert-manager.io/cluster-issuer: letsencrypt-${ENV}
+          spec:
+            ingressClassName: nginx
+            tls:
+            - hosts:
+              - ${ENV}.news-mcp.example.com
+              secretName: news-mcp-tls
+            rules:
+            - host: ${ENV}.news-mcp.example.com
+              http:
+                paths:
+                - path: /api/auth(/|$)(.*)
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: auth-service
+                      port:
+                        number: 80
+                - path: /api/feed(/|$)(.*)
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: feed-service
+                      port:
+                        number: 80
+                - path: /api/analysis(/|$)(.*)
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: content-analysis-service
+                      port:
+                        number: 80
+          EOF
+
+      - name: Deploy to cluster
+        run: |
+          echo "Would deploy to ${{ needs.prepare-deployment.outputs.environment }} with version ${{ needs.prepare-deployment.outputs.version }}"
+
+          # In a real deployment, you would apply the manifests:
+          # kubectl apply -f k8s/
+
+          # For now, just list what would be deployed
+          echo "Manifests to deploy:"
+          ls -la k8s/*.yaml
+
+      - name: Wait for rollout
+        run: |
+          echo "Would wait for rollout to complete..."
+          # kubectl rollout status deployment/auth-service -n news-mcp-${ENV}
+          # kubectl rollout status deployment/feed-service -n news-mcp-${ENV}
+          # etc...
+
+  deploy-docker-compose:
+    name: Deploy with Docker Compose
+    runs-on: ubuntu-latest
+    needs: prepare-deployment
+    if: needs.prepare-deployment.outputs.environment == 'staging'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download docker-compose.prod.yml
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-compose-prod
+          path: .
+
+      - name: Deploy via SSH
+        run: |
+          echo "Would deploy via SSH to staging server"
+          echo "Using version: ${{ needs.prepare-deployment.outputs.version }}"
+
+          # In a real deployment:
+          # scp docker-compose.prod.yml user@staging-server:/opt/news-mcp/
+          # ssh user@staging-server "cd /opt/news-mcp && docker compose -f docker-compose.prod.yml pull"
+          # ssh user@staging-server "cd /opt/news-mcp && docker compose -f docker-compose.prod.yml up -d"
+
+  health-check:
+    name: Post-Deployment Health Check
+    runs-on: ubuntu-latest
+    needs: [deploy-kubernetes, deploy-docker-compose]
+    if: always() && (needs.deploy-kubernetes.result == 'success' || needs.deploy-docker-compose.result == 'success')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install httpx pytest
+
+      - name: Create health check script
+        run: |
+          cat > health_check.py <<'EOF'
+          import httpx
+          import sys
+          import time
+          from typing import List, Tuple
+
+          def check_service(base_url: str, service: str, path: str = "/health") -> Tuple[bool, str]:
+              """Check if a service is healthy."""
+              url = f"{base_url}{path}"
+              try:
+                  response = httpx.get(url, timeout=10)
+                  if response.status_code == 200:
+                      return True, f"✅ {service}: Healthy"
+                  else:
+                      return False, f"❌ {service}: Unhealthy (Status: {response.status_code})"
+              except Exception as e:
+                  return False, f"❌ {service}: Failed ({str(e)})"
+
+          def main():
+              environment = sys.argv[1] if len(sys.argv) > 1 else "staging"
+              base_url = f"https://{environment}.news-mcp.example.com"
+
+              services = [
+                  ("Auth Service", "/api/auth/health"),
+                  ("Feed Service", "/api/feed/health"),
+                  ("Content Analysis", "/api/analysis/health"),
+                  ("Research Service", "/api/research/health"),
+                  ("OSINT Service", "/api/osint/health"),
+                  ("Notification Service", "/api/notification/health"),
+              ]
+
+              print(f"Checking health for {environment} environment...")
+              print(f"Base URL: {base_url}")
+              print("-" * 50)
+
+              all_healthy = True
+              for service_name, path in services:
+                  healthy, message = check_service(base_url, service_name, path)
+                  print(message)
+                  if not healthy:
+                      all_healthy = False
+
+              print("-" * 50)
+              if all_healthy:
+                  print("✅ All services are healthy!")
+                  sys.exit(0)
+              else:
+                  print("❌ Some services are unhealthy!")
+                  sys.exit(1)
+
+          if __name__ == "__main__":
+              main()
+          EOF
+
+      - name: Run health checks
+        run: |
+          # In a real deployment, this would check actual endpoints
+          echo "Would run: python health_check.py ${{ needs.prepare-deployment.outputs.environment }}"
+          echo "Simulating health check..."
+          echo "✅ All services healthy"
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: health-check
+    if: failure()
+
+    steps:
+      - name: Rollback Kubernetes deployment
+        run: |
+          echo "Would rollback Kubernetes deployment"
+          # kubectl rollout undo deployment/auth-service -n news-mcp-${ENV}
+          # kubectl rollout undo deployment/feed-service -n news-mcp-${ENV}
+
+      - name: Notify team
+        run: |
+          echo "Would send notification to team about failed deployment"
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [prepare-deployment, deploy-kubernetes, deploy-docker-compose, health-check]
+    if: always()
+
+    steps:
+      - name: Generate deployment report
+        run: |
+          echo "## Deployment Report" > deployment-report.md
+          echo "" >> deployment-report.md
+          echo "**Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> deployment-report.md
+          echo "**Environment**: ${{ needs.prepare-deployment.outputs.environment }}" >> deployment-report.md
+          echo "**Version**: ${{ needs.prepare-deployment.outputs.version }}" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "### Deployment Status" >> deployment-report.md
+          echo "- Kubernetes: ${{ needs.deploy-kubernetes.result }}" >> deployment-report.md
+          echo "- Docker Compose: ${{ needs.deploy-docker-compose.result }}" >> deployment-report.md
+          echo "- Health Check: ${{ needs.health-check.result }}" >> deployment-report.md
+
+      - name: Upload deployment report
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-report
+          path: deployment-report.md

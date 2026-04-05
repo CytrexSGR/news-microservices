@@ -1,0 +1,748 @@
+openapi: 3.1.0
+info:
+  title: Scheduler Service API
+  description: |
+    Automated feed monitoring and analysis orchestration service.
+
+    The Scheduler Service coordinates between Feed Service and Content Analysis Service,
+    ensuring articles are analyzed systematically according to configured rules.
+
+    **Key Features:**
+    - Monitor active feeds for new articles (every 60 seconds)
+    - Queue analysis jobs based on feed configuration
+    - Process analysis jobs through Content Analysis Service
+    - Manage entity extraction and Knowledge Graph integration
+    - Flexible cron-style task scheduling
+
+    **Authentication:**
+    - Internal endpoints require service-to-service API key authentication
+    - Public endpoints require no authentication
+  version: 0.1.0
+  contact:
+    name: Platform Team
+    email: platform@example.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8008
+    description: Development server
+  - url: http://scheduler-service:8008
+    description: Docker internal network
+  - url: https://api.example.com/scheduler
+    description: Production server
+
+tags:
+  - name: Health
+    description: Service health and status endpoints
+  - name: Scheduler
+    description: Scheduler monitoring and control
+  - name: Jobs
+    description: Job queue management
+  - name: Cron
+    description: Cron scheduler management
+  - name: Internal
+    description: Internal service-to-service endpoints
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Simple health check endpoint for monitoring
+      operationId: health_check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                service: scheduler-service
+                version: 0.1.0
+
+  /:
+    get:
+      summary: Service information
+      description: Get service metadata and documentation link
+      operationId: root
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceInfo'
+              example:
+                service: scheduler-service
+                version: 0.1.0
+                docs_url: /docs
+
+  /api/v1/scheduler/status:
+    get:
+      summary: Get scheduler status
+      description: |
+        Retrieve operational status of all scheduler components:
+        - Feed monitor (article polling)
+        - Job processor (analysis execution)
+        - Cron scheduler (custom tasks)
+        - Job queue metrics
+      operationId: get_scheduler_status
+      tags:
+        - Scheduler
+      responses:
+        '200':
+          description: Scheduler status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedulerStatus'
+
+  /api/v1/scheduler/jobs/stats:
+    get:
+      summary: Get job queue statistics
+      description: |
+        Retrieve job queue statistics including:
+        - Total counts by status
+        - Job counts by type
+      operationId: get_job_stats
+      tags:
+        - Jobs
+      responses:
+        '200':
+          description: Job statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStats'
+
+  /api/v1/scheduler/jobs:
+    get:
+      summary: List analysis jobs
+      description: |
+        List analysis jobs with optional filtering by status.
+        Jobs are ordered by priority (descending) and creation time (descending).
+      operationId: list_jobs
+      tags:
+        - Jobs
+      parameters:
+        - name: status
+          in: query
+          description: Filter by job status
+          required: false
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - PROCESSING
+              - COMPLETED
+              - FAILED
+        - name: limit
+          in: query
+          description: Maximum number of jobs to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: offset
+          in: query
+          description: Number of jobs to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobList'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/scheduler/jobs/{job_id}/retry:
+    post:
+      summary: Retry a failed job
+      description: |
+        Reset a failed job for retry. Job must be in FAILED status.
+        Resets retry_count to 0 and clears error message.
+
+        **Authentication:** Requires service API key.
+      operationId: retry_job
+      tags:
+        - Jobs
+      security:
+        - ServiceAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          description: Job UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job reset for retry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobRetryResponse'
+        '400':
+          description: Job not in FAILED status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/scheduler/jobs/{job_id}/cancel:
+    post:
+      summary: Cancel a job
+      description: |
+        Cancel a pending or processing job. Marks job as FAILED with cancellation message.
+
+        **Authentication:** Requires service API key.
+      operationId: cancel_job
+      tags:
+        - Jobs
+      security:
+        - ServiceAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          description: Job UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCancelResponse'
+        '400':
+          description: Job cannot be cancelled (wrong status)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/scheduler/feeds/{feed_id}/check:
+    post:
+      summary: Force feed check
+      description: |
+        Trigger immediate check and analysis for a specific feed.
+        Bypasses normal polling interval.
+
+        **Authentication:** Requires service API key.
+
+        **Note:** Currently returns placeholder response. Implementation pending.
+      operationId: force_feed_check
+      tags:
+        - Scheduler
+      security:
+        - ServiceAuth: []
+      parameters:
+        - name: feed_id
+          in: path
+          description: Feed UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Feed check triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedCheckResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Feed not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/scheduler/cron/jobs:
+    get:
+      summary: List cron scheduled jobs
+      description: |
+        List all cron scheduler jobs with their schedules and next run times.
+        Includes interval, cron, and one-time date triggers.
+      operationId: list_cron_jobs
+      tags:
+        - Cron
+      responses:
+        '200':
+          description: List of cron jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CronJobList'
+
+  /api/v1/scheduler/internal/health/service:
+    post:
+      summary: Internal health check
+      description: |
+        Service-to-service health check endpoint.
+        Verifies API key authentication and service availability.
+
+        **Authentication:** Requires service API key.
+      operationId: internal_health_check
+      tags:
+        - Internal
+      security:
+        - ServiceAuth: []
+      responses:
+        '200':
+          description: Service is healthy and authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalHealthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: healthy
+        service:
+          type: string
+          example: scheduler-service
+        version:
+          type: string
+          example: 0.1.0
+
+    ServiceInfo:
+      type: object
+      required:
+        - service
+        - version
+        - docs_url
+      properties:
+        service:
+          type: string
+          example: scheduler-service
+        version:
+          type: string
+          example: 0.1.0
+        docs_url:
+          type: string
+          example: /docs
+
+    SchedulerStatus:
+      type: object
+      required:
+        - feed_monitor
+        - job_processor
+        - cron_scheduler
+        - queue
+      properties:
+        feed_monitor:
+          type: object
+          required:
+            - is_running
+            - check_interval_seconds
+          properties:
+            is_running:
+              type: boolean
+              example: true
+            check_interval_seconds:
+              type: integer
+              example: 60
+        job_processor:
+          type: object
+          required:
+            - is_running
+            - process_interval_seconds
+            - max_concurrent_jobs
+          properties:
+            is_running:
+              type: boolean
+              example: true
+            process_interval_seconds:
+              type: integer
+              example: 30
+            max_concurrent_jobs:
+              type: integer
+              example: 5
+        cron_scheduler:
+          type: object
+          required:
+            - is_running
+            - total_jobs
+            - running_jobs
+          properties:
+            is_running:
+              type: boolean
+              example: true
+            total_jobs:
+              type: integer
+              example: 1
+            running_jobs:
+              type: integer
+              example: 1
+        queue:
+          type: object
+          required:
+            - pending_jobs
+            - processing_jobs
+          properties:
+            pending_jobs:
+              type: integer
+              example: 127
+            processing_jobs:
+              type: integer
+              example: 8
+
+    JobStats:
+      type: object
+      required:
+        - total_pending
+        - total_processing
+        - total_completed
+        - total_failed
+        - by_type
+      properties:
+        total_pending:
+          type: integer
+          example: 127
+        total_processing:
+          type: integer
+          example: 8
+        total_completed:
+          type: integer
+          example: 1523
+        total_failed:
+          type: integer
+          example: 12
+        by_type:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            categorization: 45
+            finance_sentiment: 32
+            geopolitical_sentiment: 18
+            standard_sentiment: 32
+
+    Job:
+      type: object
+      required:
+        - id
+        - article_id
+        - job_type
+        - status
+        - priority
+        - retry_count
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        article_id:
+          type: string
+          format: uuid
+          example: 660e8400-e29b-41d4-a716-446655440000
+        job_type:
+          type: string
+          enum:
+            - categorization
+            - finance_sentiment
+            - geopolitical_sentiment
+            - standard_sentiment
+            - osint_analysis
+            - summary
+            - entities
+            - topics
+          example: categorization
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - completed
+            - failed
+          example: completed
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 10
+          description: Priority level (higher = more important)
+        retry_count:
+          type: integer
+          minimum: 0
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+          example: 2025-10-13T16:30:00Z
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2025-10-13T16:30:05Z
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2025-10-13T16:30:10Z
+        error_message:
+          type: string
+          nullable: true
+          example: null
+
+    JobList:
+      type: object
+      required:
+        - total
+        - limit
+        - offset
+        - jobs
+      properties:
+        total:
+          type: integer
+          example: 1245
+          description: Total number of jobs matching filter
+        limit:
+          type: integer
+          example: 50
+        offset:
+          type: integer
+          example: 0
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Job'
+
+    JobRetryResponse:
+      type: object
+      required:
+        - status
+        - message
+        - job
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Job 550e8400-e29b-41d4-a716-446655440000 reset for retry
+        job:
+          type: object
+          required:
+            - id
+            - status
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: 550e8400-e29b-41d4-a716-446655440000
+            status:
+              type: string
+              example: pending
+
+    JobCancelResponse:
+      type: object
+      required:
+        - status
+        - message
+        - job
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Job 550e8400-e29b-41d4-a716-446655440000 cancelled
+        job:
+          type: object
+          required:
+            - id
+            - status
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: 550e8400-e29b-41d4-a716-446655440000
+            status:
+              type: string
+              example: failed
+
+    FeedCheckResponse:
+      type: object
+      required:
+        - status
+        - feed_id
+        - message
+      properties:
+        status:
+          type: string
+          example: triggered
+        feed_id:
+          type: string
+          format: uuid
+          example: 770e8400-e29b-41d4-a716-446655440000
+        message:
+          type: string
+          example: Feed check scheduled
+
+    CronJob:
+      type: object
+      required:
+        - id
+        - name
+        - trigger
+        - pending
+      properties:
+        id:
+          type: string
+          example: process_entities_for_kg
+        name:
+          type: string
+          example: Process Entities for Knowledge Graph
+        next_run_time:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2025-10-13T16:31:00Z
+        trigger:
+          type: string
+          example: interval[0:00:30]
+          description: APScheduler trigger string representation
+        pending:
+          type: boolean
+          example: false
+
+    CronJobList:
+      type: object
+      required:
+        - total
+        - jobs
+      properties:
+        total:
+          type: integer
+          example: 1
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CronJob'
+
+    InternalHealthResponse:
+      type: object
+      required:
+        - status
+        - authenticated_service
+        - internal_api
+      properties:
+        status:
+          type: string
+          example: healthy
+        authenticated_service:
+          type: string
+          example: feed-service
+        internal_api:
+          type: string
+          example: operational
+
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          example: Job not found
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Service API key required (X-Service-Key header)
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: ServiceKey
+
+    Forbidden:
+      description: Authenticated but not authorized for this endpoint
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Service 'feed-service' not authorized for this endpoint
+
+  securitySchemes:
+    ServiceAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+      description: |
+        Service-to-service API key authentication.
+
+        **Headers:**
+        - `X-Service-Key`: Service API key (required)
+        - `X-Service-Name`: Calling service name (optional)
+
+        **Registered Services:**
+        - feed-service
+        - content-analysis-service
+        - auth-service

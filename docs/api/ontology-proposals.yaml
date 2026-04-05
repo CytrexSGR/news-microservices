@@ -1,0 +1,901 @@
+openapi: 3.1.0
+info:
+  title: Ontology Proposals Service API
+  description: |
+    REST API for managing ontology change proposals in the News MCP system.
+
+    The Ontology Proposals Service provides a structured workflow for proposing,
+    validating, approving, and implementing changes to entity types, relationship
+    types, and data consistency within the Neo4j-backed knowledge graph.
+
+    ## Key Features
+    - Proposal creation and storage
+    - Multi-stage approval workflow
+    - Neo4j integration for implementation
+    - ISO code validation and fixes
+    - Duplicate entity deduplication
+    - Full audit trail and change history
+    - Impact analysis before implementation
+
+    ## Proposal Status Lifecycle
+    - **PENDING**: Initial state after creation, awaiting review
+    - **ACCEPTED**: Approved by reviewer, eligible for implementation
+    - **REJECTED**: Reviewed and rejected, terminal state
+    - **IMPLEMENTED**: Successfully applied to knowledge graph
+    - **FAILED**: Implementation failed, needs attention
+
+    ## Change Types
+    - **NEW_ENTITY_TYPE**: Introduce new entity classification
+    - **NEW_RELATIONSHIP_TYPE**: Introduce new semantic relationship
+    - **MODIFY_ENTITY_TYPE**: Update entity type definition
+    - **MODIFY_RELATIONSHIP_TYPE**: Update relationship definition
+    - **FLAG_INCONSISTENCY**: Fix data quality issues (ISO codes, duplicates, etc.)
+  version: 1.0.0
+  contact:
+    name: News MCP Development Team
+    url: https://github.com/news-mcp/news-microservices
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:8109
+    description: Local development
+    variables:
+      basePath:
+        default: /api/v1
+  - url: https://api.example.com
+    description: Production
+    variables:
+      basePath:
+        default: /api/v1
+
+paths:
+  /ontology/proposals:
+    post:
+      summary: Create new ontology proposal
+      description: |
+        Create a new ontology change proposal from the OSS (Ontology Suggestion System).
+
+        The proposal is stored in PostgreSQL and transitions to PENDING status.
+        Reviewers can then approve or reject the proposal.
+      operationId: createProposal
+      tags:
+        - Proposals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalCreate'
+            examples:
+              iso_fix:
+                summary: ISO country code correction
+                value:
+                  proposal_id: OSS_20251124_143022_a1b2c3d4
+                  change_type: FLAG_INCONSISTENCY
+                  severity: HIGH
+                  title: ISO country codes - Fix invalid entity_ids
+                  description: Found 47 COUNTRY entities with invalid codes
+                  evidence:
+                    total_affected: 47
+                    examples:
+                      - name: United States
+                        current_id: USA
+                        correct_id: US
+                  occurrence_count: 47
+                  confidence: 0.99
+              new_entity_type:
+                summary: New entity type proposal
+                value:
+                  proposal_id: OSS_20251124_150000_b2c3d4e5
+                  change_type: NEW_ENTITY_TYPE
+                  severity: MEDIUM
+                  title: Add :CyberActorGroup entity type
+                  description: New entity type for organized cyber threat actors
+                  definition: Groups of coordinated cyber attackers
+                  occurrence_count: 89
+                  confidence: 0.94
+      responses:
+        '201':
+          description: Proposal created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+              example:
+                success: true
+                proposal_id: OSS_20251124_143022_a1b2c3d4
+                message: Proposal created successfully
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "ensure this value has at most 500 characters (type=value_error.string.max_length)"
+        '409':
+          description: Duplicate proposal_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Proposal with ID OSS_20251124_143022_a1b2c3d4 already exists"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Failed to create proposal
+
+    get:
+      summary: List proposals
+      description: |
+        List all proposals with optional filtering by status, severity, and change type.
+
+        Supports pagination via limit and offset parameters.
+      operationId: listProposals
+      tags:
+        - Proposals
+      parameters:
+        - name: status
+          in: query
+          description: Filter by proposal status
+          schema:
+            type: string
+            enum: [PENDING, ACCEPTED, REJECTED, IMPLEMENTED, FAILED]
+          example: PENDING
+        - name: severity
+          in: query
+          description: Filter by severity level
+          schema:
+            type: string
+            enum: [LOW, MEDIUM, HIGH, CRITICAL]
+          example: HIGH
+        - name: change_type
+          in: query
+          description: Filter by change type
+          schema:
+            type: string
+            enum:
+              - NEW_ENTITY_TYPE
+              - NEW_RELATIONSHIP_TYPE
+              - MODIFY_ENTITY_TYPE
+              - MODIFY_RELATIONSHIP_TYPE
+              - FLAG_INCONSISTENCY
+          example: FLAG_INCONSISTENCY
+        - name: limit
+          in: query
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          example: 50
+        - name: offset
+          in: query
+          description: Number of results to skip (pagination)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
+      responses:
+        '200':
+          description: List of proposals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalList'
+              example:
+                total: 156
+                offset: 0
+                limit: 100
+                proposals:
+                  - id: 1
+                    proposal_id: OSS_20251124_143022_a1b2c3d4
+                    change_type: FLAG_INCONSISTENCY
+                    severity: HIGH
+                    title: ISO country codes - Fix invalid entity_ids
+                    status: PENDING
+                    created_at: '2025-11-24T14:30:22Z'
+                  - id: 2
+                    proposal_id: OSS_20251124_150000_b2c3d4e5
+                    change_type: NEW_ENTITY_TYPE
+                    severity: MEDIUM
+                    title: Add :CyberActorGroup entity type
+                    status: ACCEPTED
+                    created_at: '2025-11-24T15:00:00Z'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ontology/proposals/statistics:
+    get:
+      summary: Get proposal statistics
+      description: |
+        Get aggregate statistics on all proposals including counts by status,
+        severity, change type, and average confidence.
+      operationId: getStatistics
+      tags:
+        - Statistics
+      responses:
+        '200':
+          description: Proposal statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statistics'
+              example:
+                total_proposals: 156
+                pending_count: 12
+                accepted_count: 8
+                rejected_count: 4
+                implemented_count: 132
+                by_severity:
+                  CRITICAL: 4
+                  HIGH: 28
+                  MEDIUM: 98
+                  LOW: 26
+                by_change_type:
+                  NEW_ENTITY_TYPE: 12
+                  NEW_RELATIONSHIP_TYPE: 8
+                  MODIFY_ENTITY_TYPE: 0
+                  MODIFY_RELATIONSHIP_TYPE: 0
+                  FLAG_INCONSISTENCY: 136
+                avg_confidence: 0.91
+        '500':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ontology/proposals/{proposal_id}:
+    get:
+      summary: Get proposal by ID
+      description: |
+        Retrieve a specific proposal by its ID.
+
+        Supports both:
+        - Numeric database ID (e.g., "5")
+        - String proposal_id (e.g., "OSS_20251124_143022_a1b2c3d4")
+      operationId: getProposal
+      tags:
+        - Proposals
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          description: Proposal ID (numeric or string)
+          schema:
+            type: string
+          examples:
+            numeric:
+              value: '1'
+              description: Numeric database ID
+            string:
+              value: OSS_20251124_143022_a1b2c3d4
+              description: String proposal ID from OSS
+      responses:
+        '200':
+          description: Proposal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '404':
+          description: Proposal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Proposal OSS_20251124_143022_a1b2c3d4 not found
+        '500':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update proposal
+      description: |
+        Update proposal status, reviewer information, and notes.
+
+        Status transitions:
+        - PENDING → ACCEPTED (approval)
+        - PENDING → REJECTED (rejection)
+        - ACCEPTED → IMPLEMENTED (after successful implementation)
+        - ACCEPTED → FAILED (after failed implementation)
+      operationId: updateProposal
+      tags:
+        - Proposals
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          description: Proposal ID (numeric or string)
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalUpdate'
+            examples:
+              approve:
+                summary: Approve proposal
+                value:
+                  status: ACCEPTED
+                  reviewed_by: admin@example.com
+              reject:
+                summary: Reject proposal
+                value:
+                  status: REJECTED
+                  reviewed_by: admin@example.com
+                  rejection_reason: Insufficient evidence for this change
+      responses:
+        '200':
+          description: Proposal updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '404':
+          description: Proposal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ontology/proposals/{proposal_id}/implement:
+    post:
+      summary: Implement accepted proposal
+      description: |
+        Execute an accepted proposal by applying changes to the Neo4j knowledge graph.
+
+        Prerequisites:
+        - Proposal status must be ACCEPTED
+        - Neo4j connection must be available
+
+        Implementation process:
+        1. Validate proposal is ACCEPTED
+        2. Route to appropriate handler based on change_type
+        3. Execute Cypher operations on Neo4j
+        4. Update proposal status to IMPLEMENTED
+        5. Record implementation timestamp
+      operationId: implementProposal
+      tags:
+        - Implementation
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          description: Proposal ID (numeric or string)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Proposal implemented successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImplementationResult'
+              example:
+                success: true
+                proposal_id: OSS_20251124_143022_a1b2c3d4
+                results:
+                  nodes_fixed: 47
+                  iso_codes_fixed: 47
+                  duplicates_merged: 0
+                  relationships_migrated: 0
+                  errors: []
+                message: Proposal implemented successfully
+        '404':
+          description: Proposal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Proposal OSS_20251124_143022_a1b2c3d4 not found
+        '400':
+          description: Proposal not ACCEPTED or invalid configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Proposal must be ACCEPTED to implement (current status: PENDING)
+        '500':
+          description: Implementation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Failed to implement proposal: Connection to Neo4j failed"
+
+  /health:
+    get:
+      summary: Health check
+      description: |
+        Check service health status and dependencies.
+
+        Returns service status, version, and database connectivity.
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+              example:
+                status: healthy
+                service: Ontology Proposals Service
+                version: 1.0.0
+                timestamp: '2025-11-24T16:30:45.123Z'
+                database: connected
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+              example:
+                status: unhealthy
+                service: Ontology Proposals Service
+                version: 1.0.0
+                database: disconnected
+
+  /:
+    get:
+      summary: Root endpoint
+      description: Returns basic service information
+      operationId: root
+      tags:
+        - Root
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  status:
+                    type: string
+                  docs:
+                    type: string
+              example:
+                service: Ontology Proposals Service
+                version: 1.0.0
+                status: running
+                docs: /docs
+
+components:
+  schemas:
+    ProposalCreate:
+      type: object
+      required:
+        - proposal_id
+        - change_type
+        - severity
+        - title
+      properties:
+        proposal_id:
+          type: string
+          description: Unique proposal identifier from OSS system
+          minLength: 1
+          maxLength: 100
+          example: OSS_20251124_143022_a1b2c3d4
+        change_type:
+          type: string
+          description: Type of ontology change
+          enum:
+            - NEW_ENTITY_TYPE
+            - NEW_RELATIONSHIP_TYPE
+            - MODIFY_ENTITY_TYPE
+            - MODIFY_RELATIONSHIP_TYPE
+            - FLAG_INCONSISTENCY
+          example: FLAG_INCONSISTENCY
+        severity:
+          type: string
+          description: Proposal severity level
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+          example: HIGH
+        title:
+          type: string
+          description: Short title of proposal
+          minLength: 1
+          maxLength: 500
+          example: ISO country codes - Fix invalid entity_ids
+        description:
+          type: string
+          description: Detailed description of the proposal
+          example: Found 47 COUNTRY entities with invalid ISO codes
+        definition:
+          type: string
+          description: Formal definition of the change
+          example: Normalize all COUNTRY entity_ids to ISO 3166-1 alpha-2 format
+        evidence:
+          type: object
+          description: Supporting evidence as JSON object
+          example:
+            total_affected: 47
+            examples:
+              - name: United States
+                current: USA
+                correct: US
+        pattern_query:
+          type: string
+          description: Query pattern that detected this issue
+          example: "MATCH (e:Entity) WHERE e.entity_type='COUNTRY' AND length(e.entity_id) != 2"
+        occurrence_count:
+          type: integer
+          description: Number of occurrences detected
+          minimum: 0
+          example: 47
+        confidence:
+          type: number
+          description: Confidence score (0-1)
+          minimum: 0
+          maximum: 1
+          example: 0.99
+        confidence_factors:
+          type: object
+          description: Breakdown of confidence factors
+          example:
+            source_quality: 0.95
+            pattern_consistency: 0.99
+            semantic_alignment: 0.94
+        validation_checks:
+          type: object
+          description: Results of validation checks
+          example:
+            iso_code_valid: true
+            entity_exists: true
+        impact_analysis:
+          type: object
+          description: Analysis of proposal impact
+          example:
+            entities_affected: 47
+            relationships_affected: 312
+            estimated_execution_time_ms: 94
+        status:
+          type: string
+          description: Initial status (typically PENDING)
+          enum: [PENDING, ACCEPTED, REJECTED, IMPLEMENTED, FAILED]
+          default: PENDING
+          example: PENDING
+
+    ProposalUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          description: New status
+          enum: [ACCEPTED, REJECTED, IMPLEMENTED, FAILED]
+          example: ACCEPTED
+        reviewed_by:
+          type: string
+          description: User ID of reviewer
+          example: admin@example.com
+        rejection_reason:
+          type: string
+          description: Reason for rejection (if applicable)
+          example: Insufficient evidence for this change
+        implementation_notes:
+          type: string
+          description: Notes on implementation
+          example: Fixed 47 entities successfully
+
+    ProposalResponse:
+      type: object
+      required:
+        - success
+        - proposal_id
+      properties:
+        success:
+          type: boolean
+          description: Whether operation succeeded
+          example: true
+        proposal_id:
+          type: string
+          description: Proposal identifier
+          example: OSS_20251124_143022_a1b2c3d4
+        message:
+          type: string
+          description: Operation message
+          example: Proposal created successfully
+
+    Proposal:
+      allOf:
+        - $ref: '#/components/schemas/ProposalCreate'
+        - type: object
+          properties:
+            id:
+              type: integer
+              description: Database ID
+              example: 1
+            created_at:
+              type: string
+              format: date-time
+              description: Creation timestamp
+              example: '2025-11-24T14:30:22Z'
+            reviewed_at:
+              type: string
+              format: date-time
+              description: Review timestamp
+              nullable: true
+              example: '2025-11-24T15:45:00Z'
+            reviewed_by:
+              type: string
+              description: Reviewer user ID
+              nullable: true
+              example: admin@example.com
+            implemented_at:
+              type: string
+              format: date-time
+              description: Implementation timestamp
+              nullable: true
+              example: '2025-11-24T15:46:30Z'
+            updated_at:
+              type: string
+              format: date-time
+              description: Last update timestamp
+              example: '2025-11-24T15:46:30Z'
+
+    ProposalList:
+      type: object
+      required:
+        - total
+        - offset
+        - limit
+        - proposals
+      properties:
+        total:
+          type: integer
+          description: Total number of proposals matching filters
+          example: 156
+        offset:
+          type: integer
+          description: Pagination offset
+          example: 0
+        limit:
+          type: integer
+          description: Results limit
+          example: 100
+        proposals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Proposal'
+
+    Statistics:
+      type: object
+      required:
+        - total_proposals
+        - pending_count
+        - accepted_count
+        - rejected_count
+        - implemented_count
+        - by_severity
+        - by_change_type
+        - avg_confidence
+      properties:
+        total_proposals:
+          type: integer
+          description: Total proposals
+          example: 156
+        pending_count:
+          type: integer
+          description: Proposals in PENDING status
+          example: 12
+        accepted_count:
+          type: integer
+          description: Proposals in ACCEPTED status
+          example: 8
+        rejected_count:
+          type: integer
+          description: Proposals in REJECTED status
+          example: 4
+        implemented_count:
+          type: integer
+          description: Proposals in IMPLEMENTED status
+          example: 132
+        by_severity:
+          type: object
+          description: Count by severity level
+          properties:
+            CRITICAL:
+              type: integer
+              example: 4
+            HIGH:
+              type: integer
+              example: 28
+            MEDIUM:
+              type: integer
+              example: 98
+            LOW:
+              type: integer
+              example: 26
+        by_change_type:
+          type: object
+          description: Count by change type
+          properties:
+            NEW_ENTITY_TYPE:
+              type: integer
+              example: 12
+            NEW_RELATIONSHIP_TYPE:
+              type: integer
+              example: 8
+            MODIFY_ENTITY_TYPE:
+              type: integer
+              example: 0
+            MODIFY_RELATIONSHIP_TYPE:
+              type: integer
+              example: 0
+            FLAG_INCONSISTENCY:
+              type: integer
+              example: 136
+        avg_confidence:
+          type: number
+          description: Average confidence score
+          example: 0.91
+
+    ImplementationResult:
+      type: object
+      required:
+        - success
+        - proposal_id
+        - results
+        - message
+      properties:
+        success:
+          type: boolean
+          description: Whether implementation succeeded
+          example: true
+        proposal_id:
+          type: string
+          description: Proposal identifier
+          example: OSS_20251124_143022_a1b2c3d4
+        results:
+          type: object
+          description: Implementation results
+          properties:
+            nodes_fixed:
+              type: integer
+              description: Total nodes affected
+              example: 47
+            properties_added:
+              type: integer
+              description: Properties added
+              example: 47
+            iso_codes_fixed:
+              type: integer
+              description: ISO codes corrected
+              example: 47
+            duplicates_merged:
+              type: integer
+              description: Duplicate entities merged
+              example: 0
+            relationships_migrated:
+              type: integer
+              description: Relationships migrated
+              example: 0
+            entities_deleted:
+              type: integer
+              description: Entities deleted
+              example: 0
+            errors:
+              type: array
+              items:
+                type: string
+              description: Errors during implementation
+              example: []
+        message:
+          type: string
+          description: Result message
+          example: Proposal implemented successfully
+
+    HealthCheck:
+      type: object
+      required:
+        - status
+        - service
+        - version
+        - timestamp
+        - database
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Service health status
+          example: healthy
+        service:
+          type: string
+          description: Service name
+          example: Ontology Proposals Service
+        version:
+          type: string
+          description: Service version
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+          description: Check timestamp
+          example: '2025-11-24T16:30:45.123Z'
+        database:
+          type: string
+          enum: [connected, disconnected]
+          description: Database connectivity status
+          example: connected
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error details
+          example: Invalid request body
+
+tags:
+  - name: Proposals
+    description: Ontology proposal management
+  - name: Implementation
+    description: Proposal implementation
+  - name: Statistics
+    description: Aggregate statistics
+  - name: Health
+    description: Service health and status
+  - name: Root
+    description: Root endpoint
+
+security: []  # Phase 3: Add JWT security scheme
+
+# Phase 3: Add when authentication is implemented
+# components:
+#   securitySchemes:
+#     BearerAuth:
+#       type: http
+#       scheme: bearer
+#       bearerFormat: JWT
+#       description: JWT token from auth-service
+

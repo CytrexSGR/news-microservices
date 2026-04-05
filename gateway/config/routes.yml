@@ -1,0 +1,316 @@
+# Traefik Dynamic Configuration - Routes
+# This file defines HTTP routers and services
+
+http:
+  routers:
+    # Auth Service Routes
+    auth-api:
+      rule: "PathPrefix(`/api/v1/auth`)"
+      entryPoints:
+        - websecure
+      service: auth-service
+      middlewares:
+        - secure-headers
+        - cors
+        - rate-limit
+        - request-id
+      tls:
+        certResolver: letsencrypt
+
+    users-api:
+      rule: "PathPrefix(`/api/v1/users`)"
+      entryPoints:
+        - websecure
+      service: auth-service
+      middlewares:
+        - secure-headers
+        - cors
+        - rate-limit
+        - jwt-auth
+        - request-id
+      tls:
+        certResolver: letsencrypt
+
+    # Feed Service Routes
+    feeds-api:
+      rule: "PathPrefix(`/api/v1/feeds`)"
+      entryPoints:
+        - websecure
+      service: feed-service
+      middlewares:
+        - secure-headers
+        - cors
+        - rate-limit
+        - jwt-auth
+        - request-id
+      tls:
+        certResolver: letsencrypt
+
+    # Content Analysis Service Routes (Phase 2)
+    content-analysis-api:
+      rule: "PathPrefix(`/api/v1/content-analysis`)"
+      entryPoints:
+        - websecure
+      service: content-analysis-service
+      middlewares:
+        - secure-headers
+        - cors
+        - rate-limit
+        - jwt-auth
+        - request-id
+      tls:
+        certResolver: letsencrypt
+
+    # Research Service Routes (Phase 2)
+    research-api:
+      rule: "PathPrefix(`/api/v1/research`)"
+      entryPoints:
+        - websecure
+      service: research-service
+      middlewares:
+        - secure-headers
+        - cors
+        - rate-limit
+        - jwt-auth
+        - request-id
+      tls:
+        certResolver: letsencrypt
+
+    # OSINT Service Routes (Phase 2)
+    osint-api:
+      rule: "PathPrefix(`/api/v1/osint`)"
+      entryPoints:
+        - websecure
+      service: osint-service
+      middlewares:
+        - secure-headers
+        - cors
+        - rate-limit
+        - jwt-auth
+        - request-id
+      tls:
+        certResolver: letsencrypt
+
+    # WebSocket Routes
+    websocket-feeds:
+      rule: "PathPrefix(`/ws/feeds`)"
+      entryPoints:
+        - websecure
+      service: feed-service-ws
+      middlewares:
+        - jwt-auth-ws
+      tls:
+        certResolver: letsencrypt
+
+    # Health Check Route
+    health:
+      rule: "Path(`/health`)"
+      entryPoints:
+        - websecure
+        - web
+      service: health-service
+      middlewares:
+        - secure-headers
+
+    # API Documentation
+    api-docs:
+      rule: "PathPrefix(`/api/docs`)"
+      entryPoints:
+        - websecure
+      service: api-docs-service
+      middlewares:
+        - secure-headers
+        - cors
+        - basic-auth
+      tls:
+        certResolver: letsencrypt
+
+    # Traefik Dashboard (Development only)
+    dashboard:
+      rule: "Host(`traefik.news-mcp.local`)"
+      entryPoints:
+        - websecure
+      service: api@internal
+      middlewares:
+        - dashboard-auth
+        - secure-headers
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    # Auth Service
+    auth-service:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:8000"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+          scheme: http
+        sticky:
+          cookie:
+            name: auth-sticky
+            secure: true
+            httpOnly: true
+            sameSite: strict
+        passHostHeader: true
+
+    # Feed Service
+    feed-service:
+      loadBalancer:
+        servers:
+          - url: "http://feed-service:8001"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+          scheme: http
+        passHostHeader: true
+
+    # Feed Service WebSocket
+    feed-service-ws:
+      loadBalancer:
+        servers:
+          - url: "http://feed-service:8001"
+        sticky:
+          cookie:
+            name: ws-sticky
+            secure: true
+            httpOnly: true
+
+    # Content Analysis Service (Phase 2)
+    content-analysis-service:
+      loadBalancer:
+        servers:
+          - url: "http://content-analysis-service:8002"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+          scheme: http
+        passHostHeader: true
+
+    # Research Service (Phase 2)
+    research-service:
+      loadBalancer:
+        servers:
+          - url: "http://research-service:8003"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+          scheme: http
+        passHostHeader: true
+
+    # OSINT Service (Phase 2)
+    osint-service:
+      loadBalancer:
+        servers:
+          - url: "http://osint-service:8004"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+          scheme: http
+        passHostHeader: true
+
+    # Health Service (simple ping endpoint)
+    health-service:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8080"
+
+    # API Documentation Service
+    api-docs-service:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8085"
+
+    # Canary Deployment Example
+    auth-service-canary:
+      weighted:
+        services:
+          - name: auth-service-stable
+            weight: 90
+          - name: auth-service-canary
+            weight: 10
+        sticky:
+          cookie:
+            name: canary-sticky
+            secure: true
+            httpOnly: true
+
+    auth-service-stable:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:8000"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    auth-service-canary:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service-canary:8000"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    # Circuit Breaker Example
+    feed-service-with-cb:
+      loadBalancer:
+        servers:
+          - url: "http://feed-service:8001"
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.5 || ResponseCodeRatio(500, 600, 0, 600) > 0.5"
+        checkPeriod: 10s
+        fallbackDuration: 10s
+        recoveryDuration: 10s
+
+    # Mirroring Example (for testing)
+    feed-service-mirror:
+      mirroring:
+        service: feed-service
+        maxBodySize: 1024
+        mirrors:
+          - name: feed-service-test
+            percent: 10
+
+    feed-service-test:
+      loadBalancer:
+        servers:
+          - url: "http://feed-service-test:8001"
+
+  # TCP Services (for database connections if needed)
+  tcp:
+    routers:
+      postgres:
+        rule: "HostSNI(`postgres.news-mcp.local`)"
+        entryPoints:
+          - postgres
+        service: postgres-service
+        tls:
+          passthrough: true
+
+    services:
+      postgres-service:
+        loadBalancer:
+          servers:
+            - address: "postgres:5432"
+
+  # UDP Services (for metrics/logging if needed)
+  udp:
+    routers:
+      metrics:
+        entryPoints:
+          - metrics-udp
+        service: metrics-service
+
+    services:
+      metrics-service:
+        loadBalancer:
+          servers:
+            - address: "statsd:8125"

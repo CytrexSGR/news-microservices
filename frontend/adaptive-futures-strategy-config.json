@@ -1,0 +1,297 @@
+{
+  "name": "Adaptive Futures Strategy v1.0",
+  "version": "1.0.0",
+  "description": "Adaptive futures trading strategy with regime-based logic for TREND, CONSOLIDATION, and HIGH_VOLATILITY market phases. Uses rule-based regime detection with ADX, BBW, and ATR.",
+  "author": "Trading Lab",
+  "tags": ["futures", "adaptive", "multi-regime", "rule-based"],
+  "is_public": false,
+  "definition": {
+    "regimeDetection": {
+      "provider": "rule_based",
+      "config": {
+        "adx_threshold": 25,
+        "bbw_threshold": 0.05,
+        "atr_threshold": 2.5
+      }
+    },
+    "mtfa": {
+      "timeframes": [
+        {
+          "id": "1h",
+          "weight": 0.4,
+          "divergence_threshold": 0.15
+        },
+        {
+          "id": "4h",
+          "weight": 0.35,
+          "divergence_threshold": 0.20
+        },
+        {
+          "id": "1d",
+          "weight": 0.25,
+          "divergence_threshold": 0.25
+        }
+      ]
+    },
+    "protections": [
+      {
+        "id": "stoploss_guard",
+        "type": "StoplossGuard",
+        "enabled": true,
+        "config": {
+          "lookback_period": 60,
+          "trade_limit": 4,
+          "stop_duration": 120,
+          "only_per_pair": false
+        }
+      },
+      {
+        "id": "max_drawdown",
+        "type": "MaxDrawdown",
+        "enabled": true,
+        "config": {
+          "lookback_period": 1440,
+          "trade_limit": 20,
+          "stop_duration": 240,
+          "max_allowed_drawdown": 0.20
+        }
+      },
+      {
+        "id": "cooldown_period",
+        "type": "CooldownPeriod",
+        "enabled": true,
+        "config": {
+          "stop_duration": 15,
+          "only_per_pair": true
+        }
+      }
+    ],
+    "entryLogic": {
+      "TREND": {
+        "regime": "TREND",
+        "aggregation_mode": "ALL",
+        "conditions": [
+          {
+            "id": "trend_adx",
+            "expression": "1h_ADX_14 > 25",
+            "description": "Strong trend confirmed by ADX",
+            "confidence": 0.8
+          },
+          {
+            "id": "trend_ema_crossover",
+            "expression": "CrossOver(1h_EMA_50, 1h_EMA_200)",
+            "description": "Golden cross - bullish trend signal",
+            "confidence": 0.9
+          },
+          {
+            "id": "trend_volume",
+            "expression": "1h_VOLUME > 1h_SMA_VOLUME_20 * 1.2",
+            "description": "Volume confirmation (20% above average)",
+            "confidence": 0.7
+          },
+          {
+            "id": "trend_mtfa_alignment",
+            "expression": "4h_EMA_50 > 4h_EMA_200",
+            "description": "Higher timeframe trend alignment",
+            "confidence": 0.85
+          }
+        ]
+      },
+      "CONSOLIDATION": {
+        "regime": "CONSOLIDATION",
+        "aggregation_mode": "ANY",
+        "conditions": [
+          {
+            "id": "consol_rsi_oversold",
+            "expression": "1h_RSI_14 < 30",
+            "description": "RSI oversold - mean reversion buy signal",
+            "confidence": 0.75
+          },
+          {
+            "id": "consol_rsi_overbought",
+            "expression": "1h_RSI_14 > 70",
+            "description": "RSI overbought - mean reversion short signal",
+            "confidence": 0.75
+          },
+          {
+            "id": "consol_bb_lower",
+            "expression": "close < 1h_BB_LOWER_20_2",
+            "description": "Price at lower Bollinger Band",
+            "confidence": 0.7
+          },
+          {
+            "id": "consol_bb_upper",
+            "expression": "close > 1h_BB_UPPER_20_2",
+            "description": "Price at upper Bollinger Band",
+            "confidence": 0.7
+          }
+        ]
+      },
+      "HIGH_VOLATILITY": {
+        "regime": "HIGH_VOLATILITY",
+        "aggregation_mode": "ALL",
+        "conditions": [
+          {
+            "id": "hvol_atr_normalized",
+            "expression": "1h_ATR_14 / close < 0.02",
+            "description": "ATR normalized - volatility settling",
+            "confidence": 0.6
+          },
+          {
+            "id": "hvol_reduced_position",
+            "expression": "1h_ADX_14 > 20",
+            "description": "Some directional strength despite volatility",
+            "confidence": 0.5
+          }
+        ]
+      }
+    },
+    "exitLogic": {
+      "TREND": {
+        "regime": "TREND",
+        "rules": [
+          {
+            "id": "trend_take_profit",
+            "type": "take_profit",
+            "enabled": true,
+            "config": {
+              "profit_ratio": 0.03
+            }
+          },
+          {
+            "id": "trend_trailing_stop",
+            "type": "trailing_stop",
+            "enabled": true,
+            "config": {
+              "trailing_offset": 0.01,
+              "trailing_only_offset_is_reached": true
+            }
+          },
+          {
+            "id": "trend_regime_change",
+            "type": "regime_change",
+            "enabled": true,
+            "config": {
+              "exit_on_regime_change": true
+            }
+          }
+        ]
+      },
+      "CONSOLIDATION": {
+        "regime": "CONSOLIDATION",
+        "rules": [
+          {
+            "id": "consol_take_profit",
+            "type": "take_profit",
+            "enabled": true,
+            "config": {
+              "profit_ratio": 0.015
+            }
+          },
+          {
+            "id": "consol_stop_loss",
+            "type": "stop_loss",
+            "enabled": true,
+            "config": {
+              "stop_loss_ratio": -0.015
+            }
+          },
+          {
+            "id": "consol_time_based",
+            "type": "time_based",
+            "enabled": true,
+            "config": {
+              "max_candles_in_trade": 24
+            }
+          }
+        ]
+      },
+      "HIGH_VOLATILITY": {
+        "regime": "HIGH_VOLATILITY",
+        "rules": [
+          {
+            "id": "hvol_quick_profit",
+            "type": "take_profit",
+            "enabled": true,
+            "config": {
+              "profit_ratio": 0.01
+            }
+          },
+          {
+            "id": "hvol_tight_stop",
+            "type": "stop_loss",
+            "enabled": true,
+            "config": {
+              "stop_loss_ratio": -0.01
+            }
+          },
+          {
+            "id": "hvol_time_limit",
+            "type": "time_based",
+            "enabled": true,
+            "config": {
+              "max_candles_in_trade": 12
+            }
+          },
+          {
+            "id": "hvol_regime_exit",
+            "type": "regime_change",
+            "enabled": true,
+            "config": {
+              "exit_on_regime_change": true
+            }
+          }
+        ]
+      }
+    },
+    "riskManagement": {
+      "TREND": {
+        "regime": "TREND",
+        "stop_loss": {
+          "method": "atr_based",
+          "atr_multiplier": 2.0
+        },
+        "position_sizing": {
+          "method": "percent_risk",
+          "percent_risk": 0.02
+        },
+        "leverage": {
+          "max_leverage": 2,
+          "adaptive": true,
+          "formula": "max_leverage * (1 - (1h_ATR_14 / close))"
+        }
+      },
+      "CONSOLIDATION": {
+        "regime": "CONSOLIDATION",
+        "stop_loss": {
+          "method": "fixed",
+          "fixed_ratio": -0.015
+        },
+        "position_sizing": {
+          "method": "percent_risk",
+          "percent_risk": 0.01
+        },
+        "leverage": {
+          "max_leverage": 1,
+          "adaptive": false
+        }
+      },
+      "HIGH_VOLATILITY": {
+        "regime": "HIGH_VOLATILITY",
+        "stop_loss": {
+          "method": "atr_based",
+          "atr_multiplier": 3.0
+        },
+        "position_sizing": {
+          "method": "volatility_adjusted",
+          "volatility_window": 20
+        },
+        "leverage": {
+          "max_leverage": 1,
+          "adaptive": true,
+          "formula": "max_leverage * max(0.5, 1 - (1h_ATR_14 / close * 2))"
+        }
+      }
+    }
+  }
+}

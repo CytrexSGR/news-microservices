@@ -1,0 +1,557 @@
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, ExternalLink, Calendar, User } from 'lucide-react';
+import { useArticleAnalysis } from '@/features/feeds/api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatDistanceToNow } from 'date-fns';
+
+export function ArticleDetailPage() {
+  const { itemId } = useParams<{ itemId: string }>();
+  const navigate = useNavigate();
+  const { data: article, isLoading, error } = useArticleAnalysis(itemId || '');
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading article analysis...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !article) {
+    return (
+      <div className="p-6">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-destructive mb-2">Error Loading Article</h3>
+          <p className="text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : 'Article not found'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="p-2 hover:bg-accent rounded-lg transition-colors"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+            <span className="font-medium">{article.feed_name}</span>
+            {article.item_published_at && (
+              <>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    {formatDistanceToNow(new Date(article.item_published_at), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                </div>
+              </>
+            )}
+            {article.item_author && (
+              <>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  <User className="h-4 w-4" />
+                  <span>{article.item_author}</span>
+                </div>
+              </>
+            )}
+          </div>
+          <h1 className="text-3xl font-bold">{article.item_title}</h1>
+        </div>
+        <a
+          href={article.item_link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          View Original
+          <ExternalLink className="h-4 w-4" />
+        </a>
+      </div>
+
+      {/* Analysis Status Badge */}
+      {article.total_analyses === 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            ⏳ This article has not been analyzed yet. Analysis will be performed based on feed
+            configuration.
+          </p>
+        </div>
+      )}
+
+      {/* Tabs for different analysis views */}
+      <Tabs defaultValue="sentiment" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="sentiment">Sentiment Analysis</TabsTrigger>
+          <TabsTrigger value="intelligence">Content Intelligence</TabsTrigger>
+          <TabsTrigger value="raw">Raw Data</TabsTrigger>
+        </TabsList>
+
+        {/* Tab 1: Sentiment Analysis */}
+        <TabsContent value="sentiment" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Standard Sentiment Card - ALWAYS SHOWN */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">Standard Sentiment</h3>
+              {article.sentiment ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Overall</span>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        article.sentiment.overall_sentiment === 'POSITIVE'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          : article.sentiment.overall_sentiment === 'NEGATIVE'
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {article.sentiment.overall_sentiment}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Confidence</span>
+                      <span className="font-medium">
+                        {(article.sentiment.confidence * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Subjectivity</span>
+                      <span className="font-medium">
+                        {(article.sentiment.subjectivity_score * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    {article.sentiment.bias_detected && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Bias Detected</span>
+                        <span className="font-medium text-orange-600 dark:text-orange-400">
+                          {article.sentiment.bias_direction}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {article.sentiment.reasoning && (
+                    <p className="text-sm text-muted-foreground mt-4">
+                      {article.sentiment.reasoning}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-sm">Analysis pending</p>
+                  <p className="text-xs mt-1">Standard sentiment analysis will be performed</p>
+                </div>
+              )}
+            </div>
+
+            {/* Finance Sentiment Card - CONDITIONAL */}
+            {article.feed_config.enable_finance_sentiment && (
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="text-lg font-semibold mb-4">Financial Sentiment</h3>
+                {article.finance_sentiment ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Market Direction</span>
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          article.finance_sentiment.market_sentiment === 'BULLISH'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            : article.finance_sentiment.market_sentiment === 'BEARISH'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {article.finance_sentiment.market_sentiment}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Confidence</span>
+                        <span className="font-medium">
+                          {(article.finance_sentiment.market_confidence * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Volatility</span>
+                        <span className="font-medium">
+                          {(article.finance_sentiment.volatility * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Economic Impact</span>
+                        <span className="font-medium">
+                          {(article.finance_sentiment.economic_impact * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Time Horizon</span>
+                        <span className="font-medium">
+                          {article.finance_sentiment.time_horizon.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                    {article.finance_sentiment.affected_sectors.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs text-muted-foreground mb-2">Affected Sectors</p>
+                        <div className="flex flex-wrap gap-2">
+                          {article.finance_sentiment.affected_sectors.map((sector) => (
+                            <span
+                              key={sector}
+                              className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs"
+                            >
+                              {sector}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">Analysis pending</p>
+                    <p className="text-xs mt-1">Financial sentiment analysis enabled</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Geopolitical Sentiment Card - CONDITIONAL */}
+            {article.feed_config.enable_geopolitical_sentiment && (
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="text-lg font-semibold mb-4">Geopolitical Sentiment</h3>
+                {article.geopolitical_sentiment ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Stability Score</span>
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          article.geopolitical_sentiment.stability_score > 0.3
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            : article.geopolitical_sentiment.stability_score < -0.3
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        }`}
+                      >
+                        {article.geopolitical_sentiment.stability_score.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Security Relevance</span>
+                        <span className="font-medium">
+                          {(article.geopolitical_sentiment.security_relevance * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Escalation Potential</span>
+                        <span className="font-medium">
+                          {(article.geopolitical_sentiment.escalation_potential * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Conflict Type</span>
+                        <span className="font-medium">
+                          {article.geopolitical_sentiment.conflict_type}
+                        </span>
+                      </div>
+                    </div>
+                    {article.geopolitical_sentiment.regions_affected.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs text-muted-foreground mb-2">Regions Affected</p>
+                        <div className="flex flex-wrap gap-2">
+                          {article.geopolitical_sentiment.regions_affected.map((region) => (
+                            <span
+                              key={region}
+                              className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded text-xs"
+                            >
+                              {region}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">Analysis pending</p>
+                    <p className="text-xs mt-1">Geopolitical analysis enabled</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* OSINT Events Card - CONDITIONAL */}
+            {article.feed_config.enable_osint_analysis && (
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="text-lg font-semibold mb-4">OSINT Event Analysis</h3>
+                {article.osint_events.length > 0 ? (
+                  <div className="space-y-4">
+                    {article.osint_events.map((event) => (
+                      <div
+                        key={event.id}
+                        className="p-4 bg-accent/50 rounded-lg border border-border"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <p className="font-semibold text-sm">{event.primary_event}</p>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              event.confidence_overall === 'high'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : event.confidence_overall === 'medium'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                          >
+                            {event.confidence_overall} confidence
+                          </span>
+                        </div>
+                        {event.location && (
+                          <p className="text-xs text-muted-foreground mb-1">
+                            📍 {event.location}
+                          </p>
+                        )}
+                        <p className="text-sm text-muted-foreground mt-2">{event.summary}</p>
+                        {event.risk_tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {event.risk_tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 rounded text-xs"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {event.needs_analyst_review && (
+                          <div className="mt-2 text-xs text-orange-600 dark:text-orange-400 font-medium">
+                            ⚠️ Requires analyst review
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">
+                      {article.total_analyses > 0 ? 'No OSINT events detected' : 'Analysis pending'}
+                    </p>
+                    <p className="text-xs mt-1">OSINT event analysis enabled</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 2: Content Intelligence */}
+        <TabsContent value="intelligence" className="space-y-6">
+          {/* Category Classification Card - CONDITIONAL */}
+          {article.feed_config.enable_categorization && (
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">Article Category</h3>
+              {article.category ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Primary Category</span>
+                    <span className="px-4 py-2 rounded-lg text-base font-semibold bg-primary/10 text-primary border border-primary/20">
+                      {article.category.category}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Confidence</span>
+                    <span className="font-medium">
+                      {(article.category.confidence * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  {article.category.alternative_categories.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">
+                        Alternative Categories
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {article.category.alternative_categories.map((alt, idx) => (
+                          <span
+                            key={idx}
+                            className="px-3 py-1 bg-accent rounded text-xs font-medium"
+                          >
+                            {alt.category} ({(alt.confidence * 100).toFixed(0)}%)
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {article.category.key_indicators.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">
+                        Key Indicators
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {article.category.key_indicators.map((indicator, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-secondary/50 rounded text-xs"
+                          >
+                            {indicator}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {article.category.reasoning && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Reasoning</p>
+                      <p className="text-sm text-muted-foreground">
+                        {article.category.reasoning}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-sm">Category analysis pending</p>
+                  <p className="text-xs mt-1">Article will be classified into one of 6 categories</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Summary & Facts Card */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">Summary & Key Facts</h3>
+              {article.summary || article.facts.length > 0 ? (
+                <div className="space-y-4">
+                  {article.summary && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Summary</p>
+                      <p className="text-sm">{article.summary.text}</p>
+                    </div>
+                  )}
+                  {article.facts.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Key Facts</p>
+                      <ul className="space-y-2">
+                        {article.facts.slice(0, 5).map((fact, idx) => (
+                          <li key={idx} className="text-sm flex gap-2">
+                            <span className="text-primary">•</span>
+                            <span>{fact.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-sm">No summary or facts available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Entities & Topics Card */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">Entities & Topics</h3>
+              {article.entities.length > 0 || article.topics.length > 0 ? (
+                <div className="space-y-4">
+                  {article.entities.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">
+                        Key Entities
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {article.entities.slice(0, 10).map((entity, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-accent rounded text-xs font-medium"
+                          >
+                            {entity.text} ({entity.type})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {article.topics.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Topics</p>
+                      <div className="flex flex-wrap gap-2">
+                        {article.topics.map((topic, idx) => (
+                          <span
+                            key={idx}
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              topic.is_primary
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-accent'
+                            }`}
+                          >
+                            {topic.topic}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-sm">No entities or topics extracted</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab 3: Raw Data */}
+        <TabsContent value="raw" className="space-y-6">
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="text-lg font-semibold mb-4">Article Content</h3>
+            {article.item_content ? (
+              <div className="prose dark:prose-invert max-w-none">
+                <p className="text-sm whitespace-pre-wrap">{article.item_content}</p>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">Full content not available</p>
+                <a
+                  href={article.item_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline text-sm mt-2 inline-flex items-center gap-1"
+                >
+                  View original article
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Word Count Stats */}
+          {article.item_word_count && (
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Word Count</span>
+                <span className="font-medium">{article.item_word_count.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

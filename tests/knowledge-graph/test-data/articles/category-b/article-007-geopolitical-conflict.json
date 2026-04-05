@@ -1,0 +1,15 @@
+{
+  "article_id": "article-007",
+  "category": "B",
+  "title": "Ukraine Conflict: NATO Expansion and Diplomatic Efforts Intensify",
+  "content": "As the conflict in Ukraine enters its second year, diplomatic efforts have intensified across multiple fronts, with President Volodymyr Zelenskyy meeting NATO Secretary General Jens Stoltenberg in Brussels last week to discuss security guarantees. The meeting followed Finland's historic accession to NATO in April 2023, expanding the alliance's border with Russia by 1,300 kilometers, according to statements from Finnish President Sauli Niinistö. Meanwhile, China's Xi Jinping held a phone call with Zelenskyy in April 2023, marking their first conversation since the conflict began, with Chinese Foreign Minister Qin Gang emphasizing Beijing's commitment to peace negotiations. The United States, represented by Secretary of State Antony Blinken, pledged an additional $2.6 billion in military aid during his visit to Kyiv in March. German Chancellor Olaf Scholz faced domestic pressure after announcing the delivery of Leopard 2 tanks to Ukraine, a decision coordinated with UK Prime Minister Rishi Sunak, who committed Challenger 2 tanks. France's Emmanuel Macron, who has maintained communication channels with Russian President Vladimir Putin throughout the crisis, hosted a meeting in Paris with Scholz to coordinate European Union sanctions policy. Turkey's President Recep Tayyip Erdoğan, positioning Ankara as a mediator, facilitated the Black Sea Grain Initiative through negotiations involving United Nations Secretary-General António Guterres. The International Criminal Court, led by Prosecutor Karim Khan, issued an arrest warrant for Putin in March 2023, citing alleged war crimes. Poland, sharing a border with Ukraine, became a key logistics hub under Prime Minister Mateusz Morawiecki's leadership, with Defense Minister Mariusz Błaszczak coordinating NATO's eastern flank operations from Warsaw.",
+  "source": "The Guardian",
+  "published_at": "2023-05-20",
+  "metadata": {
+    "word_count": 280,
+    "expected_entities": 18,
+    "expected_relationships": 12,
+    "difficulty": "complex_dense",
+    "notes": "Geopolitical analysis with multiple state actors, international organizations, and diplomatic relationships. Tests handling of alliance networks, organizational hierarchies, and location contexts."
+  }
+}

@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: news-mcp
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secrets.yaml
+  - postgres.yaml
+  - redis.yaml
+  - rabbitmq.yaml
+  - minio.yaml
+
+commonLabels:
+  app.kubernetes.io/name: news-mcp
+  app.kubernetes.io/managed-by: kustomize
+
+# These will be added when services are implemented
+# - auth-service.yaml
+# - feed-service.yaml
+# - content-analysis-service.yaml
+# - research-service.yaml
+# - osint-service.yaml
+# - notification-service.yaml
+# - ingress.yaml

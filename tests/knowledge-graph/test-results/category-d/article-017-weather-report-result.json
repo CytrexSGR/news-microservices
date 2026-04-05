@@ -1,0 +1,92 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "fb1de894-6988-4466-9596-ca42f9f9ca62",
+    "entities": [
+      {
+        "id": "984df681-400d-4262-bad3-e5be49dfdc44",
+        "text": "National Weather Service",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "6a0adf98-6ea6-4aab-b1c0-84ffb0952a06",
+        "text": "San Francisco",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "d0200a71-db20-427b-b475-d64e2d89d9d8",
+        "text": "Los Angeles",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "af7ea553-3da4-4b96-9050-17b962308a43",
+        "text": "Seattle",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "5e7d15d1-0143-4683-aa98-2d6b346383d9",
+        "text": "Portland",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "e37702c3-c1c6-44a6-8d1e-a810fcd58697",
+        "text": "New York",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "cc0dd2d3-ba43-493f-912b-ee3005a20393",
+        "text": "Boston",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "1f9395cc-e55a-477d-8586-b9f2431d981b",
+        "text": "Denver",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "7ab89fd4-c69b-4930-b205-b60fcb63a9b7",
+        "text": "Phoenix",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "01975eb6-acbb-47e0-bf04-ca4775277898",
+        "text": "Chicago",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "f9aee56d-dfda-4bfd-b854-5ab2436d5d1e",
+        "text": "Miami",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [],
+    "entity_count": 11,
+    "relationship_count": 0,
+    "processing_time_ms": 10940,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:11:47.826450"
+}

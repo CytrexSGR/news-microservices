@@ -1,0 +1,39 @@
+{
+  "article_id": "article-004",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Elon Musk", "works_for", "Tesla"],
+      "evidence": "CEO Elon Musk presented",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO title"
+    },
+    {
+      "triplet": ["Tesla", "owns", "Gigafactory"],
+      "evidence": "the company's Gigafactory in Austin",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Ownership indicated by possessive"
+    },
+    {
+      "triplet": ["Gigafactory", "located_in", "Austin"],
+      "evidence": "Gigafactory in Austin, Texas",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Location explicitly stated"
+    },
+    {
+      "triplet": ["Tesla", "announced", "Cybertruck"],
+      "evidence": "Tesla Inc. officially launched its Cybertruck",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Tests 'announced' relationship type"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 3,
+    "total_relationships_max": 4,
+    "avg_confidence_min": 0.85,
+    "false_positives_max": 0
+  }
+}

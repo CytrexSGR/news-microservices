@@ -1,0 +1,32 @@
+[
+  {
+    "url": "https://news.ycombinator.com/rss",
+    "name": "Hacker News",
+    "category": "technology",
+    "fetch_interval": 3600
+  },
+  {
+    "url": "https://hnrss.org/frontpage",
+    "name": "HN Frontpage",
+    "category": "technology",
+    "fetch_interval": 1800
+  },
+  {
+    "url": "https://www.reddit.com/r/technology/.rss",
+    "name": "Reddit Technology",
+    "category": "technology",
+    "fetch_interval": 3600
+  },
+  {
+    "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+    "name": "NYT Technology",
+    "category": "news",
+    "fetch_interval": 7200
+  },
+  {
+    "url": "https://feeds.arstechnica.com/arstechnica/index",
+    "name": "Ars Technica",
+    "category": "technology",
+    "fetch_interval": 3600
+  }
+]

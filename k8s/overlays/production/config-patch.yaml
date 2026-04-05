@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: news-mcp-config
+  namespace: news-mcp-prod
+data:
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "WARNING"
+  CORS_ORIGINS: '["https://news-mcp.example.com","https://api.news-mcp.example.com"]'
+  TRACING_ENABLED: "true"
+  METRICS_ENABLED: "true"

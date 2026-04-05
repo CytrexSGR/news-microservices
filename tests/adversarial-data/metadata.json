@@ -1,0 +1,45 @@
+{
+  "test_cases": [
+    {
+      "test_case_id": "misleading_context_001",
+      "challenge_type": "misleading_context",
+      "difficulty_level": 2,
+      "generated_at": "2025-10-24T10:10:03.721040",
+      "file_path": "misleading_context_001.json"
+    },
+    {
+      "test_case_id": "ambiguity_002",
+      "challenge_type": "ambiguity",
+      "difficulty_level": 2,
+      "generated_at": "2025-10-24T10:10:37.925731",
+      "file_path": "ambiguity_002.json"
+    },
+    {
+      "test_case_id": "temporal_confusion_003",
+      "challenge_type": "temporal_confusion",
+      "difficulty_level": 4,
+      "generated_at": "2025-10-24T10:11:03.704724",
+      "file_path": "temporal_confusion_003.json"
+    },
+    {
+      "test_case_id": "misleading_context_004",
+      "challenge_type": "misleading_context",
+      "difficulty_level": 4,
+      "generated_at": "2025-10-24T10:11:30.763044",
+      "file_path": "misleading_context_004.json"
+    },
+    {
+      "test_case_id": "temporal_confusion_005",
+      "challenge_type": "temporal_confusion",
+      "difficulty_level": 3,
+      "generated_at": "2025-10-24T10:11:50.379932",
+      "file_path": "temporal_confusion_005.json"
+    }
+  ],
+  "statistics": {
+    "misleading_context": 2,
+    "total_count": 5,
+    "ambiguity": 1,
+    "temporal_confusion": 2
+  }
+}

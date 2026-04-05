@@ -1,0 +1,192 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "cb526807-d0d3-409c-8819-ad6cef64c4c6",
+    "entities": [
+      {
+        "id": "6cbaff60-2196-4b20-b519-dcf7f8561896",
+        "text": "Elizabeth Warren",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "66ea5976-20bf-4faf-b36b-80978fdd3ef5",
+        "text": "Alexandria Ocasio-Cortez",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "ef8ee334-06ac-4bdb-b5ac-dc340248dd62",
+        "text": "Sam Altman",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "5a2d8305-709f-42cd-910f-63fe858235d0",
+        "text": "Dario Amodei",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "f41a123b-4ef4-40fd-9db0-7e045479195e",
+        "text": "Bernie Sanders",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "8b6afa5b-5dff-4263-9904-8df966c588ce",
+        "text": "Elon Musk",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "fadd5e5d-289f-4704-a8f4-03c0572fa928",
+        "text": "Marc Andreessen",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "56bc0a1b-fafd-474b-9291-03964cf05bb2",
+        "text": "Peter Thiel",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "1f137203-0092-48f1-b63e-9f84ec9e13cb",
+        "text": "Sam Altman",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "e5804b2a-a976-4dd0-8161-d1397b75f800",
+        "text": "Dario Amodei",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "5309dbdd-ba99-4b65-80da-dd61741dcd4b",
+        "text": "Dan Hendrycks",
+        "type": "PERSON",
+        "confidence": 0.85,
+        "mention_count": 1
+      },
+      {
+        "id": "89fbb6ce-a107-4173-82ec-860260a51865",
+        "text": "Mark Warner",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "c6e47f4d-624e-4992-8dc7-9935b5cb8690",
+        "text": "Ro Khanna",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "d9850253-beef-4440-a6dc-b5e6a773414e",
+        "text": "Josh Hawley",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "6d642a51-04f2-4804-9bcb-13f1526ef455",
+        "text": "Kevin McCarthy",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "dbec7842-cb3c-4fd9-81d3-481296da2654",
+        "text": "Meta",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "6f448b9c-5096-46c6-afcf-2e15e97f7fe4",
+        "text": "Center for AI Safety",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "92013466-3f51-41bb-8167-862f3ea296f6",
+        "text": "Brookings Institution",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "e4616c60-4843-4a6f-b507-95e95cd7db6d",
+        "text": "Center for Strategic and International Studies",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "98da1c52-bfcf-4dde-9d0f-1494a462c869",
+        "text": "Harvard",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Elizabeth Warren",
+        "entity2": "Bernie Sanders",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Alexandria Ocasio-Cortez",
+        "entity2": "Elon Musk",
+        "type": "related_to",
+        "confidence": 0.7
+      },
+      {
+        "entity1": "Elon Musk",
+        "entity2": "Marc Andreessen",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Elon Musk",
+        "entity2": "Peter Thiel",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Dan Hendrycks",
+        "entity2": "Center for AI Safety",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Kevin McCarthy",
+        "entity2": "Meta",
+        "type": "related_to",
+        "confidence": 0.8
+      }
+    ],
+    "entity_count": 20,
+    "relationship_count": 6,
+    "processing_time_ms": 24661,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:10:53.114764"
+}

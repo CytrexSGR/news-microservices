@@ -1,0 +1,302 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "ce3a1c0b-ca81-490a-b202-9abca22818e7",
+    "entities": [
+      {
+        "id": "b8c8f058-dc0d-41d1-afec-acde34016159",
+        "text": "Nvidia",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 4
+      },
+      {
+        "id": "b36712f9-d658-4e27-b6ab-110dcaf1e42b",
+        "text": "Jensen Huang",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "118707f1-4949-41cb-b188-926d06eaffeb",
+        "text": "Microsoft",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "380ef586-ef69-40dd-adcd-650bb28ab3be",
+        "text": "Meta",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "1fd1c8b2-b520-4133-b5f3-4220e7ead160",
+        "text": "Amazon",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "5cd33c48-f5b4-43ba-9a94-e81e272362e6",
+        "text": "Lina Khan",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "efa83028-842d-4bc4-9799-2334ba26b038",
+        "text": "FTC",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "6daea1ec-662c-4128-a9d6-5d18cec9be4b",
+        "text": "European Competition Commissioner Margrethe Vestager",
+        "type": "PERSON",
+        "confidence": 0.85,
+        "mention_count": 1
+      },
+      {
+        "id": "be6b19f2-ebce-47a0-b803-d889789cb658",
+        "text": "Goldman Sachs",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "7e808f08-013a-4365-8391-e0a81e5d4a88",
+        "text": "Toshiya Hari",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "afc112c8-e9e3-4c0c-8b94-973842aae1cd",
+        "text": "AMD",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "0cf41c88-116e-49a4-87cc-d56d46ffdfa4",
+        "text": "Lisa Su",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "39ea8bdf-eafe-4f6d-9414-5ff4bdd43568",
+        "text": "MI300",
+        "type": "PRODUCT",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "fe66b7be-5e92-4e0e-9090-14114cccaf6d",
+        "text": "Sam Altman",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "220a8070-8581-49cc-9972-435cde24f7d9",
+        "text": "OpenAI",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "63ff92bb-71f1-4c69-8f0c-cdfe1709c0fd",
+        "text": "Softbank",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "689b3f82-0530-40b0-b64d-1bf0ef5f9e20",
+        "text": "TSMC",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "5888a74c-1e79-4b8c-ab16-3b58ad07a782",
+        "text": "Anthropic",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "5027c4d1-d9f5-4fcb-a6b8-8d1953e6f75b",
+        "text": "Google",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "e69c1f77-b5b4-4197-90c2-ed57e4e543d2",
+        "text": "Inflection AI",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "eca234bc-9f43-4653-a6f2-07c0c9f6ef76",
+        "text": "Mustafa Suleyman",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "73c941a7-27cd-4557-8806-c037cd867ea9",
+        "text": "Reid Hoffman",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "0f761ef4-57ba-4b76-83dd-952c18d2cda7",
+        "text": "Intel",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "de297453-e817-4c25-9a42-b4051b148417",
+        "text": "Pat Gelsinger",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "220ea5da-8f4f-4074-ba99-dce54a8ead68",
+        "text": "Morris Chang",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "8399bfe9-6523-4a76-914b-174de4d5a226",
+        "text": "China",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "853d19d1-9e39-4be9-92f7-b72e44e4fac4",
+        "text": "Huawei",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "d3ae471f-f010-450c-ac27-59f4135d65e5",
+        "text": "Gina Raimondo",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Nvidia",
+        "entity2": "Microsoft",
+        "type": "works_for",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Nvidia",
+        "entity2": "Meta",
+        "type": "works_for",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Nvidia",
+        "entity2": "Amazon",
+        "type": "works_for",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Lina Khan",
+        "entity2": "FTC",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Toshiya Hari",
+        "entity2": "Goldman Sachs",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Lisa Su",
+        "entity2": "AMD",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Sam Altman",
+        "entity2": "OpenAI",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Sam Altman",
+        "entity2": "Softbank",
+        "type": "partner_of",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Sam Altman",
+        "entity2": "TSMC",
+        "type": "partner_of",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Anthropic",
+        "entity2": "Google",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Inflection AI",
+        "entity2": "Mustafa Suleyman",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Inflection AI",
+        "entity2": "Reid Hoffman",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Intel",
+        "entity2": "Pat Gelsinger",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Morris Chang",
+        "entity2": "TSMC",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "China",
+        "entity2": "Huawei",
+        "type": "related_to",
+        "confidence": 0.8
+      }
+    ],
+    "entity_count": 28,
+    "relationship_count": 15,
+    "processing_time_ms": 25671,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:10:27.422466"
+}

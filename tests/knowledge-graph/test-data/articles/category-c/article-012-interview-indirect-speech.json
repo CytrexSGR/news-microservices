@@ -1,0 +1,15 @@
+{
+  "article_id": "article-012",
+  "category": "C",
+  "title": "Interview: Former OpenAI Researcher on AI Safety, Corporate Tensions, and the Future of AGI",
+  "content": "Dr. Sarah Chen, who spent three years at OpenAI before joining Anthropic last year, says the AI safety landscape has become increasingly complex. When asked about her transition, she explains that philosophical differences regarding safety protocols ultimately led to her departure. 'I have tremendous respect for Sam Altman's vision,' Chen notes, 'but I felt that Anthropic's approach, championed by Dario Amodei, aligned more closely with my concerns about existential risk.' She suggests that tensions between OpenAI and its early backer, Elon Musk, stemmed partly from disagreements about commercialization timelines. According to Chen, Musk believed that OpenAI was moving too slowly, while others felt his own ventures at Tesla and Neuralink might benefit from premature AI deployment. She hints that Microsoft's deep partnership with OpenAI, formalized after Satya Nadella approved a multi-billion dollar investment, changed the organization's risk calculus. 'There's a perception in the AI safety community,' Chen observes, 'that Greg Brockman and Ilya Sutskever have been navigating competing pressures between research excellence and commercial viability.' When discussing DeepMind, she praises Demis Hassabis's commitment to AGI safety but questions whether Google's corporate structure, under Sundar Pichai's leadership, provides sufficient autonomy. Chen believes that the UK AI Safety Institute, recently established under Ian Hogarth's direction, could serve as an important neutral convener. She's skeptical, however, about whether Yoshua Bengio's warnings about AI risk will translate into meaningful policy action, given governments' competing priorities. Regarding Anthropic's relationship with its investors, Chen suggests that the influence of companies like Google and Salesforce—whose CEO Marc Benioff has been vocal about AI ethics—remains a source of ongoing debate within the company. 'We're all trying to figure out the right governance model,' she concludes.",
+  "source": "MIT Technology Review (Interview)",
+  "published_at": "2023-08-22",
+  "metadata": {
+    "word_count": 315,
+    "expected_entities": 16,
+    "expected_relationships": 10,
+    "difficulty": "ambiguous_opinion",
+    "notes": "Interview with indirect speech, hearsay, and subjective interpretations. Tests handling of 'says', 'suggests', 'believes', 'hints' qualifiers and distinguishing between facts vs opinions."
+  }
+}

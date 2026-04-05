@@ -1,0 +1,976 @@
+openapi: 3.1.0
+info:
+  title: Analytics Service API
+  description: >
+    Comprehensive metrics aggregation, analysis, and reporting service
+    for the News Microservices platform
+  version: 1.0.0
+  contact:
+    name: Development Team
+    url: http://localhost:8107/docs
+  license:
+    name: Proprietary
+    url: https://example.com/license
+
+servers:
+  - url: http://localhost:8107
+    description: Development environment
+  - url: http://analytics-service:8107
+    description: Docker Compose environment
+  - url: https://api.example.com/analytics
+    description: Production environment
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      operationId: health_check
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: analytics-service
+                  version:
+                    type: string
+                    example: 1.0.0
+
+  /:
+    get:
+      summary: Root endpoint with service information
+      operationId: root
+      tags:
+        - info
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  message:
+                    type: string
+                  endpoints:
+                    type: object
+
+  /api/v1/analytics/overview:
+    get:
+      summary: Get system-wide analytics overview
+      operationId: get_analytics_overview
+      tags:
+        - analytics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System overview with service metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewResponse'
+        '401':
+          description: Unauthorized - invalid or missing token
+        '500':
+          description: Internal server error
+
+  /api/v1/analytics/trends:
+    get:
+      summary: Get trend analysis for a specific metric
+      operationId: get_trend_analysis
+      tags:
+        - analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: service
+          in: query
+          required: true
+          description: Service name
+          schema:
+            type: string
+            example: feed-service
+        - name: metric_name
+          in: query
+          required: true
+          description: Metric name to analyze
+          schema:
+            type: string
+            example: requests_total
+        - name: hours
+          in: query
+          required: false
+          description: Time range in hours
+          schema:
+            type: integer
+            default: 24
+            minimum: 1
+            maximum: 168
+        - name: interval_minutes
+          in: query
+          required: false
+          description: Aggregation interval in minutes
+          schema:
+            type: integer
+            default: 60
+            minimum: 5
+            maximum: 1440
+      responses:
+        '200':
+          description: Trend analysis with anomalies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendResponse'
+        '400':
+          description: Invalid parameters
+        '401':
+          description: Unauthorized
+        '422':
+          description: Validation error
+
+  /api/v1/analytics/service/{service_name}:
+    get:
+      summary: Get metrics for a specific service
+      operationId: get_service_metrics
+      tags:
+        - analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: service_name
+          in: path
+          required: true
+          description: Service name
+          schema:
+            type: string
+            example: feed-service
+        - name: metric_names
+          in: query
+          required: false
+          description: Filter to specific metrics (comma-separated)
+          schema:
+            type: array
+            items:
+              type: string
+            example: [requests_total, latency_ms]
+        - name: start_date
+          in: query
+          required: false
+          description: Start date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+            example: "2025-10-18T00:00:00Z"
+        - name: end_date
+          in: query
+          required: false
+          description: End date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+            example: "2025-10-19T00:00:00Z"
+      responses:
+        '200':
+          description: List of metrics for service
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricResponse'
+        '400':
+          description: Invalid date format
+        '401':
+          description: Unauthorized
+        '404':
+          description: Service not found
+
+  /api/v1/analytics/metrics:
+    post:
+      summary: Store a new metric (internal service use)
+      operationId: create_metric
+      tags:
+        - analytics
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricCreate'
+      responses:
+        '201':
+          description: Metric created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricResponse'
+        '401':
+          description: Unauthorized
+        '422':
+          description: Validation error
+
+  /api/v1/dashboards:
+    post:
+      summary: Create a new dashboard
+      operationId: create_dashboard
+      tags:
+        - dashboards
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardCreate'
+      responses:
+        '201':
+          description: Dashboard created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '401':
+          description: Unauthorized
+        '422':
+          description: Validation error
+
+    get:
+      summary: List dashboards
+      operationId: list_dashboards
+      tags:
+        - dashboards
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: include_public
+          in: query
+          required: false
+          description: Include public dashboards
+          schema:
+            type: boolean
+            default: true
+        - name: skip
+          in: query
+          required: false
+          description: Number of records to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of records
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: List of dashboards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DashboardResponse'
+        '401':
+          description: Unauthorized
+
+  /api/v1/dashboards/{dashboard_id}:
+    get:
+      summary: Get a specific dashboard
+      operationId: get_dashboard
+      tags:
+        - dashboards
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Dashboard details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '404':
+          description: Dashboard not found
+
+    put:
+      summary: Update a dashboard
+      operationId: update_dashboard
+      tags:
+        - dashboards
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardUpdate'
+      responses:
+        '200':
+          description: Dashboard updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Dashboard not found
+        '422':
+          description: Validation error
+
+    delete:
+      summary: Delete a dashboard
+      operationId: delete_dashboard
+      tags:
+        - dashboards
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Dashboard deleted successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Dashboard not found
+
+  /api/v1/dashboards/{dashboard_id}/data:
+    get:
+      summary: Get dashboard with live widget data
+      operationId: get_dashboard_data
+      tags:
+        - dashboards
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Dashboard with aggregated widget data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dashboard:
+                    $ref: '#/components/schemas/DashboardResponse'
+                  widgets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                        title:
+                          type: string
+                        data:
+                          type: object
+        '404':
+          description: Dashboard not found
+
+  /api/v1/dashboards/{dashboard_id}/ws:
+    get:
+      summary: WebSocket endpoint for real-time dashboard updates
+      operationId: dashboard_websocket
+      tags:
+        - dashboards
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '101':
+          description: Switching Protocols (WebSocket)
+        '404':
+          description: Dashboard not found
+
+  /api/v1/reports:
+    post:
+      summary: Create a new analytics report
+      operationId: create_report
+      tags:
+        - reports
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportCreate'
+      responses:
+        '201':
+          description: Report creation initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '401':
+          description: Unauthorized
+        '422':
+          description: Validation error
+
+    get:
+      summary: List user's reports
+      operationId: list_reports
+      tags:
+        - reports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportResponse'
+        '401':
+          description: Unauthorized
+
+  /api/v1/reports/{report_id}:
+    get:
+      summary: Get a specific report
+      operationId: get_report
+      tags:
+        - reports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Report details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Report not found
+
+  /api/v1/reports/{report_id}/download:
+    get:
+      summary: Download report file
+      operationId: download_report
+      tags:
+        - reports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Report file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: object
+            text/markdown:
+              schema:
+                type: string
+        '400':
+          description: Report not ready (still processing)
+        '401':
+          description: Unauthorized
+        '404':
+          description: Report or file not found
+
+  /api/v1/health/status:
+    get:
+      summary: Detailed health status
+      operationId: health_status
+      tags:
+        - health
+      responses:
+        '200':
+          description: Detailed health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  components:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                      redis:
+                        type: string
+                      celery:
+                        type: string
+
+components:
+  schemas:
+    MetricCreate:
+      type: object
+      required:
+        - service
+        - metric_name
+        - value
+      properties:
+        service:
+          type: string
+          description: Service name
+          example: feed-service
+        metric_name:
+          type: string
+          description: Metric name
+          example: requests_total
+        value:
+          type: number
+          format: float
+          description: Metric value
+          example: 1500.0
+        unit:
+          type: string
+          description: Unit of measurement
+          example: requests
+          nullable: true
+        labels:
+          type: object
+          description: Optional labels for the metric
+          example:
+            region: us-west
+            env: production
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp (defaults to current time)
+          nullable: true
+
+    MetricResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        service:
+          type: string
+          example: feed-service
+        metric_name:
+          type: string
+          example: requests_total
+        value:
+          type: number
+          format: float
+          example: 1500.0
+        unit:
+          type: string
+          example: requests
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-19T14:30:00Z"
+        created_at:
+          type: string
+          format: date-time
+
+    ServiceMetrics:
+      type: object
+      properties:
+        total_requests:
+          type: integer
+          example: 15432
+        error_rate:
+          type: number
+          format: float
+          example: 0.002
+        avg_latency_ms:
+          type: number
+          format: float
+          example: 45.2
+        active_users:
+          type: integer
+          example: 156
+
+    OverviewResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-19T14:30:00Z"
+        services:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ServiceMetrics'
+        system_health:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        active_alerts:
+          type: integer
+          example: 2
+        total_users:
+          type: integer
+          example: 156
+        total_articles:
+          type: integer
+          example: 45230
+
+    TrendDataPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-18T14:00:00Z"
+        value:
+          type: number
+          format: float
+          example: 1500.0
+
+    TrendResponse:
+      type: object
+      properties:
+        metric_name:
+          type: string
+          example: requests_total
+        service:
+          type: string
+          example: feed-service
+        trend:
+          type: string
+          enum: [increasing, decreasing, stable]
+          example: increasing
+        change_percent:
+          type: number
+          format: float
+          example: 15.3
+        data_points:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrendDataPoint'
+        anomalies:
+          type: array
+          items:
+            type: string
+            format: date-time
+          example:
+            - "2025-10-18T20:30:00Z"
+            - "2025-10-19T02:15:00Z"
+
+    DashboardWidget:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - metric_name
+      properties:
+        id:
+          type: string
+          example: widget1
+        type:
+          type: string
+          enum: [line_chart, bar_chart, pie_chart, stat_card, table]
+          example: line_chart
+        title:
+          type: string
+          example: Request Latency
+        metric_name:
+          type: string
+          example: latency_ms
+        service:
+          type: string
+          example: feed-service
+          nullable: true
+        config:
+          type: object
+          example:
+            aggregation: avg
+            hours: 24
+        position:
+          type: object
+          properties:
+            x:
+              type: integer
+              example: 0
+            y:
+              type: integer
+              example: 0
+            w:
+              type: integer
+              example: 6
+            h:
+              type: integer
+              example: 4
+
+    DashboardCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: System Overview
+        description:
+          type: string
+          example: Real-time system health
+          nullable: true
+        widgets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardWidget'
+          default: []
+        is_public:
+          type: boolean
+          default: false
+        refresh_interval:
+          type: integer
+          description: Refresh interval in seconds
+          default: 60
+          minimum: 10
+          maximum: 3600
+
+    DashboardUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        widgets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardWidget'
+          nullable: true
+        is_public:
+          type: boolean
+          nullable: true
+        refresh_interval:
+          type: integer
+          nullable: true
+
+    DashboardResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: string
+          example: user123
+        name:
+          type: string
+          example: System Overview
+        description:
+          type: string
+          nullable: true
+        config:
+          type: object
+        widgets:
+          type: array
+          items:
+            type: object
+        is_public:
+          type: boolean
+          example: false
+        refresh_interval:
+          type: integer
+          example: 60
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ReportConfig:
+      type: object
+      required:
+        - services
+        - metrics
+        - start_date
+        - end_date
+      properties:
+        services:
+          type: array
+          items:
+            type: string
+          example: [feed-service, content-analysis-service]
+        metrics:
+          type: array
+          items:
+            type: string
+          example: [requests_total, latency_ms]
+        start_date:
+          type: string
+          format: date-time
+          example: "2025-10-05T00:00:00Z"
+        end_date:
+          type: string
+          format: date-time
+          example: "2025-10-12T00:00:00Z"
+        aggregation:
+          type: string
+          enum: [hourly, daily, weekly]
+          default: hourly
+        include_charts:
+          type: boolean
+          default: true
+
+    ReportCreate:
+      type: object
+      required:
+        - name
+        - config
+        - format
+      properties:
+        name:
+          type: string
+          example: Weekly Performance Report
+        description:
+          type: string
+          example: Performance metrics for the past week
+          nullable: true
+        config:
+          $ref: '#/components/schemas/ReportConfig'
+        format:
+          type: string
+          enum: [csv, json, md]
+          example: csv
+
+    ReportResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: string
+          example: user123
+        name:
+          type: string
+          example: Weekly Performance Report
+        description:
+          type: string
+          nullable: true
+        config:
+          $ref: '#/components/schemas/ReportConfig'
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          example: completed
+        format:
+          type: string
+          example: csv
+        file_path:
+          type: string
+          example: /tmp/analytics-reports/report_1_20251019_143005.csv
+          nullable: true
+        file_size_bytes:
+          type: integer
+          example: 156234
+          nullable: true
+        error_message:
+          type: string
+          example: Connection timeout
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT token obtained from auth-service. Include in Authorization header:
+        Authorization: Bearer <token>
+
+tags:
+  - name: health
+    description: Service health and status endpoints
+  - name: info
+    description: Service information endpoints
+  - name: analytics
+    description: Metrics collection, retrieval, and analysis
+  - name: dashboards
+    description: Custom dashboard management and visualization
+  - name: reports
+    description: Analytics report generation and download

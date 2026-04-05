@@ -1,0 +1,323 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "5409404e-0af5-4a31-85ca-322506403d0b",
+    "entities": [
+      {
+        "id": "7a15575d-1d9f-4331-967f-394cf5e09fc5",
+        "text": "Microsoft",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 4
+      },
+      {
+        "id": "6a7c7c9b-e7fc-437c-bc5d-8df7db2267e6",
+        "text": "$69B",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "e4f17e70-922f-4c56-bdef-ca91225dd0d8",
+        "text": "Activision",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 3
+      },
+      {
+        "id": "9737e96e-b014-4b5d-8bdc-dd74050485ed",
+        "text": "Activision Blizzard",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 3
+      },
+      {
+        "id": "7a062fee-af13-4326-88ba-d448e47f8cb7",
+        "text": "Redmond",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "01b33fb6-8104-4fa4-aac3-551cc16a15ea",
+        "text": "Washington",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "5492abc0-6c43-4fb3-939a-c846d55ebca1",
+        "text": "Federal Trade Commission",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "02db0969-2fdd-4d07-b570-70fdbc315b5a",
+        "text": "Lina Khan",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "013dc8b9-a45b-40f1-a717-21d0c1d523ac",
+        "text": "December 2022",
+        "type": "DATE",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "d6ace1f1-8d39-4bbe-8749-e13f8be8b550",
+        "text": "Bobby Kotick",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "b3d1963c-fba8-47c8-989c-8ab53d7036b9",
+        "text": "Activision Blizzard",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 3
+      },
+      {
+        "id": "a2c84b60-5015-4076-8dc3-35431c36217b",
+        "text": "Senate Judiciary Committee",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "fb021736-8f75-4542-b828-c01b8078e7fc",
+        "text": "Sony",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "827254da-b489-4e78-a5b1-6c66d5d339c4",
+        "text": "PlayStation",
+        "type": "PRODUCT",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "85221272-e063-4259-974c-a92f6ec5e169",
+        "text": "Sarah Cardell",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "967d0ead-7f06-44d5-a9b1-83ab576a7494",
+        "text": "UK",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "6c95002d-17b9-4a66-9c60-f438562ae75a",
+        "text": "Phil Spencer",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "090e00b6-20a1-4720-b224-7b37cd36e092",
+        "text": "Xbox",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "378e559b-325b-4c54-aaab-b22547583b69",
+        "text": "Call of Duty",
+        "type": "PRODUCT",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "e12ef214-8593-43a6-990f-b711f2b63fb8",
+        "text": "May 2023",
+        "type": "DATE",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "956acd9a-ec08-4a91-b0d0-a286d1f6d1ec",
+        "text": "European Commission",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "2b6589ad-60a5-4db5-a5b8-110fff599337",
+        "text": "Margrethe Vestager",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "95ec84e2-bd62-42b9-93c2-bddf9be0f79e",
+        "text": "cloud gaming platforms",
+        "type": "NOT_APPLICABLE",
+        "confidence": 0.8,
+        "mention_count": 1
+      },
+      {
+        "id": "9e21c6c7-3656-4a8c-9e4c-80edaf2a312d",
+        "text": "Joost van Dreunen",
+        "type": "PERSON",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "369b0f77-6646-4b3a-ac02-893e2af3dbc8",
+        "text": "DFC Intelligence",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "ddbf4e51-b1f5-4116-8d8d-ab78ef4f706d",
+        "text": "Tencent",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "36ea1231-83fa-4716-a8f5-9f329f53f658",
+        "text": "Sony",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "598e5fa9-c243-4615-a7d3-3e9a26efe161",
+        "text": "Goldman Sachs",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "d74639cb-dbd5-446b-aa6e-9d9c8fc957b4",
+        "text": "June 2023",
+        "type": "DATE",
+        "confidence": 0.9,
+        "mention_count": 1
+      },
+      {
+        "id": "9e1bb38e-75ec-4e42-879b-e1a0431ae51b",
+        "text": "King Digital Entertainment",
+        "type": "ORGANIZATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "03fbe577-fb7f-4f13-a290-5b1bba52d2a2",
+        "text": "Candy Crush",
+        "type": "PRODUCT",
+        "confidence": 0.9,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Microsoft",
+        "entity2": "Activision Blizzard",
+        "type": "owns",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Federal Trade Commission",
+        "entity2": "Microsoft",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Bobby Kotick",
+        "entity2": "Activision Blizzard",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Bobby Kotick",
+        "entity2": "Senate Judiciary Committee",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Sony",
+        "entity2": "PlayStation",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Sarah Cardell",
+        "entity2": "UK",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Phil Spencer",
+        "entity2": "Xbox",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Microsoft",
+        "entity2": "Call of Duty",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "European Commission",
+        "entity2": "Microsoft",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Margrethe Vestager",
+        "entity2": "European Commission",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Joost van Dreunen",
+        "entity2": "DFC Intelligence",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Tencent",
+        "entity2": "Sony",
+        "type": "related_to",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "Goldman Sachs",
+        "entity2": "Microsoft",
+        "type": "not_applicable",
+        "confidence": 0.8
+      },
+      {
+        "entity1": "King Digital Entertainment",
+        "entity2": "Activision Blizzard",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Candy Crush",
+        "entity2": "King Digital Entertainment",
+        "type": "related_to",
+        "confidence": 0.9
+      }
+    ],
+    "entity_count": 31,
+    "relationship_count": 15,
+    "processing_time_ms": 21361,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:07:28.019035"
+}

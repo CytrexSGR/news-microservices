@@ -1,0 +1,1129 @@
+openapi: 3.0.3
+info:
+  title: Auth Service API
+  version: 1.0.0
+  description: |
+    Authentication and authorization microservice for News MCP platform.
+
+    Provides JWT-based authentication, user management, and role-based access control (RBAC).
+
+    ## Authentication Flow
+    1. Register via `POST /api/v1/auth/register`
+    2. Login via `POST /api/v1/auth/login` to receive JWT tokens
+    3. Include access token in `Authorization: Bearer <token>` header for protected endpoints
+    4. Refresh token when expired via `POST /api/v1/auth/refresh`
+    5. Logout via `POST /api/v1/auth/logout` to blacklist token
+
+    ## Token Management
+    - **Access Token**: Short-lived (configurable, default 60 minutes)
+    - **Refresh Token**: Long-lived for obtaining new access tokens
+    - **Token Blacklisting**: Tokens are blacklisted on logout
+
+    ## API Key Authentication
+    Alternative authentication method for service-to-service communication.
+    Create API keys via `/api/v1/auth/api-keys` and use in `X-API-Key` header.
+
+    ## Role-Based Access Control (RBAC)
+    - **User**: Basic authenticated user
+    - **Admin**: User management and administrative operations
+    - **Superuser**: Full system access
+
+  contact:
+    name: API Support
+    email: support@newsmcp.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8100
+    description: Development server
+  - url: http://localhost:8100/api/v1
+    description: API v1 base URL (with prefix)
+  - url: https://api.newsmcp.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Health
+    description: Service health and status monitoring
+  - name: Authentication
+    description: User authentication, registration, and token management
+  - name: Users
+    description: User profile management and administration
+  - name: API Keys
+    description: API key creation and management for service-to-service authentication
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: |
+        Check service health status including database connectivity.
+        Used by monitoring systems and load balancers.
+      tags:
+        - Health
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                service: Auth Service
+                version: 1.0.0
+                timestamp: "2025-10-15T10:30:00Z"
+                database: connected
+        '503':
+          description: Service unhealthy (database disconnected)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: unhealthy
+                service: Auth Service
+                version: 1.0.0
+                timestamp: "2025-10-15T10:30:00Z"
+                database: disconnected
+
+  /:
+    get:
+      summary: Root endpoint
+      description: Get service information and API documentation links
+      tags:
+        - Health
+      operationId: root
+      security: []
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: Auth Service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  status:
+                    type: string
+                    example: running
+                  docs:
+                    type: string
+                    example: /docs
+
+  /api/v1/auth/register:
+    post:
+      summary: Register new user
+      description: |
+        Create a new user account with email, username, and password.
+
+        **Password Requirements:**
+        - Minimum 8 characters
+        - At least one uppercase letter
+        - At least one lowercase letter
+        - At least one digit
+        - At least one special character (!@#$%^&*(),.?":{}|<>)
+
+        **Username Requirements:**
+        - 3-100 characters
+        - Only letters, numbers, underscores, and hyphens
+      tags:
+        - Authentication
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+            example:
+              email: john.doe@example.com
+              username: johndoe
+              password: SecurePassword123!
+              first_name: John
+              last_name: Doe
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: 1
+                email: john.doe@example.com
+                username: johndoe
+                first_name: John
+                last_name: Doe
+                is_active: true
+                is_superuser: false
+                created_at: "2025-10-15T10:30:00Z"
+                updated_at: null
+                last_login: null
+        '400':
+          description: Invalid input or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                emailExists:
+                  value:
+                    detail: Email already registered
+                    type: validation_error
+                weakPassword:
+                  value:
+                    detail: Password must contain at least one uppercase letter
+                    type: validation_error
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: Registration failed
+                type: internal_error
+
+  /api/v1/auth/login:
+    post:
+      summary: User login
+      description: |
+        Authenticate user and return JWT access and refresh tokens.
+
+        **Authentication Methods:**
+        - Username + password
+        - Email + password
+
+        **Returns:**
+        - Access token (short-lived, for API requests)
+        - Refresh token (long-lived, for token renewal)
+      tags:
+        - Authentication
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+            examples:
+              usernameLogin:
+                summary: Login with username
+                value:
+                  username: johndoe
+                  password: SecurePassword123!
+              emailLogin:
+                summary: Login with email
+                value:
+                  username: john.doe@example.com
+                  password: SecurePassword123!
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              example:
+                access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJqb2huZG9lIiwiZXhwIjoxNjk3NDU1MjAwfQ.xyz
+                refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJqb2huZG9lIiwiZXhwIjoxNjk4MDYwMDAwfQ.abc
+                token_type: bearer
+                expires_in: 3600
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: Incorrect username or password
+                type: authentication_error
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh access token
+      description: |
+        Exchange a valid refresh token for new access and refresh tokens.
+
+        Use this endpoint when the access token expires to obtain a new one
+        without requiring the user to login again.
+      tags:
+        - Authentication
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+            example:
+              refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJqb2huZG9lIiwiZXhwIjoxNjk4MDYwMDAwfQ.abc
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              example:
+                access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new_access_token
+                refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new_refresh_token
+                token_type: bearer
+                expires_in: 3600
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidToken:
+                  value:
+                    detail: Invalid refresh token
+                    type: authentication_error
+                userInactive:
+                  value:
+                    detail: User not found or inactive
+                    type: authentication_error
+
+  /api/v1/auth/logout:
+    post:
+      summary: Logout user
+      description: |
+        Logout user by blacklisting the current access token.
+
+        The token will no longer be valid for API requests.
+        Client should discard both access and refresh tokens.
+      tags:
+        - Authentication
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Logout successful (no content)
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: Could not validate credentials
+                type: authentication_error
+
+  /api/v1/auth/me:
+    get:
+      summary: Get current user profile
+      description: |
+        Retrieve the profile of the currently authenticated user.
+
+        Includes user details, active status, and metadata.
+      tags:
+        - Authentication
+      operationId: getCurrentUserProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: 1
+                email: john.doe@example.com
+                username: johndoe
+                first_name: John
+                last_name: Doe
+                is_active: true
+                is_superuser: false
+                created_at: "2025-10-15T10:30:00Z"
+                updated_at: "2025-10-15T12:00:00Z"
+                last_login: "2025-10-15T14:30:00Z"
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/api-keys:
+    post:
+      summary: Create API key
+      description: |
+        Create a new API key for the current user.
+
+        **Important:** The plain API key is only returned once upon creation.
+        Store it securely - it cannot be retrieved again.
+
+        API keys can be used for service-to-service authentication by including
+        them in the `X-API-Key` header.
+      tags:
+        - API Keys
+      operationId: createApiKey
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyCreate'
+            example:
+              name: Production API Key
+              description: API key for production service integration
+              expires_at: "2026-10-15T00:00:00Z"
+      responses:
+        '201':
+          description: API key created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyResponse'
+              example:
+                id: 1
+                name: Production API Key
+                description: API key for production service integration
+                key: nmcp_1a2b3c4d5e6f7g8h9i0j
+                is_active: true
+                created_at: "2025-10-15T10:30:00Z"
+                expires_at: "2026-10-15T00:00:00Z"
+                last_used: null
+                usage_count: 0
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: List API keys
+      description: |
+        List all API keys for the current user.
+
+        **Note:** Plain API keys are not included in the response.
+        Only metadata about the keys is returned.
+      tags:
+        - API Keys
+      operationId: listApiKeys
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: API keys retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/APIKeyResponse'
+              example:
+                - id: 1
+                  name: Production API Key
+                  description: API key for production service integration
+                  key: null
+                  is_active: true
+                  created_at: "2025-10-15T10:30:00Z"
+                  expires_at: "2026-10-15T00:00:00Z"
+                  last_used: "2025-10-15T14:00:00Z"
+                  usage_count: 42
+                - id: 2
+                  name: Development API Key
+                  description: null
+                  key: null
+                  is_active: true
+                  created_at: "2025-10-14T08:00:00Z"
+                  expires_at: null
+                  last_used: null
+                  usage_count: 0
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/api-keys/{key_id}:
+    delete:
+      summary: Delete API key
+      description: |
+        Delete an API key by ID.
+
+        The API key will be immediately invalidated and cannot be used for authentication.
+        Only the key owner or admin can delete API keys.
+      tags:
+        - API Keys
+      operationId: deleteApiKey
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          description: API key ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '204':
+          description: API key deleted successfully (no content)
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: API key not found
+                type: not_found_error
+
+  /api/v1/users:
+    get:
+      summary: List users
+      description: |
+        List all users with pagination.
+
+        **Admin only** - requires admin role or superuser status.
+      tags:
+        - Users
+      operationId: listUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: page_size
+          in: query
+          description: Items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+            example: 50
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              example:
+                users:
+                  - id: 1
+                    email: john.doe@example.com
+                    username: johndoe
+                    first_name: John
+                    last_name: Doe
+                    is_active: true
+                    is_superuser: false
+                    created_at: "2025-10-15T10:30:00Z"
+                    updated_at: null
+                    last_login: "2025-10-15T14:30:00Z"
+                  - id: 2
+                    email: jane.smith@example.com
+                    username: janesmith
+                    first_name: Jane
+                    last_name: Smith
+                    is_active: true
+                    is_superuser: false
+                    created_at: "2025-10-14T08:00:00Z"
+                    updated_at: null
+                    last_login: "2025-10-15T12:00:00Z"
+                total: 42
+                page: 1
+                page_size: 50
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - requires admin privileges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: Not enough permissions
+                type: authorization_error
+
+  /api/v1/users/{user_id}:
+    get:
+      summary: Get user by ID
+      description: |
+        Retrieve user profile by user ID.
+
+        **Permissions:**
+        - Users can view their own profile
+        - Admins can view any user profile
+      tags:
+        - Users
+      operationId: getUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: 1
+                email: john.doe@example.com
+                username: johndoe
+                first_name: John
+                last_name: Doe
+                is_active: true
+                is_superuser: false
+                created_at: "2025-10-15T10:30:00Z"
+                updated_at: "2025-10-15T12:00:00Z"
+                last_login: "2025-10-15T14:30:00Z"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not enough permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: Not enough permissions
+                type: authorization_error
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: User not found
+                type: not_found_error
+
+    put:
+      summary: Update user profile
+      description: |
+        Update user profile information.
+
+        **Permissions:**
+        - Users can update their own profile (except `is_active`)
+        - Admins can update any user profile
+        - Only admins can modify `is_active` status
+      tags:
+        - Users
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+            example:
+              email: john.newemail@example.com
+              first_name: Jonathan
+              last_name: Doe
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: 1
+                email: john.newemail@example.com
+                username: johndoe
+                first_name: Jonathan
+                last_name: Doe
+                is_active: true
+                is_superuser: false
+                created_at: "2025-10-15T10:30:00Z"
+                updated_at: "2025-10-15T16:00:00Z"
+                last_login: "2025-10-15T14:30:00Z"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not enough permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                insufficientPermissions:
+                  value:
+                    detail: Not enough permissions
+                    type: authorization_error
+                cannotModifyActiveStatus:
+                  value:
+                    detail: Only admins can modify user active status
+                    type: authorization_error
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from `/api/v1/auth/login` endpoint.
+
+        Include in requests as: `Authorization: Bearer <token>`
+
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API key for service-to-service authentication.
+
+        Create API keys via `/api/v1/auth/api-keys` endpoint.
+
+  schemas:
+    UserCreate:
+      type: object
+      required:
+        - email
+        - username
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address (must be unique)
+          example: john.doe@example.com
+        username:
+          type: string
+          minLength: 3
+          maxLength: 100
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Username (3-100 characters, alphanumeric with _ and -)
+          example: johndoe
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 100
+          description: |
+            Password (min 8 chars, must include uppercase, lowercase, digit, special char)
+          example: SecurePassword123!
+        first_name:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: User's first name
+          example: John
+        last_name:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: User's last name
+          example: Doe
+
+    UserLogin:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Username or email address
+          example: johndoe
+        password:
+          type: string
+          format: password
+          minLength: 1
+          description: User password
+          example: SecurePassword123!
+
+    UserUpdate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Updated email address
+          example: john.newemail@example.com
+        first_name:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Updated first name
+          example: Jonathan
+        last_name:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Updated last name
+          example: Doe
+        is_active:
+          type: boolean
+          nullable: true
+          description: Active status (admin only)
+          example: true
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - username
+        - is_active
+        - is_superuser
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: User ID
+          example: 1
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: john.doe@example.com
+        username:
+          type: string
+          description: Username
+          example: johndoe
+        first_name:
+          type: string
+          nullable: true
+          description: User's first name
+          example: John
+        last_name:
+          type: string
+          nullable: true
+          description: User's last name
+          example: Doe
+        is_active:
+          type: boolean
+          description: Whether user account is active
+          example: true
+        is_superuser:
+          type: boolean
+          description: Whether user has superuser privileges
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2025-10-15T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last profile update timestamp
+          example: "2025-10-15T12:00:00Z"
+        last_login:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last login timestamp
+          example: "2025-10-15T14:30:00Z"
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT access token for API authentication
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJqb2huZG9lIn0.xyz
+        refresh_token:
+          type: string
+          description: JWT refresh token for obtaining new access tokens
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJqb2huZG9lIn0.abc
+        token_type:
+          type: string
+          description: Token type (always "bearer")
+          example: bearer
+          default: bearer
+        expires_in:
+          type: integer
+          description: Access token expiration time in seconds
+          example: 3600
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token obtained from login
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJqb2huZG9lIn0.abc
+
+    APIKeyCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Descriptive name for the API key
+          example: Production API Key
+        description:
+          type: string
+          nullable: true
+          description: Optional description of API key purpose
+          example: API key for production service integration
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional expiration timestamp (null = no expiration)
+          example: "2026-10-15T00:00:00Z"
+
+    APIKeyResponse:
+      type: object
+      required:
+        - id
+        - name
+        - is_active
+        - created_at
+        - usage_count
+      properties:
+        id:
+          type: integer
+          description: API key ID
+          example: 1
+        name:
+          type: string
+          description: API key name
+          example: Production API Key
+        description:
+          type: string
+          nullable: true
+          description: API key description
+          example: API key for production service integration
+        key:
+          type: string
+          nullable: true
+          description: Plain API key (only returned on creation)
+          example: nmcp_1a2b3c4d5e6f7g8h9i0j
+        is_active:
+          type: boolean
+          description: Whether API key is active
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          description: API key creation timestamp
+          example: "2025-10-15T10:30:00Z"
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: API key expiration timestamp
+          example: "2026-10-15T00:00:00Z"
+        last_used:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last usage timestamp
+          example: "2025-10-15T14:00:00Z"
+        usage_count:
+          type: integer
+          description: Number of times API key has been used
+          example: 42
+
+    RoleResponse:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: Role ID
+          example: 1
+        name:
+          type: string
+          description: Role name
+          example: admin
+        description:
+          type: string
+          nullable: true
+          description: Role description
+          example: Administrator role with full access
+
+    UserListResponse:
+      type: object
+      required:
+        - users
+        - total
+        - page
+        - page_size
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+          description: List of users for current page
+        total:
+          type: integer
+          description: Total number of users
+          example: 42
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+          example: 1
+        page_size:
+          type: integer
+          description: Number of items per page
+          example: 50
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - version
+        - timestamp
+        - database
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Overall service health status
+          example: healthy
+        service:
+          type: string
+          description: Service name
+          example: Auth Service
+        version:
+          type: string
+          description: Service version
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+          example: "2025-10-15T10:30:00Z"
+        database:
+          type: string
+          enum: [connected, disconnected]
+          description: Database connection status
+          example: connected
+
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: Invalid credentials
+        type:
+          type: string
+          description: Error type/category
+          example: authentication_error
+          enum:
+            - validation_error
+            - authentication_error
+            - authorization_error
+            - not_found_error
+            - internal_error
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                description: Location of validation error
+              msg:
+                type: string
+                description: Error message
+              type:
+                type: string
+                description: Error type
+          description: Detailed validation errors (for 422 responses)

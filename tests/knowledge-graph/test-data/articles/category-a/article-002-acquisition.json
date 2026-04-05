@@ -1,0 +1,14 @@
+{
+  "article_id": "article-002",
+  "category": "A",
+  "title": "Adobe Acquires Design Software Startup Figma for $20 Billion",
+  "content": "Adobe Inc. announced the acquisition of Figma Inc., a collaborative design platform, for approximately $20 billion in cash and stock. The deal, which is expected to close in 2024, will see Figma CEO Dylan Field remain in his role and report to Adobe President David Wadhwani. Figma, based in San Francisco, has grown rapidly since its founding in 2012 and serves over 4 million users. Adobe Chairman and CEO Shantanu Narayen stated that the combination will accelerate innovation in collaborative design tools.",
+  "source": "Business Wire",
+  "published_at": "2025-09-15",
+  "metadata": {
+    "word_count": 92,
+    "expected_entities": 8,
+    "expected_relationships": 6,
+    "difficulty": "easy"
+  }
+}

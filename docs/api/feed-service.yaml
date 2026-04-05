@@ -1,0 +1,990 @@
+openapi: 3.1.0
+info:
+  title: Feed Service API
+  description: |
+    RSS/Atom feed management and fetching microservice for the News Microservices platform.
+    Provides comprehensive feed management, content analysis integration, and event-driven architecture.
+  version: 1.1.0
+  contact:
+    name: News Microservices Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8001
+    description: Development server
+  - url: https://api.newsmicroservices.com
+    description: Production server
+
+tags:
+  - name: feeds
+    description: Feed management (CRUD operations)
+  - name: items
+    description: Feed items (articles) management
+  - name: health
+    description: Health and quality monitoring
+  - name: bulk
+    description: Bulk operations
+  - name: scheduling
+    description: Intelligent scheduling
+  - name: assessment
+    description: Feed source assessment
+
+paths:
+  /api/v1/feeds:
+    get:
+      tags:
+        - feeds
+      summary: List all feeds
+      description: |
+        Retrieve all feeds with pagination and filtering.
+        Results are cached for 5 minutes.
+      operationId: list_feeds
+      parameters:
+        - name: skip
+          in: query
+          description: Number of records to skip (pagination)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: is_active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+        - name: status
+          in: query
+          description: Filter by feed status
+          schema:
+            type: string
+            enum: [ACTIVE, PAUSED, ERROR, INACTIVE]
+        - name: category
+          in: query
+          description: Filter by category name
+          schema:
+            type: string
+        - name: health_score_min
+          in: query
+          description: Minimum health score (0-100)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+        - name: health_score_max
+          in: query
+          description: Maximum health score (0-100)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+      responses:
+        '200':
+          description: List of feeds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedResponse'
+        '401':
+          description: Authentication required
+        '400':
+          description: Invalid parameters
+
+    post:
+      tags:
+        - feeds
+      summary: Create new feed
+      description: |
+        Create a new RSS/Atom feed.
+        Automatically triggers initial fetch.
+        Publishes feed.created event to RabbitMQ.
+      operationId: create_feed
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedCreate'
+      responses:
+        '201':
+          description: Feed created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '409':
+          description: Feed URL already exists
+
+  /api/v1/feeds/{feed_id}:
+    get:
+      tags:
+        - feeds
+      summary: Get feed details
+      description: Retrieve detailed information about a specific feed
+      operationId: get_feed
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Feed details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedResponse'
+        '404':
+          description: Feed not found
+        '401':
+          description: Unauthorized
+
+    put:
+      tags:
+        - feeds
+      summary: Update feed
+      description: |
+        Update feed configuration.
+        URL cannot be changed (immutable).
+        Publishes feed.updated event.
+      operationId: update_feed
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedUpdate'
+      responses:
+        '200':
+          description: Feed updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedResponse'
+        '400':
+          description: Invalid request
+        '404':
+          description: Feed not found
+        '401':
+          description: Unauthorized
+
+    delete:
+      tags:
+        - feeds
+      summary: Delete feed
+      description: |
+        Delete feed and all related data (cascade).
+        Publishes feed.deleted event.
+      operationId: delete_feed
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Feed deleted
+        '404':
+          description: Feed not found
+        '401':
+          description: Unauthorized
+
+  /api/v1/feeds/{feed_id}/items:
+    get:
+      tags:
+        - items
+      summary: List feed items
+      description: |
+        Retrieve articles from a feed with optional filtering.
+        Includes V2 (legacy) and V3 (active) analysis data.
+      operationId: list_feed_items
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 1000
+        - name: since
+          in: query
+          description: Return items after this date
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedItemResponse'
+        '404':
+          description: Feed not found
+
+  /api/v1/feeds/{feed_id}/items/{item_id}:
+    patch:
+      tags:
+        - items
+      summary: Update feed item
+      description: |
+        Update feed item (used by scraping-service).
+        Only scraping fields can be updated.
+        Service-to-service authentication (no JWT required).
+      operationId: update_feed_item
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedItemUpdate'
+      responses:
+        '200':
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedItemResponse'
+        '404':
+          description: Item not found
+
+  /api/v1/feeds/{feed_id}/health:
+    get:
+      tags:
+        - health
+      summary: Get feed health metrics
+      description: Retrieve health metrics and uptime statistics
+      operationId: get_feed_health
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Health metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedHealthResponse'
+        '404':
+          description: Feed not found
+
+  /api/v1/feeds/{feed_id}/quality:
+    get:
+      tags:
+        - health
+      summary: Get feed quality score
+      description: |
+        Retrieve quality metrics and analysis.
+        Includes freshness, consistency, content, and reliability scores.
+      operationId: get_feed_quality
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Quality metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedQualityResponse'
+        '404':
+          description: Feed not found
+
+  /api/v1/feeds/{feed_id}/fetch:
+    post:
+      tags:
+        - feeds
+      summary: Manually trigger feed fetch
+      description: |
+        Trigger an immediate fetch of a specific feed.
+        Runs asynchronously in background.
+      operationId: trigger_feed_fetch
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Fetch task submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                  status:
+                    type: string
+        '404':
+          description: Feed not found
+        '401':
+          description: Unauthorized
+
+  /api/v1/feeds/{feed_id}/assessment:
+    get:
+      tags:
+        - assessment
+      summary: Get feed assessment
+      description: |
+        Retrieve source credibility assessment from Research Service.
+        Includes credibility tier, reputation score, and recommendations.
+      operationId: get_feed_assessment
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assessment data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedAssessmentResponse'
+        '404':
+          description: Feed not found
+
+  /api/v1/feeds/{feed_id}/admiralty-code:
+    get:
+      tags:
+        - assessment
+      summary: Get Admiralty Code classification
+      description: |
+        Retrieve Admiralty Code confidence classification.
+        Code is based on quality score and assessment.
+      operationId: get_admiralty_code
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Admiralty Code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmiraltyCodeResponse'
+        '404':
+          description: Feed not found
+
+  /api/v1/bulk-fetch:
+    post:
+      tags:
+        - bulk
+      summary: Trigger bulk feed fetch
+      description: |
+        Fetch multiple feeds at once.
+        Can fetch specific feeds or all active feeds.
+      operationId: bulk_fetch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkFetchRequest'
+      responses:
+        '202':
+          description: Bulk fetch submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkFetchResponse'
+        '400':
+          description: Invalid request
+
+  /api/v1/scheduling/timeline:
+    get:
+      tags:
+        - scheduling
+      summary: Get schedule timeline
+      description: |
+        Retrieve feed schedule timeline for visualization.
+        Shows feed distribution over time slots.
+      operationId: get_schedule_timeline
+      parameters:
+        - name: hours
+          in: query
+          schema:
+            type: integer
+            default: 24
+      responses:
+        '200':
+          description: Schedule timeline
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/scheduling/distribution:
+    get:
+      tags:
+        - scheduling
+      summary: Get schedule distribution
+      description: |
+        Get distribution statistics and quality score.
+        Indicates how well feeds are staggered.
+      operationId: get_schedule_distribution
+      responses:
+        '200':
+          description: Distribution statistics
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/scheduling/optimize:
+    post:
+      tags:
+        - scheduling
+      summary: Optimize schedule
+      description: |
+        Calculate and optionally apply schedule optimization.
+        Reduces concurrent load by staggering feeds.
+      operationId: optimize_schedule
+      parameters:
+        - name: apply
+          in: query
+          schema:
+            type: boolean
+            default: false
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Optimization result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/scheduling/conflicts:
+    get:
+      tags:
+        - scheduling
+      summary: Detect schedule conflicts
+      description: Detect feeds scheduled too close together
+      operationId: detect_conflicts
+      parameters:
+        - name: threshold_minutes
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Conflict analysis
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/scheduling/stats:
+    get:
+      tags:
+        - scheduling
+      summary: Get schedule statistics
+      description: Get comprehensive scheduling statistics
+      operationId: get_schedule_stats
+      responses:
+        '200':
+          description: Schedule statistics
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/scheduling/feeds/{feed_id}/schedule:
+    put:
+      tags:
+        - scheduling
+      summary: Reschedule specific feed
+      description: Manually adjust feed schedule offset
+      operationId: reschedule_feed
+      parameters:
+        - name: feed_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: offset_minutes
+          in: query
+          required: true
+          schema:
+            type: integer
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Feed rescheduled
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Service health check
+      description: Returns service status and scheduler information
+      operationId: health_check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+
+  /:
+    get:
+      tags:
+        - health
+      summary: Root endpoint
+      description: Returns service information
+      operationId: root
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  documentation:
+                    type: string
+                  health:
+                    type: string
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT authentication token
+
+  schemas:
+    FeedCreate:
+      type: object
+      required:
+        - name
+        - url
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        url:
+          type: string
+          format: uri
+          maxLength: 500
+        description:
+          type: string
+          maxLength: 2000
+        category:
+          type: string
+          enum:
+            - General News
+            - Finance & Markets
+            - Tech & Science
+            - Geopolitics & Security
+            - Energy & Industry
+            - Regional / Local
+            - Think Tanks / Analysis
+            - Special Interest
+        fetch_interval:
+          type: integer
+          default: 60
+          description: Minutes between fetches
+        scrape_full_content:
+          type: boolean
+          default: false
+        enable_categorization:
+          type: boolean
+        enable_finance_sentiment:
+          type: boolean
+        enable_geopolitical_sentiment:
+          type: boolean
+        enable_osint_analysis:
+          type: boolean
+        enable_summary:
+          type: boolean
+        enable_entity_extraction:
+          type: boolean
+        enable_topic_classification:
+          type: boolean
+        enable_bias:
+          type: boolean
+        enable_conflict:
+          type: boolean
+        enable_analysis_v2:
+          type: boolean
+
+    FeedUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        fetch_interval:
+          type: integer
+        is_active:
+          type: boolean
+        scrape_full_content:
+          type: boolean
+        enable_analysis_v2:
+          type: boolean
+
+    FeedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        fetch_interval:
+          type: integer
+        is_active:
+          type: boolean
+        status:
+          type: string
+          enum: [ACTIVE, PAUSED, ERROR, INACTIVE]
+        last_fetched_at:
+          type: string
+          format: date-time
+        health_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        consecutive_failures:
+          type: integer
+        quality_score:
+          type: integer
+        quality_score_v2:
+          type: integer
+        quality_confidence:
+          type: string
+        quality_trend:
+          type: string
+        total_items:
+          type: integer
+        items_last_24h:
+          type: integer
+        scrape_full_content:
+          type: boolean
+        assessment:
+          $ref: '#/components/schemas/FeedAssessmentResponse'
+        admiralty_code:
+          $ref: '#/components/schemas/AdmiraltyCodeResponse'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    FeedItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        feed_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        link:
+          type: string
+          format: uri
+        description:
+          type: string
+        content:
+          type: string
+        author:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+        scraped_at:
+          type: string
+          format: date-time
+        scrape_status:
+          type: string
+        scrape_word_count:
+          type: integer
+        pipeline_execution:
+          type: object
+          description: V2 (legacy) analysis data
+        v3_analysis:
+          type: object
+          description: V3 (active) analysis data
+        created_at:
+          type: string
+          format: date-time
+
+    FeedItemUpdate:
+      type: object
+      properties:
+        content:
+          type: string
+        scrape_status:
+          type: string
+        scrape_word_count:
+          type: integer
+        scraped_at:
+          type: string
+          format: date-time
+        scraped_metadata:
+          type: object
+
+    FeedHealthResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        feed_id:
+          type: string
+          format: uuid
+        health_score:
+          type: integer
+        consecutive_failures:
+          type: integer
+        is_healthy:
+          type: boolean
+        avg_response_time_ms:
+          type: number
+        success_rate:
+          type: number
+        uptime_24h:
+          type: number
+        uptime_7d:
+          type: number
+        uptime_30d:
+          type: number
+        last_success_at:
+          type: string
+          format: date-time
+        last_failure_at:
+          type: string
+          format: date-time
+
+    FeedQualityResponse:
+      type: object
+      properties:
+        feed_id:
+          type: string
+          format: uuid
+        quality_score:
+          type: integer
+        quality_score_v2:
+          type: integer
+        quality_confidence:
+          type: string
+        quality_trend:
+          type: string
+        quality_calculated_at:
+          type: string
+          format: date-time
+        components:
+          type: object
+          properties:
+            freshness_score:
+              type: integer
+            consistency_score:
+              type: integer
+            content_score:
+              type: integer
+            reliability_score:
+              type: integer
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    FeedAssessmentResponse:
+      type: object
+      properties:
+        assessment_status:
+          type: string
+        assessment_date:
+          type: string
+          format: date-time
+        credibility_tier:
+          type: string
+        reputation_score:
+          type: integer
+        founded_year:
+          type: integer
+        organization_type:
+          type: string
+        political_bias:
+          type: string
+        editorial_standards:
+          type: object
+        trust_ratings:
+          type: object
+        recommendation:
+          type: object
+        assessment_summary:
+          type: string
+
+    AdmiraltyCodeResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [A, B, C, D, E, F]
+        label:
+          type: string
+        color:
+          type: string
+          format: color
+        description:
+          type: string
+        quality_score:
+          type: integer
+
+    BulkFetchRequest:
+      type: object
+      properties:
+        feed_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Specific feeds to fetch
+        fetch_all:
+          type: boolean
+          description: Fetch all active feeds
+        force:
+          type: boolean
+          description: Bypass recent-fetch check
+
+    BulkFetchResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+        status:
+          type: string
+        feeds_queued:
+          type: integer
+
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        version:
+          type: string
+        environment:
+          type: string
+        scheduler:
+          type: object
+          properties:
+            is_running:
+              type: boolean
+            feeds_processed:
+              type: integer
+            feeds_due:
+              type: integer
+            last_check:
+              type: string
+              format: date-time

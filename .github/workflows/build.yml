@@ -1,0 +1,358 @@
+name: Build Pipeline
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  build-service-images:
+    name: Build ${{ matrix.service }} Image
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - feed-service
+          - content-analysis-v2
+          - research-service
+          - osint-service
+          - notification-service
+          - search-service
+          - analytics-service
+          - fmp-service
+          - knowledge-graph-service
+          - entity-canonicalization-service
+          - llm-orchestrator-service
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Check if service has Dockerfile
+        id: check_dockerfile
+        run: |
+          if [ -f "services/${{ matrix.service }}/Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Dockerfile not found for ${{ matrix.service }}, will create a default one"
+          fi
+
+      - name: Create default Dockerfile if missing
+        if: steps.check_dockerfile.outputs.exists == 'false'
+        run: |
+          cat > services/${{ matrix.service }}/Dockerfile <<'EOF'
+          FROM python:3.11-slim
+
+          WORKDIR /app
+
+          # Install system dependencies
+          RUN apt-get update && apt-get install -y \
+              gcc \
+              g++ \
+              && rm -rf /var/lib/apt/lists/*
+
+          # Copy shared library
+          COPY shared/news-mcp-common /shared/news-mcp-common
+          RUN pip install -e /shared/news-mcp-common
+
+          # Copy service requirements
+          COPY services/${{ matrix.service }}/requirements.txt* ./
+          RUN if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+          # Copy service code
+          COPY services/${{ matrix.service }} .
+
+          # Create non-root user
+          RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+          USER appuser
+
+          # Health check
+          HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+              CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+
+          # Default command
+          CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          EOF
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  build-gateway-image:
+    name: Build API Gateway Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/gateway
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Create Traefik Dockerfile
+        run: |
+          cat > infrastructure/traefik/Dockerfile <<'EOF'
+          FROM traefik:v3.0
+
+          # Copy static configuration
+          COPY infrastructure/traefik/traefik.yml /etc/traefik/traefik.yml
+
+          # Copy dynamic configuration
+          COPY infrastructure/traefik/dynamic /etc/traefik/dynamic/
+
+          # Expose ports
+          EXPOSE 80 443 8080
+
+          # Health check
+          HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+              CMD wget --no-verbose --tries=1 --spider http://localhost:8080/ping || exit 1
+          EOF
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infrastructure/traefik/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  generate-compose:
+    name: Generate Docker Compose
+    runs-on: ubuntu-latest
+    needs: [build-service-images, build-gateway-image]
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update docker-compose with new image tags
+        run: |
+          # Get the current SHA or tag
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="${{ github.sha }}"
+          fi
+
+          # Update docker-compose.prod.yml with new image tags
+          cat > docker-compose.prod.yml <<EOF
+          version: '3.8'
+
+          services:
+            auth-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service:${TAG}
+              environment:
+                - POSTGRES_HOST=postgres
+                - REDIS_HOST=redis
+                - RABBITMQ_HOST=rabbitmq
+              depends_on:
+                - postgres
+                - redis
+                - rabbitmq
+              networks:
+                - news-network
+
+            feed-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/feed-service:${TAG}
+              environment:
+                - POSTGRES_HOST=postgres
+                - REDIS_HOST=redis
+                - RABBITMQ_HOST=rabbitmq
+              depends_on:
+                - postgres
+                - redis
+                - rabbitmq
+              networks:
+                - news-network
+
+            content-analysis-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/content-analysis-service:${TAG}
+              environment:
+                - POSTGRES_HOST=postgres
+                - REDIS_HOST=redis
+                - RABBITMQ_HOST=rabbitmq
+              depends_on:
+                - postgres
+                - redis
+                - rabbitmq
+              networks:
+                - news-network
+
+            research-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/research-service:${TAG}
+              environment:
+                - POSTGRES_HOST=postgres
+                - REDIS_HOST=redis
+                - RABBITMQ_HOST=rabbitmq
+              depends_on:
+                - postgres
+                - redis
+                - rabbitmq
+              networks:
+                - news-network
+
+            osint-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/osint-service:${TAG}
+              environment:
+                - POSTGRES_HOST=postgres
+                - REDIS_HOST=redis
+                - RABBITMQ_HOST=rabbitmq
+              depends_on:
+                - postgres
+                - redis
+                - rabbitmq
+              networks:
+                - news-network
+
+            notification-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/notification-service:${TAG}
+              environment:
+                - POSTGRES_HOST=postgres
+                - REDIS_HOST=redis
+                - RABBITMQ_HOST=rabbitmq
+              depends_on:
+                - postgres
+                - redis
+                - rabbitmq
+              networks:
+                - news-network
+
+            gateway:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/gateway:${TAG}
+              ports:
+                - "80:80"
+                - "443:443"
+                - "8080:8080"
+              depends_on:
+                - auth-service
+                - feed-service
+              networks:
+                - news-network
+
+          networks:
+            news-network:
+              external: true
+          EOF
+
+      - name: Upload docker-compose.prod.yml
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-compose-prod
+          path: docker-compose.prod.yml
+
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-service-images, build-gateway-image, generate-compose]
+    if: always()
+
+    steps:
+      - name: Check build results
+        run: |
+          echo "Build pipeline completed"
+          echo "Service Images: ${{ needs.build-service-images.result }}"
+          echo "Gateway Image: ${{ needs.build-gateway-image.result }}"
+          echo "Compose Generation: ${{ needs.generate-compose.result }}"
+
+          if [ "${{ needs.build-service-images.result }}" != "success" ] || \
+             [ "${{ needs.build-gateway-image.result }}" != "success" ]; then
+            echo "Some builds failed"
+            exit 1
+          fi
+
+      - name: Create build report
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## Build Report" > build-report.md
+          echo "" >> build-report.md
+          echo "**Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> build-report.md
+          echo "**Commit**: ${{ github.sha }}" >> build-report.md
+          echo "**Branch**: ${{ github.ref_name }}" >> build-report.md
+          echo "" >> build-report.md
+          echo "### Images Built" >> build-report.md
+          echo "- auth-service" >> build-report.md
+          echo "- feed-service" >> build-report.md
+          echo "- content-analysis-service" >> build-report.md
+          echo "- research-service" >> build-report.md
+          echo "- osint-service" >> build-report.md
+          echo "- notification-service" >> build-report.md
+          echo "- gateway" >> build-report.md
+
+      - name: Upload build report
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-report
+          path: build-report.md

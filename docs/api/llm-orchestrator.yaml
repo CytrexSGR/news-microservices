@@ -1,0 +1,679 @@
+openapi: 3.1.0
+info:
+  title: LLM Orchestrator Service API
+  description: |
+    Dynamic Intelligence Augmentation (DIA) Service for intelligent verification orchestration.
+
+    Two-stage planning and execution:
+    1. **Stage 1**: Root Cause Analysis (transform vague UQ signals into precise diagnosis)
+    2. **Stage 2**: Plan Generation (create structured verification strategy)
+    3. **Verification**: Execute tools in parallel and aggregate evidence
+
+    **Port**: 8113
+    **Framework**: FastAPI
+    **Authentication**: None (internal service, RabbitMQ-based events)
+  version: 1.0.0
+  contact:
+    name: Development Team
+    url: "https://github.com/organization/news-microservices"
+  license:
+    name: MIT
+    url: "https://opensource.org/licenses/MIT"
+
+servers:
+  - url: http://localhost:8113
+    description: Development server
+  - url: http://llm-orchestrator-service:8113
+    description: Docker compose (internal)
+  - url: https://api.production.com/orchestrator
+    description: Production server (example)
+
+paths:
+  /:
+    get:
+      summary: Root endpoint
+      description: Returns service information and available endpoints
+      operationId: getRootInfo
+      tags:
+        - Service Information
+      responses:
+        "200":
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: llm-orchestrator-service
+                  description:
+                    type: string
+                    example: LLM Orchestrator Service for DIA
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  endpoints:
+                    type: object
+                    properties:
+                      health:
+                        type: string
+                        example: /health
+                      readiness:
+                        type: string
+                        example: /health/ready
+                      docs:
+                        type: string
+                        example: /docs
+
+  /health:
+    get:
+      summary: Health check
+      description: |
+        Simple health check endpoint. Returns 200 if service is running.
+
+        Use this for load balancer health checks and monitoring.
+      operationId: healthCheck
+      tags:
+        - Health & Monitoring
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  service:
+                    type: string
+                    example: llm-orchestrator-service
+                  version:
+                    type: string
+                    example: "1.0.0"
+        "503":
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [unhealthy]
+                  error:
+                    type: string
+
+  /health/ready:
+    get:
+      summary: Readiness check
+      description: |
+        Detailed readiness check with dependency status.
+
+        Checks:
+        - RabbitMQ connection
+        - OpenAI API configuration
+
+        Use this before accepting new requests.
+      operationId: readinessCheck
+      tags:
+        - Health & Monitoring
+      responses:
+        "200":
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ready]
+                  checks:
+                    type: object
+                    properties:
+                      rabbitmq:
+                        type: string
+                        enum: [connected, disconnected]
+                      openai:
+                        type: string
+                        enum: [configured, not_configured]
+        "503":
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [not_ready]
+                  checks:
+                    type: object
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: |
+        Prometheus-compatible metrics endpoint.
+
+        **Metrics collected:**
+        - dia_verifications_total - Total verification requests processed
+        - dia_verification_duration_seconds - Verification execution time
+        - dia_planner_stage1_duration_seconds - Stage 1 execution time
+        - dia_planner_stage2_duration_seconds - Stage 2 execution time
+        - dia_tool_execution_duration_seconds - Individual tool execution time
+        - dia_hypothesis_confirmation_rate - Percentage of confirmed hypotheses
+        - dia_average_confidence_score - Average confidence scores
+
+        **Note:** Currently a placeholder. Full implementation coming with monitoring dashboard.
+      operationId: getMetrics
+      tags:
+        - Health & Monitoring
+      responses:
+        "200":
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP dia_verifications_total Total verification requests
+                  # TYPE dia_verifications_total counter
+                  dia_verifications_total{status="completed"} 1250
+                  dia_verifications_total{status="failed"} 47
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        service:
+          type: string
+        version:
+          type: string
+
+    ReadinessStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+
+    VerificationRequiredEvent:
+      type: object
+      description: |
+        Event sent from Content Analysis Service to trigger verification.
+
+        **Source:** content-analysis-service
+        **Routing Key:** verification.required.*
+        **Exchange:** verification_exchange (topic)
+      required:
+        - event_id
+        - event_type
+        - article_id
+        - article_title
+        - article_content
+        - article_url
+        - article_published_at
+        - uq_confidence_score
+        - uncertainty_factors
+        - priority
+      properties:
+        event_id:
+          type: string
+          format: uuid
+          description: Unique event identifier
+        event_type:
+          type: string
+          enum: [verification.required]
+        analysis_result_id:
+          type: string
+          format: uuid
+          description: Reference to original analysis result
+        article_id:
+          type: string
+          format: uuid
+          description: Article being verified
+        article_title:
+          type: string
+          description: Article title
+          maxLength: 500
+        article_content:
+          type: string
+          description: Full article text
+          maxLength: 50000
+        article_url:
+          type: string
+          format: uri
+          description: Article source URL
+        article_published_at:
+          type: string
+          format: date-time
+          description: Article publication timestamp
+        uq_confidence_score:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Uncertainty Quantification score from content analysis.
+            Lower = more uncertain
+        uncertainty_factors:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+            maxLength: 200
+          description: Vague uncertainty factors from UQ sensor
+          example:
+            - "Low confidence in claim accuracy"
+            - "Numerical claim lacks verification"
+        analysis_summary:
+          type: string
+          description: Summary of current analysis
+          nullable: true
+        extracted_entities:
+          type: array
+          items:
+            type: string
+          description: Entities extracted during analysis
+          example: ["Tesla", "Elon Musk"]
+        category_analysis:
+          type: string
+          description: Content category
+          example: "Business"
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+          description: Verification priority
+
+    ProblemHypothesis:
+      type: object
+      description: |
+        Precise problem diagnosis from Stage 1 Root Cause Analysis.
+
+        **Generated by:** DIAPlanner Stage 1
+        **LLM:** OpenAI GPT-4o-mini (temp=0.3)
+      required:
+        - primary_concern
+        - affected_content
+        - hypothesis_type
+        - confidence
+        - reasoning
+        - verification_approach
+      properties:
+        primary_concern:
+          type: string
+          maxLength: 500
+          description: Specific, actionable problem statement
+          example: "Financial figure appears incorrect"
+        affected_content:
+          type: string
+          maxLength: 500
+          description: Exact excerpt from article
+          example: "Tesla Q3 2024 earnings of $5 billion"
+        hypothesis_type:
+          type: string
+          enum:
+            - factual_error
+            - entity_ambiguity
+            - temporal_inconsistency
+            - missing_context
+            - contradictory_claims
+            - source_reliability_issue
+          description: Type of problem identified
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: Confidence in this diagnosis
+        reasoning:
+          type: string
+          maxLength: 1000
+          description: Analytical reasoning for diagnosis
+          example: "Unusually high compared to historical data (Q2 2024: $4.2B)"
+        verification_approach:
+          type: string
+          maxLength: 500
+          description: High-level verification strategy
+          example: "Cross-reference with SEC filings and investor relations"
+
+    VerificationPlan:
+      type: object
+      description: |
+        Structured verification plan from Stage 2 Plan Generation.
+
+        **Generated by:** DIAPlanner Stage 2
+        **LLM:** OpenAI GPT-4o-mini (temp=0.2)
+      required:
+        - priority
+        - verification_methods
+        - external_sources
+        - expected_corrections
+        - estimated_verification_time_seconds
+      properties:
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+          description: Verification priority
+        verification_methods:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+          description: |
+            Verification tool calls with parameters.
+
+            **Syntax:** `tool_name(param1='value1', param2='value2')`
+
+            **Examples:**
+            - `perplexity_deep_search(query='Tesla Q3 2024 earnings')`
+            - `financial_data_lookup(company='TSLA', metric='earnings', period='Q3 2024')`
+          example:
+            - "perplexity_deep_search(query='Tesla Q3 2024 earnings actual amount', search_domain_filter='[\"sec.gov\", \"ir.tesla.com\"]')"
+            - "financial_data_lookup(company='TSLA', metric='earnings', period='Q3 2024')"
+        external_sources:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+          description: Authoritative sources to consult
+          example:
+            - "Tesla Investor Relations (official earnings report)"
+            - "SEC EDGAR Database (10-Q filing)"
+            - "Bloomberg Terminal"
+        expected_corrections:
+          type: array
+          minItems: 0
+          maxItems: 20
+          items:
+            type: object
+            required: [field, original, corrected, confidence_improvement]
+            properties:
+              field:
+                type: string
+                maxLength: 100
+                description: Field being corrected
+              original:
+                type: string
+                maxLength: 200
+                description: Original incorrect value
+              corrected:
+                type: string
+                maxLength: 200
+                description: Corrected value
+              confidence_improvement:
+                type: number
+                minimum: 0.0
+                maximum: 1.0
+                description: Expected confidence improvement
+          description: Expected corrections if hypothesis confirmed
+          example:
+            - field: "earnings"
+              original: "$5 billion"
+              corrected: "$4.194 billion"
+              confidence_improvement: 0.20
+        estimated_verification_time_seconds:
+          type: integer
+          minimum: 1
+          maximum: 3600
+          description: Estimated time to complete verification
+          example: 60
+
+    ToolExecutionResult:
+      type: object
+      description: |
+        Result from executing a single verification tool.
+
+        **Generated by:** DIAVerifier (parallel execution)
+      required:
+        - tool_name
+        - tool_parameters
+        - success
+        - execution_time_ms
+        - source_citations
+        - confidence
+      properties:
+        tool_name:
+          type: string
+          enum:
+            - perplexity_deep_search
+            - financial_data_lookup
+          description: Name of the tool executed
+        tool_parameters:
+          type: object
+          description: Parameters passed to the tool
+        success:
+          type: boolean
+          description: Whether tool execution succeeded
+        execution_time_ms:
+          type: integer
+          minimum: 0
+          description: Execution time in milliseconds
+        result_data:
+          type: object
+          description: Tool-specific result data
+          nullable: true
+        error_message:
+          type: string
+          description: Error message if execution failed
+          nullable: true
+        source_citations:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs cited by the tool
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Confidence score for this tool's results.
+
+            Calculated as:
+            - Perplexity: Base(0.5) + authority_boost(+0.1 per gov domain) + filter_match(+0.2)
+            - Financial: Always 0.9 (high confidence for official data)
+
+    EvidencePackage:
+      type: object
+      description: |
+        Final aggregated evidence from all tools.
+
+        **Generated by:** DIAVerifier
+        **Contains:** Complete verification result with corrections and citations
+      required:
+        - verification_request_id
+        - problem_hypothesis
+        - verification_plan
+        - tool_executions
+        - total_execution_time_ms
+        - hypothesis_confirmed
+        - confidence_score
+        - key_findings
+        - corrected_facts
+        - source_citations
+        - verification_quality
+      properties:
+        verification_request_id:
+          type: string
+          format: uuid
+          description: Reference to original verification request
+        problem_hypothesis:
+          $ref: "#/components/schemas/ProblemHypothesis"
+        verification_plan:
+          type: object
+          description: Complete verification plan used
+        tool_executions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolExecutionResult"
+          description: Results from all tool executions
+        total_execution_time_ms:
+          type: integer
+          minimum: 0
+          description: Total execution time in milliseconds
+        hypothesis_confirmed:
+          type: boolean
+          description: |
+            Whether the problem hypothesis was confirmed by evidence.
+
+            Determined by: Average confidence of successful tools > 0.7
+        confidence_score:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Overall confidence in the verification result.
+
+            Formula: (tool_avg_confidence * 0.7) + (success_rate * 0.3)
+            - If hypothesis_confirmed: +0.1 boost (capped at 0.95)
+        key_findings:
+          type: array
+          items:
+            type: string
+          description: Key findings from all tools
+          example:
+            - "[Perplexity] According to SEC filings, Tesla reported Q3 2024 earnings of $4.194 billion..."
+            - "[Financial Data] TSLA reported EPS of 0.72 for period ending 2024-09-30"
+        corrected_facts:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              original:
+                type: string
+              corrected:
+                type: string
+              source:
+                type: string
+              source_url:
+                type: string
+          description: Dictionary of corrected facts with evidence
+          example:
+            "earnings: $5 billion":
+              original: "$5 billion"
+              corrected: "$4.194 billion"
+              source: "SEC Filing 10-Q"
+              source_url: "https://www.sec.gov/..."
+        source_citations:
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                type: string
+              url:
+                type: string
+              reliability:
+                type: string
+                enum: [primary, authoritative, secondary]
+          description: |
+            Complete source citations with reliability scoring.
+
+            **Reliability levels:**
+            - primary: Government sources (.gov, sec.gov)
+            - authoritative: Reuters, Bloomberg, FT
+            - secondary: Other sources
+        verification_quality:
+          type: object
+          properties:
+            source_reliability:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              description: Average reliability of cited sources
+            evidence_consistency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              description: |
+                Consistency of evidence across sources.
+
+                High = all tools agree
+                Low = conflicting evidence
+            coverage_completeness:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              description: |
+                Percentage of planned tools that succeeded.
+
+                Formula: successful_tools / total_tools
+          description: Quality metrics for the evidence
+
+    VerificationCompletedEvent:
+      type: object
+      description: |
+        Event published after verification completion.
+
+        **Published to:** RabbitMQ (future)
+        **Exchange:** verification_exchange
+        **Routing Key:** verification.completed.*
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum: [verification.completed]
+        verification_request_id:
+          type: string
+          format: uuid
+        hypothesis_confirmed:
+          type: boolean
+        confidence_score:
+          type: number
+        corrected_facts:
+          type: object
+        source_citations:
+          type: array
+        key_findings:
+          type: array
+          items:
+            type: string
+        execution_time_ms:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+tags:
+  - name: Service Information
+    description: Endpoints for service information and discovery
+  - name: Health & Monitoring
+    description: Health checks, readiness, and metrics
+  - name: Verification
+    description: Verification request and result management (via RabbitMQ)
+
+x-internal: false
+
+x-readme:
+  explorer-enabled: true
+
+externalDocs:
+  description: Full service documentation
+  url: "https://github.com/organization/news-microservices/blob/main/docs/services/llm-orchestrator-service.md"

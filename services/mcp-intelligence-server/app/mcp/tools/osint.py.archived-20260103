@@ -1,0 +1,377 @@
+"""OSINT MCP Tools."""
+
+from ...models import MCPToolResult
+from ...clients import OSINTClient
+from .registry import register_tool
+
+
+@register_tool(
+    name="detect_intelligence_patterns",
+    description="Detect intelligence patterns in knowledge graph. Identifies coordinated activity, suspicious relationships, and anomalies using graph analysis.",
+    parameters=[
+        {
+            "name": "entity_id",
+            "type": "string",
+            "description": "Optional entity ID to focus detection",
+            "required": False,
+        },
+        {
+            "name": "timeframe_days",
+            "type": "integer",
+            "description": "Analysis timeframe in days (default: 30)",
+            "required": False,
+        },
+    ],
+    service="osint-service",
+    category="intelligence",
+    cost="$0",
+    latency="~500ms",
+)
+async def detect_intelligence_patterns(
+    entity_id: str = None, timeframe_days: int = 30, client: OSINTClient = None
+) -> MCPToolResult:
+    """Detect intelligence patterns."""
+    try:
+        result = await client.detect_patterns(entity_id, timeframe_days)
+        return MCPToolResult(
+            success=True,
+            data=result,
+            metadata={
+                "entity_id": entity_id,
+                "timeframe_days": timeframe_days,
+                "service": "osint-service",
+            },
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="analyze_graph_quality",
+    description="Analyze knowledge graph data quality. Checks for inconsistencies, duplicates, missing data, and UNKNOWN entities.",
+    parameters=[],
+    service="osint-service",
+    category="intelligence",
+    cost="$0",
+    latency="~300ms",
+)
+async def analyze_graph_quality(client: OSINTClient) -> MCPToolResult:
+    """Analyze graph quality."""
+    try:
+        result = await client.analyze_graph_quality()
+        return MCPToolResult(
+            success=True, data=result, metadata={"service": "osint-service"}
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="list_osint_templates",
+    description="List available OSINT templates (50+ templates). Returns templates with categories, descriptions, and required parameters. Can be filtered by category or search term.",
+    parameters=[
+        {
+            "name": "category",
+            "type": "string",
+            "description": "Optional category filter (e.g., 'threat_intelligence', 'entity_monitoring')",
+            "required": False,
+        },
+        {
+            "name": "search",
+            "type": "string",
+            "description": "Optional search term to filter templates",
+            "required": False,
+        },
+    ],
+    service="osint-service",
+    category="osint",
+    cost="$0",
+    latency="~100ms",
+)
+async def list_osint_templates(
+    category: str = None, search: str = None, client: OSINTClient = None
+) -> MCPToolResult:
+    """List OSINT templates."""
+    try:
+        result = await client.list_templates(category, search)
+        return MCPToolResult(
+            success=True,
+            data=result,
+            metadata={"category": category, "search": search, "service": "osint-service"},
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="get_osint_template",
+    description="Get specific OSINT template by name. Returns full template configuration with all fields including monitoring logic, alert conditions, and data sources.",
+    parameters=[
+        {
+            "name": "template_name",
+            "type": "string",
+            "description": "Template name to retrieve",
+            "required": True,
+        }
+    ],
+    service="osint-service",
+    category="osint",
+    cost="$0",
+    latency="~80ms",
+)
+async def get_osint_template(
+    template_name: str, client: OSINTClient = None
+) -> MCPToolResult:
+    """Get OSINT template."""
+    try:
+        result = await client.get_template(template_name)
+        return MCPToolResult(
+            success=True,
+            data=result,
+            metadata={"template_name": template_name, "service": "osint-service"},
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="execute_osint_instance",
+    description="Execute OSINT analysis instance manually. Triggers immediate execution of monitoring instance. Returns execution record with execution_id for tracking.",
+    parameters=[
+        {
+            "name": "instance_id",
+            "type": "integer",
+            "description": "Instance ID to execute",
+            "required": True,
+        }
+    ],
+    service="osint-service",
+    category="osint",
+    cost="$0",
+    latency="~200ms",
+)
+async def execute_osint_instance(
+    instance_id: int, client: OSINTClient = None
+) -> MCPToolResult:
+    """Execute OSINT instance."""
+    try:
+        result = await client.execute_instance(instance_id)
+        return MCPToolResult(
+            success=True,
+            data=result,
+            metadata={"instance_id": instance_id, "service": "osint-service"},
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="get_osint_execution",
+    description="Get OSINT execution results by execution ID. Returns execution status, metrics, alerts generated, and analysis results.",
+    parameters=[
+        {
+            "name": "execution_id",
+            "type": "string",
+            "description": "Execution ID to retrieve",
+            "required": True,
+        }
+    ],
+    service="osint-service",
+    category="osint",
+    cost="$0",
+    latency="~150ms",
+)
+async def get_osint_execution(
+    execution_id: str, client: OSINTClient = None
+) -> MCPToolResult:
+    """Get OSINT execution."""
+    try:
+        result = await client.get_execution(execution_id)
+        return MCPToolResult(
+            success=True,
+            data=result,
+            metadata={"execution_id": execution_id, "service": "osint-service"},
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="list_osint_instances",
+    description="List OSINT monitoring instances with filtering. Returns instances with status, template info, and execution history. Can be filtered by status (active, paused, inactive) or template_id.",
+    parameters=[
+        {
+            "name": "status",
+            "type": "string",
+            "description": "Optional status filter (active, paused, inactive)",
+            "required": False,
+        },
+        {
+            "name": "template_id",
+            "type": "integer",
+            "description": "Optional template ID filter",
+            "required": False,
+        },
+        {
+            "name": "limit",
+            "type": "integer",
+            "description": "Maximum instances to return (default: 100)",
+            "required": False,
+        },
+    ],
+    service="osint-service",
+    category="osint",
+    cost="$0",
+    latency="~120ms",
+)
+async def list_osint_instances(
+    status: str = None,
+    template_id: int = None,
+    limit: int = 100,
+    client: OSINTClient = None,
+) -> MCPToolResult:
+    """List OSINT instances."""
+    try:
+        result = await client.list_instances(status, template_id, limit)
+        return MCPToolResult(
+            success=True,
+            data=result,
+            metadata={
+                "status": status,
+                "template_id": template_id,
+                "limit": limit,
+                "service": "osint-service",
+            },
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="create_osint_instance",
+    description="Create new OSINT monitoring instance from template. Returns created instance with instance_id. Instance starts in 'active' status and begins scheduled monitoring.",
+    parameters=[
+        {
+            "name": "template_id",
+            "type": "integer",
+            "description": "Template ID to instantiate",
+            "required": True,
+        },
+        {
+            "name": "name",
+            "type": "string",
+            "description": "Instance name",
+            "required": True,
+        },
+        {
+            "name": "description",
+            "type": "string",
+            "description": "Optional instance description",
+            "required": False,
+        },
+        {
+            "name": "config_overrides",
+            "type": "object",
+            "description": "Optional configuration overrides (JSON object)",
+            "required": False,
+        },
+    ],
+    service="osint-service",
+    category="osint",
+    cost="$0",
+    latency="~250ms",
+)
+async def create_osint_instance(
+    template_id: int,
+    name: str,
+    description: str = None,
+    config_overrides: dict = None,
+    client: OSINTClient = None,
+) -> MCPToolResult:
+    """Create OSINT instance."""
+    try:
+        result = await client.create_instance(
+            template_id, name, description, config_overrides
+        )
+        return MCPToolResult(
+            success=True,
+            data=result,
+            metadata={
+                "template_id": template_id,
+                "name": name,
+                "service": "osint-service",
+            },
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="list_osint_alerts",
+    description="List OSINT alerts with filtering. Returns alerts from OSINT monitoring instances. Can be filtered by level (info, warning, critical, emergency) and acknowledgement status.",
+    parameters=[
+        {
+            "name": "level",
+            "type": "string",
+            "description": "Optional alert level filter (info, warning, critical, emergency)",
+            "required": False,
+        },
+        {
+            "name": "acknowledged",
+            "type": "boolean",
+            "description": "Optional acknowledgement status filter",
+            "required": False,
+        },
+        {
+            "name": "limit",
+            "type": "integer",
+            "description": "Maximum alerts to return (default: 100)",
+            "required": False,
+        },
+    ],
+    service="osint-service",
+    category="osint",
+    cost="$0",
+    latency="~100ms",
+)
+async def list_osint_alerts(
+    level: str = None,
+    acknowledged: bool = None,
+    limit: int = 100,
+    client: OSINTClient = None,
+) -> MCPToolResult:
+    """List OSINT alerts."""
+    try:
+        result = await client.list_alerts(level, acknowledged, limit)
+        return MCPToolResult(
+            success=True,
+            data=result,
+            metadata={
+                "level": level,
+                "acknowledged": acknowledged,
+                "limit": limit,
+                "service": "osint-service",
+            },
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))
+
+
+@register_tool(
+    name="get_osint_alert_stats",
+    description="Get OSINT alert statistics. Returns alert statistics including counts by level, acknowledgement rates, and trends over time.",
+    parameters=[],
+    service="osint-service",
+    category="osint",
+    cost="$0",
+    latency="~80ms",
+)
+async def get_osint_alert_stats(client: OSINTClient = None) -> MCPToolResult:
+    """Get OSINT alert stats."""
+    try:
+        result = await client.get_alert_stats()
+        return MCPToolResult(
+            success=True, data=result, metadata={"service": "osint-service"}
+        )
+    except Exception as e:
+        return MCPToolResult(success=False, error=str(e))

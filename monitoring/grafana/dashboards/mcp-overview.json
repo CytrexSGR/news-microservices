@@ -1,0 +1,475 @@
+{
+  "dashboard": {
+    "title": "MCP Overview - All Servers",
+    "description": "Unified monitoring dashboard for all MCP servers (Intelligence, Search, Analytics, Knowledge Graph)",
+    "tags": ["mcp", "overview", "production"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "links": [
+      {
+        "title": "MCP Intelligence Server Details",
+        "type": "dashboard",
+        "url": "/d/mcp-intelligence/mcp-intelligence-server",
+        "icon": "external link",
+        "keepTime": true
+      }
+    ],
+    "panels": [
+      {
+        "id": 1,
+        "title": "MCP Server Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "id": 2,
+        "title": "Intelligence Server (9001)",
+        "description": "32 tools - Content Analysis, Entity Canon, OSINT, Intelligence, Narrative",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"mcp-intelligence-server\"}",
+            "legendFormat": "Status",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"1": {"text": "UP", "color": "green"}, "0": {"text": "DOWN", "color": "red"}}}
+            ],
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "red"}, {"value": 1, "color": "green"}]}
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1}
+      },
+      {
+        "id": 3,
+        "title": "Search Server (9002)",
+        "description": "27 tools - Full-text search, Faceted search, Article queries",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"mcp-search-server\"}",
+            "legendFormat": "Status",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"1": {"text": "UP", "color": "green"}, "0": {"text": "DOWN", "color": "red"}}}
+            ],
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "red"}, {"value": 1, "color": "green"}]}
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1}
+      },
+      {
+        "id": 4,
+        "title": "Analytics Server (9003)",
+        "description": "32 tools - Dashboard metrics, Time series, Aggregations",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"mcp-analytics-server\"}",
+            "legendFormat": "Status",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"1": {"text": "UP", "color": "green"}, "0": {"text": "DOWN", "color": "red"}}}
+            ],
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "red"}, {"value": 1, "color": "green"}]}
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1}
+      },
+      {
+        "id": 5,
+        "title": "Knowledge Graph Server (9004)",
+        "description": "17 tools - Entity relations, Graph queries, Market data",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"mcp-knowledge-graph-server\"}",
+            "legendFormat": "Status",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"1": {"text": "UP", "color": "green"}, "0": {"text": "DOWN", "color": "red"}}}
+            ],
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "red"}, {"value": 1, "color": "green"}]}
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1}
+      },
+      {
+        "id": 6,
+        "title": "Total Tools Available",
+        "description": "Total MCP tools across all servers (Target: 108)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "108",
+            "legendFormat": "Tools",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "blue"}, {"value": 100, "color": "green"}]},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 5}
+      },
+      {
+        "id": 7,
+        "title": "Total Tool Calls (1h)",
+        "description": "Total tool invocations across all MCP servers in last hour",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(mcp_tool_calls_total[1h]))",
+            "legendFormat": "Calls",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "blue"}, {"value": 100, "color": "green"}, {"value": 1000, "color": "yellow"}]},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 5}
+      },
+      {
+        "id": 8,
+        "title": "Open Circuit Breakers",
+        "description": "Total circuit breakers in OPEN state across all servers",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(circuit_breaker_state == 2) or vector(0)",
+            "legendFormat": "Open",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "red"}]},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 5}
+      },
+      {
+        "id": 9,
+        "title": "Cache Hit Ratio",
+        "description": "Combined cache hit ratio across all servers",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "sum(rate(cache_hits_total[5m])) / (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m]))) * 100 or vector(0)",
+            "legendFormat": "Hit Ratio",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "red"}, {"value": 50, "color": "yellow"}, {"value": 70, "color": "green"}]},
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        },
+        "options": {"showThresholdLabels": true, "showThresholdMarkers": true},
+        "gridPos": {"h": 4, "w": 4, "x": 12, "y": 5}
+      },
+      {
+        "id": 10,
+        "title": "Error Rate (5m)",
+        "description": "Tool call error rate in last 5 minutes",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(mcp_tool_calls_total{status=\"error\"}[5m])) / sum(rate(mcp_tool_calls_total[5m])) * 100 or vector(0)",
+            "legendFormat": "Error %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "red"}]},
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 16, "y": 5}
+      },
+      {
+        "id": 11,
+        "title": "Avg Response Time",
+        "description": "Average tool execution time across all servers",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "avg(rate(mcp_tool_duration_seconds_sum[5m]) / rate(mcp_tool_duration_seconds_count[5m])) or vector(0)",
+            "legendFormat": "Avg Time",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 0.5, "color": "yellow"}, {"value": 2, "color": "red"}]},
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 20, "y": 5}
+      },
+      {
+        "id": 12,
+        "title": "Tool Call Trends",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9},
+        "collapsed": false
+      },
+      {
+        "id": 13,
+        "title": "Tool Calls by Server",
+        "description": "Tool call rate per MCP server",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum by (job) (rate(mcp_tool_calls_total[5m]) * 60)",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20, "showPoints": "never"},
+            "unit": "reqpm"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 10}
+      },
+      {
+        "id": 14,
+        "title": "Tool Duration by Server (p95)",
+        "description": "95th percentile response time per server",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (job, le) (rate(mcp_tool_duration_seconds_bucket[5m])))",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20, "showPoints": "never"},
+            "unit": "s",
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 3, "color": "red"}]}
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 10}
+      },
+      {
+        "id": 15,
+        "title": "Cache & Circuit Breakers",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18},
+        "collapsed": false
+      },
+      {
+        "id": 16,
+        "title": "Cache Hits vs Misses",
+        "description": "Cache performance across all servers",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate(cache_hits_total[1m])) * 60",
+            "legendFormat": "Hits",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(cache_misses_total[1m])) * 60",
+            "legendFormat": "Misses",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 30, "showPoints": "never"},
+            "unit": "ops/min"
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "Hits"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]},
+            {"matcher": {"id": "byName", "options": "Misses"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]}
+          ]
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 19}
+      },
+      {
+        "id": 17,
+        "title": "Circuit Breaker States",
+        "description": "Current state of circuit breakers (0=CLOSED, 1=HALF_OPEN, 2=OPEN)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "circuit_breaker_state",
+            "legendFormat": "{{name}} ({{job}})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never"},
+            "mappings": [
+              {"type": "value", "options": {"0": {"text": "CLOSED", "color": "green"}, "1": {"text": "HALF_OPEN", "color": "yellow"}, "2": {"text": "OPEN", "color": "red"}}}
+            ],
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 2, "color": "red"}]},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 19}
+      },
+      {
+        "id": 18,
+        "title": "Top Tools (Last Hour)",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27},
+        "collapsed": false
+      },
+      {
+        "id": 19,
+        "title": "Most Called Tools",
+        "description": "Top 15 most frequently called tools",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "topk(15, sum by (tool) (increase(mcp_tool_calls_total[1h])))",
+            "legendFormat": "{{tool}}",
+            "refId": "A",
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "blue"}, {"value": 10, "color": "green"}, {"value": 50, "color": "yellow"}]},
+            "unit": "short"
+          }
+        },
+        "options": {"orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+        "gridPos": {"h": 10, "w": 12, "x": 0, "y": 28}
+      },
+      {
+        "id": 20,
+        "title": "Slowest Tools (p95)",
+        "description": "Top 15 slowest tools by 95th percentile response time",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "topk(15, histogram_quantile(0.95, sum by (tool, le) (rate(mcp_tool_duration_seconds_bucket[1h]))))",
+            "legendFormat": "{{tool}}",
+            "refId": "A",
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 0.5, "color": "yellow"}, {"value": 2, "color": "red"}]},
+            "unit": "s"
+          }
+        },
+        "options": {"orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+        "gridPos": {"h": 10, "w": 12, "x": 12, "y": 28}
+      },
+      {
+        "id": 21,
+        "title": "Server Resources",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 38},
+        "collapsed": false
+      },
+      {
+        "id": 22,
+        "title": "Memory Usage by Server",
+        "description": "Resident memory usage per MCP server",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes{job=~\"mcp-.*\"} / 1024 / 1024",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20, "showPoints": "never"},
+            "unit": "decmbytes",
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 500, "color": "yellow"}, {"value": 1000, "color": "red"}]}
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 39}
+      },
+      {
+        "id": 23,
+        "title": "CPU Usage by Server",
+        "description": "CPU time spent per MCP server",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total{job=~\"mcp-.*\"}[1m]) * 100",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20, "showPoints": "never"},
+            "unit": "percent",
+            "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 50, "color": "yellow"}, {"value": 80, "color": "red"}]}
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 39}
+      }
+    ],
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m"],
+      "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "7d"]
+    },
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Circuit Breaker Opened",
+          "datasource": "Prometheus",
+          "expr": "changes(circuit_breaker_state == 2[1m]) > 0",
+          "enable": true,
+          "iconColor": "red",
+          "tagKeys": "name,job"
+        }
+      ]
+    },
+    "version": 1
+  },
+  "overwrite": true,
+  "folderId": 0,
+  "message": "MCP Overview Dashboard - All 4 Servers (108 Tools)"
+}

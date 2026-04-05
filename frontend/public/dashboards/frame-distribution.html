@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frame Distribution Dashboard | News Intelligence</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    .header {
+      padding: 25px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .header h1 { font-size: 1.6rem; }
+    .header-right { display: flex; align-items: center; gap: 15px; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      background: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+    }
+    .status.error { background: rgba(244, 67, 54, 0.2); color: #f44336; }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .updated { color: rgba(255,255,255,0.6); font-size: 0.85rem; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 25px; }
+    .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 25px; }
+    .metric {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 22px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .metric-value { font-size: 2.2rem; font-weight: 700; color: #4fc3f7; }
+    .metric-label { color: rgba(255,255,255,0.6); margin-top: 6px; font-size: 0.9rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px; }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 25px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .card h2 { font-size: 1.15rem; margin-bottom: 20px; opacity: 0.9; display: flex; align-items: center; gap: 10px; }
+    .chart-container { position: relative; height: 320px; }
+    .frame-list { margin-top: 10px; }
+    .frame-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .frame-item:last-child { border-bottom: none; }
+    .frame-info { display: flex; align-items: center; gap: 12px; }
+    .frame-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+    .frame-name { font-weight: 500; }
+    .frame-stats { text-align: right; }
+    .frame-count { color: #4fc3f7; font-weight: 600; font-size: 1.1rem; }
+    .frame-percent { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
+    .frame-tension {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-left: 10px;
+    }
+    .tension-high { background: rgba(244,67,54,0.2); color: #f44336; }
+    .tension-medium { background: rgba(255,193,7,0.2); color: #ffc107; }
+    .tension-low { background: rgba(76,175,80,0.2); color: #4caf50; }
+    .refresh-btn {
+      background: rgba(79, 195, 247, 0.2);
+      border: 1px solid rgba(79, 195, 247, 0.3);
+      color: #4fc3f7;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .refresh-btn:hover { background: rgba(79, 195, 247, 0.3); }
+    .loading { opacity: 0.5; pointer-events: none; }
+    @media (max-width: 768px) {
+      .metrics-row { grid-template-columns: repeat(2, 1fr); }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎯 Frame Distribution Dashboard</h1>
+    <div class="header-right">
+      <span class="updated">Updated: <span id="lastUpdate">Loading...</span></span>
+      <span id="status" class="status">
+        <span class="status-dot"></span>
+        <span id="statusText">CONNECTING</span>
+      </span>
+      <button class="refresh-btn" onclick="refresh()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="metrics-row">
+      <div class="metric">
+        <div class="metric-value" id="totalFrames">-</div>
+        <div class="metric-label">Total Narratives</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="uniqueTypes">-</div>
+        <div class="metric-label">Frame Types</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="dominantFrame">-</div>
+        <div class="metric-label">Dominant Frame</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="avgTension">-</div>
+        <div class="metric-label">Avg Tension</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>📊 Distribution (Doughnut)</h2>
+        <div class="chart-container">
+          <canvas id="doughnutChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📈 Distribution (Bar)</h2>
+        <div class="chart-container">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📋 Frame Breakdown</h2>
+        <div id="frameList" class="frame-list">Loading...</div>
+      </div>
+
+      <div class="card">
+        <h2>🔥 Tension by Frame</h2>
+        <div class="chart-container">
+          <canvas id="tensionChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.hostname === 'localhost'
+      ? 'http://localhost:8111/api/v1/graph'
+      : '/api/v1/graph';
+    const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
+
+    let doughnutChart, barChart, tensionChart;
+
+    const COLORS = [
+      '#4fc3f7', '#29b6f6', '#03a9f4', '#00bcd4', '#009688',
+      '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107',
+      '#ff9800', '#ff5722', '#f44336', '#e91e63', '#9c27b0',
+      '#673ab7', '#3f51b5', '#2196f3', '#00acc1', '#26a69a'
+    ];
+
+    async function fetchData() {
+      try {
+        document.body.classList.add('loading');
+        const [distResponse, statsResponse] = await Promise.all([
+          fetch(`${API_BASE}/narratives/distribution`),
+          fetch(`${API_BASE}/narratives/stats`)
+        ]);
+
+        if (!distResponse.ok || !statsResponse.ok) {
+          throw new Error('API Error');
+        }
+
+        const distribution = await distResponse.json();
+        const stats = await statsResponse.json();
+
+        document.getElementById('status').className = 'status';
+        document.getElementById('statusText').textContent = 'LIVE';
+        document.body.classList.remove('loading');
+
+        return { distribution, stats };
+      } catch (error) {
+        console.error('Fetch error:', error);
+        document.getElementById('status').className = 'status error';
+        document.getElementById('statusText').textContent = 'ERROR';
+        document.body.classList.remove('loading');
+        throw error;
+      }
+    }
+
+    function updateMetrics(distribution, stats) {
+      const frames = Array.isArray(distribution) ? distribution : [];
+      const total = frames.reduce((a, b) => a + (b.count || 0), 0);
+      const uniqueTypes = frames.length;
+      const dominant = frames.length > 0 ? frames[0].frame_type : '-';
+      const avgTension = stats.tension_stats?.average || 0;
+
+      document.getElementById('totalFrames').textContent = total.toLocaleString();
+      document.getElementById('uniqueTypes').textContent = uniqueTypes;
+      document.getElementById('dominantFrame').textContent = dominant;
+      document.getElementById('avgTension').textContent = avgTension.toFixed(2);
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('de-DE');
+    }
+
+    function getTensionClass(tension) {
+      if (tension >= 0.7) return 'tension-high';
+      if (tension >= 0.4) return 'tension-medium';
+      return 'tension-low';
+    }
+
+    function updateCharts(distribution) {
+      const frames = Array.isArray(distribution) ? distribution.slice(0, 12) : [];
+      const labels = frames.map(f => f.frame_type);
+      const data = frames.map(f => f.count);
+      const tensions = frames.map(f => f.avg_tension || 0);
+      const total = data.reduce((a, b) => a + b, 0);
+
+      // Doughnut Chart
+      if (doughnutChart) {
+        doughnutChart.data.labels = labels;
+        doughnutChart.data.datasets[0].data = data;
+        doughnutChart.update('none');
+      } else {
+        const ctx1 = document.getElementById('doughnutChart').getContext('2d');
+        doughnutChart = new Chart(ctx1, {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [{
+              data,
+              backgroundColor: COLORS.slice(0, labels.length),
+              borderWidth: 0,
+              hoverOffset: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { color: '#fff', padding: 12, font: { size: 11 } } }
+            }
+          }
+        });
+      }
+
+      // Bar Chart
+      if (barChart) {
+        barChart.data.labels = labels;
+        barChart.data.datasets[0].data = data;
+        barChart.update('none');
+      } else {
+        const ctx2 = document.getElementById('barChart').getContext('2d');
+        barChart = new Chart(ctx2, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Count',
+              data,
+              backgroundColor: COLORS.slice(0, labels.length),
+              borderRadius: 6,
+              borderSkipped: false
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { color: '#fff', maxRotation: 45, font: { size: 10 } }, grid: { display: false } },
+              y: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.08)' } }
+            }
+          }
+        });
+      }
+
+      // Tension Chart
+      if (tensionChart) {
+        tensionChart.data.labels = labels;
+        tensionChart.data.datasets[0].data = tensions;
+        tensionChart.update('none');
+      } else {
+        const ctx3 = document.getElementById('tensionChart').getContext('2d');
+        tensionChart = new Chart(ctx3, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Avg Tension',
+              data: tensions,
+              backgroundColor: tensions.map(t => t >= 0.7 ? '#f44336' : t >= 0.4 ? '#ffc107' : '#4caf50'),
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+              x: {
+                min: 0, max: 1,
+                ticks: { color: '#fff' },
+                grid: { color: 'rgba(255,255,255,0.08)' }
+              },
+              y: { ticks: { color: '#fff', font: { size: 10 } }, grid: { display: false } }
+            }
+          }
+        });
+      }
+
+      // Frame List
+      const frameList = document.getElementById('frameList');
+      frameList.innerHTML = frames.map((f, i) => {
+        const percent = total > 0 ? ((f.count / total) * 100).toFixed(1) : 0;
+        const tensionClass = getTensionClass(f.avg_tension || 0);
+        return `
+          <div class="frame-item">
+            <div class="frame-info">
+              <div class="frame-color" style="background: ${COLORS[i]}"></div>
+              <span class="frame-name">${f.frame_type}</span>
+            </div>
+            <div class="frame-stats">
+              <span class="frame-count">${f.count.toLocaleString()}</span>
+              <span class="frame-percent">(${percent}%)</span>
+              <span class="frame-tension ${tensionClass}">${(f.avg_tension || 0).toFixed(2)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function refresh() {
+      try {
+        const { distribution, stats } = await fetchData();
+        updateMetrics(distribution, stats);
+        updateCharts(distribution);
+      } catch (error) {
+        console.error('Refresh failed:', error);
+      }
+    }
+
+    // Initial load
+    refresh();
+
+    // Auto-refresh
+    setInterval(refresh, REFRESH_INTERVAL);
+
+    // Refresh on tab focus
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refresh();
+    });
+  </script>
+</body>
+</html>

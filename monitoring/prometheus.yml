@@ -1,0 +1,97 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'news-microservices'
+    environment: 'development'
+
+scrape_configs:
+  # FMP Service (uses host network mode)
+  - job_name: 'fmp-service'
+    static_configs:
+      - targets: ['host.docker.internal:8113']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Auth Service
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8100']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Feed Service
+  - job_name: 'feed-service'
+    static_configs:
+      - targets: ['feed-service:8101']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Notification Service
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:8105']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Search Service
+  - job_name: 'search-service'
+    static_configs:
+      - targets: ['search-service:8106']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Analytics Service
+  - job_name: 'analytics-service'
+    static_configs:
+      - targets: ['analytics-service:8107']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Scheduler Service
+  - job_name: 'scheduler-service'
+    static_configs:
+      - targets: ['scheduler-service:8108']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Prediction Service
+  - job_name: 'prediction-service'
+    static_configs:
+      - targets: ['prediction-service:8116']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # MCP Intelligence Server (32 tools)
+  - job_name: 'mcp-intelligence-server'
+    static_configs:
+      - targets: ['mcp-intelligence-server:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # MCP Search Server (27 tools)
+  - job_name: 'mcp-search-server'
+    static_configs:
+      - targets: ['mcp-search-server:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # MCP Analytics Server (32 tools)
+  - job_name: 'mcp-analytics-server'
+    static_configs:
+      - targets: ['mcp-analytics-server:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # MCP Knowledge Graph Server (17 tools)
+  # Note: No Prometheus metrics endpoint yet - uses FastMCP without instrumentation
+  # - job_name: 'mcp-knowledge-graph-server'
+  #   static_configs:
+  #     - targets: ['mcp-knowledge-graph-server:9004']
+  #   metrics_path: /metrics
+  #   scrape_interval: 15s
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

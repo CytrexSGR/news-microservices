@@ -1,0 +1,251 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "70824ca8-c8fd-466f-9cee-6d6195a45743",
+    "entities": [
+      {
+        "id": "5a1ff846-1fae-4d39-b25b-f5a381a78936",
+        "text": "Adept",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "4c86cfd6-4885-403c-b7e8-35ba68cb417f",
+        "text": "David Luan",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "500c5069-5945-44c7-ba76-3055f9ed8659",
+        "text": "Character.AI",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "98aca432-9267-423c-819d-f018525269f1",
+        "text": "Noam Shazeer",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "2d3c9fa2-dedb-4e4d-b569-28f56ec294db",
+        "text": "Daniel De Freitas",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "9c4bcc7a-e9a2-4a9f-8af7-2754713265ea",
+        "text": "Google",
+        "type": "ORGANIZATION",
+        "confidence": 0.99,
+        "mention_count": 2
+      },
+      {
+        "id": "cf701e28-0a2c-43bf-835c-2b73c11c04af",
+        "text": "Microsoft",
+        "type": "ORGANIZATION",
+        "confidence": 0.99,
+        "mention_count": 2
+      },
+      {
+        "id": "c4d50621-1b72-4b3a-92b7-7c500862e594",
+        "text": "Satya Nadella",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "5484d0b3-0ac2-403f-9a9f-5661874be03a",
+        "text": "Sam Altman",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "4fe67d95-3050-4341-875c-a5c8c2d0255e",
+        "text": "Greg Brockman",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "76685e79-a058-48e6-add1-87cd66de95d0",
+        "text": "Meta",
+        "type": "ORGANIZATION",
+        "confidence": 0.99,
+        "mention_count": 1
+      },
+      {
+        "id": "2854876c-5a4e-4041-aaae-0e0583fc7814",
+        "text": "Mark Zuckerberg",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "d66f6932-672a-452f-9d07-da7389db6e67",
+        "text": "Sundar Pichai",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "6db30ec3-9664-4ced-a7e9-e912363938a4",
+        "text": "Hugging Face",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "10987cd3-76bf-4f5a-850f-ffc29980382d",
+        "text": "Clement Delangue",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "2f776a5f-fb9e-4249-b62d-f44e06650b0f",
+        "text": "Anthropic",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "5c3f2fc7-0960-4c27-b510-91a538bda0db",
+        "text": "Dario Amodei",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "2ff91369-b0d1-4cb3-9a34-aec0d4bdac7b",
+        "text": "Michelle Donelan",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "631e12d5-f3b1-486c-bce7-a4d00ac919cb",
+        "text": "Thierry Breton",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "a597920d-ef74-4af2-88ac-5c70e51a3c13",
+        "text": "Salesforce",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "6541b13d-0995-4332-9eed-eda9a02a82e6",
+        "text": "Marc Benioff",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "7bad3f20-1924-4cae-9890-9c37fdf56176",
+        "text": "Oracle",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "e6f0e207-fb35-4f52-86d6-274836ab0ae1",
+        "text": "Safra Catz",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "45f87726-6cac-4339-a39d-6e30cc4fc5d6",
+        "text": "Kai-Fu Lee",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 1
+      },
+      {
+        "id": "f0c1b25f-d2cd-452c-b03a-e3d5d6b77f8f",
+        "text": "Sinovation Ventures",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Adept",
+        "entity2": "Google",
+        "type": "not_applicable",
+        "confidence": 0.5
+      },
+      {
+        "entity1": "Character.AI",
+        "entity2": "Microsoft",
+        "type": "not_applicable",
+        "confidence": 0.5
+      },
+      {
+        "entity1": "Meta",
+        "entity2": "Mark Zuckerberg",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Mark Zuckerberg",
+        "entity2": "Meta",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Sundar Pichai",
+        "entity2": "Google",
+        "type": "works_for",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Clement Delangue",
+        "entity2": "Hugging Face",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Dario Amodei",
+        "entity2": "Anthropic",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Salesforce",
+        "entity2": "Marc Benioff",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Oracle",
+        "entity2": "Safra Catz",
+        "type": "member_of",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Kai-Fu Lee",
+        "entity2": "Sinovation Ventures",
+        "type": "member_of",
+        "confidence": 0.9
+      }
+    ],
+    "entity_count": 25,
+    "relationship_count": 10,
+    "processing_time_ms": 22612,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:11:16.759958"
+}

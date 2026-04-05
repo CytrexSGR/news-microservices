@@ -1,0 +1,405 @@
+{
+  "dashboard": {
+    "title": "Graph Integration Monitoring",
+    "description": "Knowledge Graph ingestion monitoring for content-analysis-v2 → knowledge-graph-service",
+    "tags": ["graph", "neo4j", "symbolic-findings", "task-graph-integration"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "links": [],
+    "panels": [
+      {
+        "id": 1,
+        "title": "Graph Ingestion Request Rate",
+        "description": "Requests per second to knowledge-graph-service",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(graph_requests_total[5m])",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never"
+            },
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Graph Ingestion Success Rate",
+        "description": "Percentage of successful graph ingestions (200 OK)",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "sum(rate(graph_requests_total{status=\"200\"}[5m])) / sum(rate(graph_requests_total[5m])) * 100",
+            "legendFormat": "Success Rate",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 50, "color": "yellow"},
+                {"value": 70, "color": "green"}
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Total Requests (5m)",
+        "description": "Total graph ingestion requests in last 5 minutes",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(graph_requests_total[5m]))",
+            "legendFormat": "Total Requests",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "422 Validation Errors (5m)",
+        "description": "Validation errors from knowledge-graph-service",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(graph_requests_total{status=\"422\"}[5m]))",
+            "legendFormat": "422 Errors",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 20, "color": "red"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 4}
+      },
+      {
+        "id": 5,
+        "title": "Request Duration (Percentiles)",
+        "description": "Graph ingestion request duration distribution",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(graph_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(graph_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(graph_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never"
+            },
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Request Status Distribution",
+        "description": "Distribution of HTTP status codes and errors",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum by (status) (increase(graph_requests_total[1h]))",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 7,
+        "title": "Graph Nodes Created",
+        "description": "Total nodes created in Neo4j via graph ingestion",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(graph_nodes_created_total[5m])",
+            "legendFormat": "Nodes/sec",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "ops",
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "Graph Relationships Created",
+        "description": "Total relationships created in Neo4j via graph ingestion",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(graph_relationships_created_total[5m])",
+            "legendFormat": "Relationships/sec",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "ops",
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 9,
+        "title": "Findings Sent by Category",
+        "description": "Distribution of findings sent to graph by category",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "sum by (category) (increase(graph_findings_sent_total[1h]))",
+            "legendFormat": "{{category}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient"
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 10,
+        "title": "Validation Errors by Finding Category",
+        "description": "Which finding categories fail validation most often",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "sum by (finding_category) (increase(graph_validation_errors_total[1h]))",
+            "legendFormat": "{{finding_category}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 20, "color": "red"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient"
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      },
+      {
+        "id": 11,
+        "title": "Cumulative Nodes Created (24h)",
+        "description": "Total nodes created in last 24 hours",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(graph_nodes_created_total[24h]))",
+            "legendFormat": "Total Nodes",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 32}
+      },
+      {
+        "id": 12,
+        "title": "Cumulative Relationships Created (24h)",
+        "description": "Total relationships created in last 24 hours",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(graph_relationships_created_total[24h]))",
+            "legendFormat": "Total Relationships",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 32}
+      },
+      {
+        "id": 13,
+        "title": "Average Request Duration (5m)",
+        "description": "Average duration of graph ingestion requests",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(graph_request_duration_seconds_sum[5m]) / rate(graph_request_duration_seconds_count[5m])",
+            "legendFormat": "Avg Duration",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            },
+            "unit": "s",
+            "decimals": 3
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 32}
+      },
+      {
+        "id": 14,
+        "title": "Error Rate (non-200)",
+        "description": "Percentage of failed requests (non-200)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(graph_requests_total{status!=\"200\"}[5m])) / sum(rate(graph_requests_total[5m])) * 100",
+            "legendFormat": "Error Rate",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 30, "color": "red"}
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 32}
+      }
+    ],
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "version": 1
+  }
+}

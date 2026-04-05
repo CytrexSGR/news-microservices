@@ -1,0 +1,46 @@
+# Content-Analysis-V3 Requirements
+# Python 3.12+
+
+# FastAPI & Server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Database
+asyncpg==0.29.0
+sqlalchemy==2.0.23
+
+# LLM Providers
+openai==1.6.1
+google-generativeai==0.8.3  # Updated for response_mime_type and usage_metadata support
+anthropic==0.8.1  # For future Claude integration
+
+# RabbitMQ
+aio-pika==9.3.1
+
+# Redis
+redis[hiredis]==5.0.1
+
+# Neo4j (Knowledge Graph)
+neo4j==5.14.1  # Async driver for graph integration
+
+# Monitoring
+prometheus-client==0.19.0
+
+# Utilities
+httpx==0.25.2
+tenacity==8.2.3  # Retry logic
+python-dotenv==1.0.0
+python-json-logger==2.0.7
+
+# Development
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.11.0
+ruff==0.1.6
+mypy==1.7.1
+
+# News Intelligence Common Library (EventEnvelope standardization)
+-e ../../libs/news-intelligence-common

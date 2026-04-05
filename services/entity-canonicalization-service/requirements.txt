@@ -1,0 +1,41 @@
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.27.0
+# pydantic version controlled by news-mcp-common (>=2.8.0,<3.0.0)
+# pydantic==2.8.0  # REMOVED: Use version from shared library
+# pydantic-settings==2.4.0  # REMOVED: Use version from shared library
+
+# Database
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.29.0
+alembic==1.13.0
+
+# HTTP Client
+httpx==0.26.0
+
+# Similarity Matching (Fuzzy only - ML removed)
+rapidfuzz==3.6.1
+
+# AI Services (Cloud-native)
+openai==1.54.0  # OpenAI Embeddings API (text-embedding-3-small)
+neo4j==5.14.0   # Neo4j Driver for graph operations
+
+# Monitoring
+prometheus-client==0.19.0
+
+# Background Tasks
+celery==5.3.4
+redis==5.0.1
+
+# Utilities
+python-dotenv==1.0.0
+cachetools==5.3.2  # LRU/TTL cache for bounded memory management
+
+# Testing
+pytest==8.2.0
+pytest-asyncio==0.24.0
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+aiosqlite==0.21.0
+faker==22.0.0
+psutil>=5.9.0

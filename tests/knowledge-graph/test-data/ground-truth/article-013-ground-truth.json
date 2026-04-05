@@ -1,0 +1,93 @@
+{
+  "article_id": "article-013",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Jensen Huang", "works_for", "Nvidia"],
+      "evidence": "Jensen Huang's Nvidia continues its extraordinary run",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Lina Khan", "works_for", "FTC"],
+      "evidence": "regulators like Lina Khan's FTC",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive with FTC"
+    },
+    {
+      "triplet": ["Margrethe Vestager", "works_for", "European Commission"],
+      "evidence": "European Competition Commissioner Margrethe Vestager",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Commissioner title explicit"
+    },
+    {
+      "triplet": ["Toshiya Hari", "works_for", "Goldman Sachs"],
+      "evidence": "Goldman Sachs analyst Toshiya Hari",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Analyst role"
+    },
+    {
+      "triplet": ["Lisa Su", "works_for", "AMD"],
+      "evidence": "AMD CEO Lisa Su might disagree",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO title explicit"
+    },
+    {
+      "triplet": ["Sam Altman", "works_for", "OpenAI"],
+      "evidence": "Sam Altman's OpenAI has been exploring",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Mustafa Suleyman", "owns", "Inflection AI"],
+      "evidence": "Inflection AI (founded by Mustafa Suleyman and Reid Hoffman)",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Founder relationship"
+    },
+    {
+      "triplet": ["Reid Hoffman", "owns", "Inflection AI"],
+      "evidence": "Inflection AI (founded by Mustafa Suleyman and Reid Hoffman)",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Co-founder relationship"
+    },
+    {
+      "triplet": ["Pat Gelsinger", "works_for", "Intel"],
+      "evidence": "Intel's Pat Gelsinger has hinted at major foundry announcements",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Gina Raimondo", "works_for", "US Commerce"],
+      "evidence": "US Commerce Secretary Gina Raimondo's trade policies",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Secretary title explicit"
+    },
+    {
+      "triplet": ["Google", "partner_of", "Anthropic"],
+      "evidence": "Anthropic (backed by Google)",
+      "confidence_expectation": "medium",
+      "mandatory": false,
+      "notes": "Backed by = investment/partnership"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 8,
+    "total_relationships_max": 14,
+    "avg_confidence_min": 0.50,
+    "avg_confidence_max": 0.70,
+    "precision_min": 0.60,
+    "recall_min": 0.50,
+    "false_positives_max": 6,
+    "notes": "Heavy speculation and conditional language ('could', 'might', 'if', 'rumors'). System should extract factual relationships (current employment, known investments) but MUST NOT extract speculative future relationships (e.g., 'OpenAI might partner with TSMC' is rumor, not fact). High risk of false positives from speculative statements."
+  },
+  "notes": "AMBIGUOUS EXAMPLE: Critical test of speculation handling. Many statements are rumors ('rumors that...', 'if such a venture materializes', 'could reshape'). System must distinguish current facts from future speculation. Only extract relationships that describe current reality, not potential future scenarios."
+}

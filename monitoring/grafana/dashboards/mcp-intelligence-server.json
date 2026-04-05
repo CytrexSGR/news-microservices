@@ -1,0 +1,710 @@
+{
+  "dashboard": {
+    "title": "MCP Intelligence Server - Production Monitoring",
+    "description": "Comprehensive monitoring for MCP Intelligence Server including tool calls, cache, circuit breakers, and HTTP metrics",
+    "tags": ["mcp", "intelligence", "production", "phase-1-week-3"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "links": [],
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health Status",
+        "description": "Overall health of MCP Intelligence Server",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "mcp_intelligence_server_info",
+            "legendFormat": "Server Status",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "1": {
+                    "text": "HEALTHY",
+                    "color": "green"
+                  },
+                  "0": {
+                    "text": "UNHEALTHY",
+                    "color": "red"
+                  }
+                }
+              }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Redis Connection Status",
+        "description": "Redis cache connection health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "redis_connected",
+            "legendFormat": "Redis",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "1": {"text": "CONNECTED", "color": "green"},
+                  "0": {"text": "DISCONNECTED", "color": "red"}
+                }
+              }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Open Circuit Breakers",
+        "description": "Number of circuit breakers in OPEN state",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(circuit_breaker_state == 2)",
+            "legendFormat": "Open Circuits",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "red"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Tool Calls (Last Hour)",
+        "description": "Total MCP tool calls in the last hour",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(mcp_tool_calls_total[1h]))",
+            "legendFormat": "Tool Calls",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"},
+                {"value": 100, "color": "green"},
+                {"value": 1000, "color": "yellow"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "Cache Hit Ratio",
+        "description": "Percentage of requests served from cache",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "sum(rate(cache_hits_total[5m])) / (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m]))) * 100",
+            "legendFormat": "Hit Ratio",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 50, "color": "yellow"},
+                {"value": 70, "color": "green"}
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        },
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0}
+      },
+      {
+        "id": 6,
+        "title": "Tool Call Rate (per minute)",
+        "description": "MCP tool calls per minute by tool name",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(mcp_tool_calls_total[1m]) * 60",
+            "legendFormat": "{{tool}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "reqpm"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+      },
+      {
+        "id": 7,
+        "title": "Tool Duration (95th percentile)",
+        "description": "95th percentile response time by tool",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(mcp_tool_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{tool}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 3, "color": "red"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+      },
+      {
+        "id": 8,
+        "title": "Cache Performance",
+        "description": "Cache hits vs misses over time",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total[1m]) * 60",
+            "legendFormat": "Hits ({{key_prefix}})",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(cache_misses_total[1m]) * 60",
+            "legendFormat": "Misses ({{key_prefix}})",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 1,
+              "fillOpacity": 30,
+              "showPoints": "never",
+              "stacking": {
+                "mode": "normal"
+              }
+            },
+            "unit": "ops/min"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+      },
+      {
+        "id": 9,
+        "title": "Cache Latency",
+        "description": "Cache operation latency distribution",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(cache_operation_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50 ({{operation}})",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(cache_operation_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95 ({{operation}})",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(cache_operation_duration_seconds_bucket[5m]))",
+            "legendFormat": "p99 ({{operation}})",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never"
+            },
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      },
+      {
+        "id": 10,
+        "title": "Cache Keys Count",
+        "description": "Number of keys currently in cache",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "cache_keys_count",
+            "legendFormat": "Total Keys",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 20}
+      },
+      {
+        "id": 11,
+        "title": "Cache Errors",
+        "description": "Cache operation errors by type",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(cache_errors_total[1m]) * 60",
+            "legendFormat": "{{operation}} - {{error_type}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "bars",
+              "lineWidth": 1,
+              "fillOpacity": 80,
+              "showPoints": "never"
+            },
+            "unit": "errors/min",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 20}
+      },
+      {
+        "id": 12,
+        "title": "HTTP Requests by Service",
+        "description": "HTTP requests to backend services (per minute)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[1m]) * 60",
+            "legendFormat": "{{service}} ({{method}} {{endpoint}})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 1,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "reqpm"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 26}
+      },
+      {
+        "id": 13,
+        "title": "HTTP Request Duration (p95)",
+        "description": "95th percentile HTTP request duration by service",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{service}} ({{method}} {{endpoint}})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 26}
+      },
+      {
+        "id": 14,
+        "title": "HTTP Errors by Service",
+        "description": "HTTP error rate by service and status code",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(http_request_errors_total[1m]) * 60",
+            "legendFormat": "{{service}} ({{status}})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "bars",
+              "lineWidth": 1,
+              "fillOpacity": 80,
+              "showPoints": "never"
+            },
+            "unit": "errors/min",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 34}
+      },
+      {
+        "id": 15,
+        "title": "HTTP Timeouts",
+        "description": "HTTP request timeouts by service",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(http_request_timeouts_total[1m]) * 60",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "bars",
+              "lineWidth": 1,
+              "fillOpacity": 80,
+              "showPoints": "never"
+            },
+            "unit": "timeouts/min",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 34}
+      },
+      {
+        "id": 16,
+        "title": "Circuit Breaker States",
+        "description": "Current state of all circuit breakers: 0=CLOSED, 1=HALF_OPEN, 2=OPEN",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "circuit_breaker_state",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "stepAfter",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never"
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {"text": "CLOSED", "color": "green"},
+                  "1": {"text": "HALF_OPEN", "color": "yellow"},
+                  "2": {"text": "OPEN", "color": "red"}
+                }
+              }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 2, "color": "red"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 42}
+      },
+      {
+        "id": 17,
+        "title": "Circuit Breaker Failures",
+        "description": "Failure rate by circuit breaker (per minute)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(circuit_breaker_failures_total[1m]) * 60",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 1,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "failures/min",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 50}
+      },
+      {
+        "id": 18,
+        "title": "Circuit Breaker Rejections",
+        "description": "Rejected requests due to open circuit breakers",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(circuit_breaker_rejections_total[1m]) * 60",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "bars",
+              "lineWidth": 1,
+              "fillOpacity": 80,
+              "showPoints": "never"
+            },
+            "unit": "rejections/min",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 50}
+      },
+      {
+        "id": 19,
+        "title": "Tool Calls by Tool (Top 10)",
+        "description": "Top 10 most called tools in the last hour",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (tool) (increase(mcp_tool_calls_total[1h])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [
+            {
+              "displayName": "Value",
+              "desc": true
+            }
+          ]
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 58}
+      },
+      {
+        "id": 20,
+        "title": "Redis Operations",
+        "description": "Redis operations by type and status",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(redis_operations_total[1m]) * 60",
+            "legendFormat": "{{operation}} ({{status}})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "lineWidth": 1,
+              "fillOpacity": 20,
+              "showPoints": "never"
+            },
+            "unit": "ops/min"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 58}
+      }
+    ],
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"],
+      "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "tool",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(mcp_tool_calls_total, tool)",
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "refresh": 1
+        },
+        {
+          "name": "service",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(http_requests_total, service)",
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "refresh": 1
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Circuit Opened",
+          "datasource": "Prometheus",
+          "expr": "changes(circuit_breaker_state == 2[1m]) > 0",
+          "enable": true,
+          "iconColor": "red",
+          "tagKeys": "name"
+        },
+        {
+          "name": "Cache Errors",
+          "datasource": "Prometheus",
+          "expr": "increase(cache_errors_total[1m]) > 10",
+          "enable": true,
+          "iconColor": "orange",
+          "tagKeys": "operation,error_type"
+        }
+      ]
+    },
+    "version": 1
+  },
+  "overwrite": false,
+  "folderId": 0,
+  "message": "MCP Intelligence Server Production Monitoring - Phase 1 Week 3"
+}

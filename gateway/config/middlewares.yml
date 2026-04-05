@@ -1,0 +1,367 @@
+# Traefik Dynamic Configuration - Middlewares
+# This file defines all middleware configurations
+
+http:
+  middlewares:
+    # Security Headers Middleware
+    secure-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+        customResponseHeaders:
+          X-Content-Type-Options: "nosniff"
+          X-Frame-Options: "DENY"
+          X-XSS-Protection: "1; mode=block"
+          Strict-Transport-Security: "max-age=31536000; includeSubDomains; preload"
+          Referrer-Policy: "strict-origin-when-cross-origin"
+          Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+          Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+        sslRedirect: true
+        sslTemporaryRedirect: false
+        sslForceHost: true
+        sslHost: "api.news-mcp.local"
+        contentSecurityPolicy: "default-src 'self'"
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "geolocation 'none'; microphone 'none'; camera 'none'"
+
+    # CORS Middleware
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+          - PATCH
+        accessControlAllowHeaders:
+          - Authorization
+          - Content-Type
+          - X-Request-Id
+          - X-Correlation-Id
+        accessControlAllowOriginList:
+          - "http://localhost:3000"
+          - "http://localhost:3001"
+          - "https://app.news-mcp.local"
+          - "https://*.news-mcp.local"
+        accessControlMaxAge: 86400
+        accessControlAllowCredentials: true
+        accessControlExposeHeaders:
+          - X-Request-Id
+          - X-RateLimit-Limit
+          - X-RateLimit-Remaining
+          - X-RateLimit-Reset
+
+    # Rate Limiting Middleware
+    rate-limit:
+      rateLimit:
+        average: 100  # 100 requests per minute average
+        period: 1m
+        burst: 200    # Allow burst of 200 requests
+        sourceCriterion:
+          ipStrategy:
+            depth: 2
+            excludedIPs:
+              - "127.0.0.1/32"
+              - "10.0.0.0/8"
+              - "192.168.0.0/16"
+
+    # Aggressive Rate Limiting (for sensitive endpoints)
+    rate-limit-strict:
+      rateLimit:
+        average: 10
+        period: 1m
+        burst: 20
+        sourceCriterion:
+          ipStrategy:
+            depth: 2
+
+    # JWT Authentication Middleware (ForwardAuth)
+    jwt-auth:
+      forwardAuth:
+        address: "http://auth-service:8000/api/v1/auth/validate"
+        authResponseHeaders:
+          - X-User-Id
+          - X-User-Email
+          - X-User-Roles
+          - X-Auth-Token
+        authResponseHeadersRegex: "^X-"
+        trustForwardHeader: true
+
+    # JWT Authentication for WebSocket
+    jwt-auth-ws:
+      forwardAuth:
+        address: "http://auth-service:8000/api/v1/auth/validate-ws"
+        authResponseHeaders:
+          - X-User-Id
+          - X-WS-Token
+        trustForwardHeader: true
+
+    # Basic Authentication (for dashboard/docs)
+    basic-auth:
+      basicAuth:
+        users:
+          - "admin:$2y$10$X.7kzLLvR8vHfKmPt7eWvuQJQ5YAk1X2Gn/6XvZfKx3HV5vL7qLqe"  # admin:SecurePass123!
+        realm: "Traefik Dashboard"
+        removeHeader: true
+
+    # Dashboard Authentication
+    dashboard-auth:
+      basicAuth:
+        users:
+          - "traefik:$2y$10$X.7kzLLvR8vHfKmPt7eWvuQJQ5YAk1X2Gn/6XvZfKx3HV5vL7qLqe"
+        realm: "Traefik Dashboard"
+
+    # Request ID Middleware
+    request-id:
+      plugin:
+        requestId:
+          headerName: "X-Request-Id"
+          overwrite: false
+
+    # Retry Middleware
+    retry:
+      retry:
+        attempts: 3
+        initialInterval: 100ms
+        multiplier: 2
+        maxInterval: 1s
+
+    # Circuit Breaker Middleware
+    circuit-breaker:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.5 || ResponseCodeRatio(500, 600, 0, 600) > 0.5"
+        checkPeriod: 10s
+        fallbackDuration: 10s
+        recoveryDuration: 10s
+
+    # Buffering Middleware
+    buffering:
+      buffering:
+        maxRequestBodyBytes: 10485760  # 10MB
+        memRequestBodyBytes: 2097152   # 2MB
+        maxResponseBodyBytes: 10485760 # 10MB
+        memResponseBodyBytes: 2097152  # 2MB
+        retryExpression: "IsNetworkError() || (ResponseCode() >= 500 && ResponseCode() < 600)"
+
+    # Compression Middleware
+    compress:
+      compress:
+        minResponseBodyBytes: 1024
+        excludedContentTypes:
+          - text/event-stream
+          - application/octet-stream
+
+    # IP Whitelist Middleware (for internal services)
+    ip-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+          - "127.0.0.1/32"
+        ipStrategy:
+          depth: 2
+
+    # IP Whitelist for Admin Endpoints
+    admin-ip-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "192.168.1.0/24"  # Admin network
+          - "10.0.10.0/24"    # VPN network
+        ipStrategy:
+          depth: 2
+
+    # Redirect Middleware (HTTP to HTTPS)
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    # Path Stripping Middleware
+    strip-prefix:
+      stripPrefix:
+        prefixes:
+          - "/api/v1"
+        forceSlash: false
+
+    # Path Replacement Middleware
+    replace-path:
+      replacePath:
+        path: "/api/v2$1"
+
+    # Add Prefix Middleware
+    add-prefix:
+      addPrefix:
+        prefix: "/api/v1"
+
+    # Error Pages Middleware
+    error-pages:
+      errors:
+        status:
+          - "404"
+          - "500-599"
+        service: error-service
+        query: "/{status}.html"
+
+    # Chain Middleware (combine multiple middlewares)
+    secure-api:
+      chain:
+        middlewares:
+          - secure-headers
+          - cors
+          - rate-limit
+          - jwt-auth
+          - request-id
+          - compress
+
+    # Development Chain
+    dev-chain:
+      chain:
+        middlewares:
+          - cors
+          - request-id
+
+    # Content Type Middleware
+    content-type:
+      contentType:
+        autoDetect: false
+
+    # In-Flight Request Limiting
+    in-flight:
+      inFlightReq:
+        amount: 100
+        sourceCriterion:
+          requestHeaderName: X-User-Id
+
+    # Passing Client TLS Cert
+    pass-tls-cert:
+      passTLSClientCert:
+        pem: true
+        info:
+          notAfter: true
+          notBefore: true
+          sans: true
+          serialNumber: true
+          subject:
+            country: true
+            province: true
+            locality: true
+            organization: true
+            organizationalUnit: true
+            commonName: true
+            serialNumber: true
+            domainComponent: true
+
+    # Redirect Regex Middleware
+    redirect-regex:
+      redirectRegex:
+        regex: "^http://(.+)"
+        replacement: "https://$1"
+        permanent: true
+
+    # Replace Path Regex Middleware
+    replace-path-regex:
+      replacePathRegex:
+        regex: "^/api/v1/(.*)"
+        replacement: "/v1/$1"
+
+    # Custom Request Headers
+    custom-request-headers:
+      headers:
+        customRequestHeaders:
+          X-Service-Name: "News-MCP"
+          X-Gateway-Version: "2.10"
+          X-Environment: "production"
+
+    # Custom Response Headers
+    custom-response-headers:
+      headers:
+        customResponseHeaders:
+          X-Service-Name: "News-MCP"
+          X-Gateway-Version: "2.10"
+          X-Response-Time: "${request.duration}"
+
+    # Canary Header
+    canary-header:
+      headers:
+        customRequestHeaders:
+          X-Canary: "true"
+
+    # A/B Testing Headers
+    ab-testing:
+      headers:
+        customRequestHeaders:
+          X-AB-Test: "variant-b"
+
+    # GeoIP Headers
+    geoip:
+      plugin:
+        geoip:
+          dbPath: "/etc/traefik/geoip/GeoLite2-City.mmdb"
+          headers:
+            - X-GeoIP-Country
+            - X-GeoIP-City
+            - X-GeoIP-Latitude
+            - X-GeoIP-Longitude
+
+    # OAuth2 Proxy Integration
+    oauth2-proxy:
+      forwardAuth:
+        address: "http://oauth2-proxy:4180/oauth2/auth"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Access-Token
+          - X-Auth-Request-Groups
+
+    # Request Body Limit
+    body-limit:
+      buffering:
+        maxRequestBodyBytes: 5242880  # 5MB limit
+
+    # Large Body Limit
+    large-body-limit:
+      buffering:
+        maxRequestBodyBytes: 104857600  # 100MB limit
+
+    # Timeout Middleware
+    timeout:
+      plugin:
+        timeout:
+          timeout: 30s
+
+    # Long Timeout
+    long-timeout:
+      plugin:
+        timeout:
+          timeout: 300s  # 5 minutes
+
+    # Request Validation
+    request-validation:
+      plugin:
+        requestValidation:
+          required:
+            - Content-Type
+            - X-Request-Id
+          forbidden:
+            - X-Internal-Token
+
+    # Response Validation
+    response-validation:
+      plugin:
+        responseValidation:
+          statusCodes:
+            - 200
+            - 201
+            - 204
+          required:
+            - Content-Type
+            - X-Request-Id

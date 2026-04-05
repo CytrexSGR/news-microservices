@@ -1,0 +1,15 @@
+{
+  "article_id": "article-006",
+  "category": "B",
+  "title": "Microsoft's $69B Activision Acquisition: Regulatory Challenges and Market Impact",
+  "content": "Microsoft Corporation, headquartered in Redmond, Washington, faces mounting regulatory scrutiny over its proposed $69 billion acquisition of Activision Blizzard, according to sources familiar with the matter. The Federal Trade Commission, led by Chair Lina Khan, filed a lawsuit in December 2022 to block the merger, citing concerns about anti-competitive practices in the gaming industry. Bobby Kotick, CEO of Activision Blizzard since 2008, defended the deal in testimony before the Senate Judiciary Committee, arguing that the combined entity would enhance competition against Sony's PlayStation division. Meanwhile, the UK's Competition and Markets Authority announced its own investigation, with Chief Executive Sarah Cardell stating that the merger could harm consumers. Phil Spencer, who leads Microsoft's gaming division Xbox, committed to keeping Call of Duty available on PlayStation platforms for at least ten years. The European Commission, under Commissioner Margrethe Vestager's supervision, approved the deal in May 2023 after Microsoft agreed to license Activision's games to cloud gaming platforms. Gaming industry analyst Joost van Dreunen of DFC Intelligence noted that the acquisition would make Microsoft the third-largest gaming company by revenue, behind Tencent and Sony. Investment bank Goldman Sachs, which advised Microsoft on the transaction, projected the deal would close by June 2023. However, complications arose when the CMA initially blocked the merger in April 2023, prompting Microsoft to restructure the deal. King Digital Entertainment, the maker of Candy Crush and a subsidiary of Activision Blizzard acquired in 2016, represents a significant mobile gaming asset that Microsoft aims to leverage.",
+  "source": "Financial Times",
+  "published_at": "2023-05-15",
+  "metadata": {
+    "word_count": 276,
+    "expected_entities": 15,
+    "expected_relationships": 10,
+    "difficulty": "complex_dense",
+    "notes": "M&A analysis with multiple regulatory bodies, executives, and corporate entities. Tests entity normalization (Microsoft vs Microsoft Corporation), organizational hierarchies, and temporal relationship tracking."
+  }
+}

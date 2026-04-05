@@ -1,0 +1,1331 @@
+openapi: 3.0.3
+info:
+  title: Feed Service API
+  version: 1.0.0
+  description: |
+    RSS/Atom feed management and fetching microservice for News MCP platform.
+
+    ## Features
+    - Feed CRUD operations with UUID-based identification
+    - Automatic feed fetching via scheduler
+    - Feed quality and health monitoring
+    - Content scraping (httpx/playwright)
+    - Auto-analysis pipeline (categorization, sentiment, OSINT)
+    - Event-driven integration via RabbitMQ
+    - Bulk operations support
+
+    ## Authentication
+    All endpoints (except /health and /) require JWT authentication.
+    Include token in Authorization header: `Bearer <token>`
+
+    ## Event Publishing
+    The service publishes events to RabbitMQ:
+    - `feed.created` - New feed added
+    - `feed.updated` - Feed configuration changed
+    - `feed.deleted` - Feed removed
+    - `feed.fetched` - Feed fetch completed
+    - `feed.fetch_failed` - Feed fetch failed
+
+  contact:
+    name: News MCP Platform
+    url: https://github.com/news-mcp
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8101
+    description: Development server
+  - url: http://localhost:8101/api/v1
+    description: API v1 endpoints
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Health
+    description: Service health and status
+  - name: Feeds
+    description: Feed management (CRUD)
+  - name: Feed Items
+    description: Feed item operations
+  - name: Feed Health
+    description: Feed health monitoring
+  - name: Feed Quality
+    description: Feed quality metrics
+  - name: Bulk Operations
+    description: Bulk fetch operations
+
+paths:
+  /:
+    get:
+      summary: Root endpoint
+      description: Service information and available endpoints
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: Feed Service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  documentation:
+                    type: string
+                    example: /docs
+                  health:
+                    type: string
+                    example: /health
+
+  /health:
+    get:
+      summary: Health check
+      description: Check service health, database connectivity, and scheduler status
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: Feed Service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  environment:
+                    type: string
+                    example: development
+                  scheduler:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        example: true
+                      status:
+                        type: string
+                        example: running
+                      active_jobs:
+                        type: integer
+                        example: 5
+
+  /api/v1/feeds:
+    get:
+      summary: List feeds
+      description: |
+        Get list of all feeds with pagination and advanced filtering.
+
+        Supports filtering by:
+        - Active status
+        - Feed status (ACTIVE, PAUSED, ERROR, INACTIVE)
+        - Category
+        - Health score range
+      tags:
+        - Feeds
+      parameters:
+        - name: skip
+          in: query
+          description: Number of records to skip (pagination offset)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: is_active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+        - name: status
+          in: query
+          description: Filter by feed status
+          schema:
+            type: string
+            enum: [ACTIVE, PAUSED, ERROR, INACTIVE]
+        - name: category
+          in: query
+          description: Filter by category name
+          schema:
+            type: string
+            example: technology
+        - name: health_score_min
+          in: query
+          description: Minimum health score (0-100)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+        - name: health_score_max
+          in: query
+          description: Maximum health score (0-100)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+      responses:
+        '200':
+          description: List of feeds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feed'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      summary: Create feed
+      description: |
+        Add a new RSS/Atom feed to the system.
+
+        After creation:
+        - Initial health record is created
+        - Feed is automatically fetched in background
+        - `feed.created` event is published to RabbitMQ
+      tags:
+        - Feeds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedCreate'
+            examples:
+              basic_feed:
+                summary: Basic RSS feed
+                value:
+                  name: TechCrunch
+                  url: https://techcrunch.com/feed/
+                  fetch_interval: 60
+              full_content_scraping:
+                summary: Feed with content scraping
+                value:
+                  name: Hacker News
+                  url: https://news.ycombinator.com/rss
+                  fetch_interval: 30
+                  scrape_full_content: true
+                  scrape_method: httpx
+                  categories: ["technology", "startup"]
+              auto_analysis:
+                summary: Feed with auto-analysis enabled
+                value:
+                  name: Financial Times
+                  url: https://www.ft.com/rss/home
+                  fetch_interval: 15
+                  enable_categorization: true
+                  enable_finance_sentiment: true
+                  categories: ["finance", "business"]
+      responses:
+        '201':
+          description: Feed created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+        '400':
+          description: Invalid request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "fetch_interval must be between 5 and 1440 minutes"
+        '409':
+          description: Feed with this URL already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "Feed with this URL already exists"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/feeds/{feed_id}:
+    get:
+      summary: Get feed details
+      description: Retrieve detailed information about a specific feed by UUID
+      tags:
+        - Feeds
+      parameters:
+        - $ref: '#/components/parameters/FeedId'
+      responses:
+        '200':
+          description: Feed details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      summary: Update feed
+      description: |
+        Update feed configuration.
+
+        Note: The feed URL cannot be changed after creation.
+
+        Publishes `feed.updated` event with changed fields.
+      tags:
+        - Feeds
+      parameters:
+        - $ref: '#/components/parameters/FeedId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedUpdate'
+            examples:
+              update_interval:
+                summary: Update fetch interval
+                value:
+                  fetch_interval: 30
+              pause_feed:
+                summary: Pause feed fetching
+                value:
+                  is_active: false
+              enable_scraping:
+                summary: Enable content scraping
+                value:
+                  scrape_full_content: true
+                  scrape_method: playwright
+              update_categories:
+                summary: Update categories
+                value:
+                  categories: ["technology", "ai", "machine-learning"]
+      responses:
+        '200':
+          description: Feed updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      summary: Delete feed
+      description: |
+        Remove feed and all associated data (cascade delete).
+
+        Deletes:
+        - Feed configuration
+        - All feed items
+        - Fetch logs
+        - Health records
+        - Categories
+        - Schedules
+
+        Publishes `feed.deleted` event.
+      tags:
+        - Feeds
+      parameters:
+        - $ref: '#/components/parameters/FeedId'
+      responses:
+        '204':
+          description: Feed deleted successfully (no content)
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/feeds/{feed_id}/fetch:
+    post:
+      summary: Manually trigger feed fetch
+      description: |
+        Trigger immediate feed fetch and parsing.
+
+        The fetch operation runs asynchronously in background.
+        Use GET /api/v1/feeds/{feed_id} to check last_fetched_at timestamp.
+
+        Publishes `feed.fetched` or `feed.fetch_failed` event.
+      tags:
+        - Feeds
+      parameters:
+        - $ref: '#/components/parameters/FeedId'
+      responses:
+        '200':
+          description: Fetch triggered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Fetch triggered for feed 123e4567-e89b-12d3-a456-426614174000"
+                  feed_id:
+                    type: string
+                    format: uuid
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+        '400':
+          description: Feed is not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "Feed is not active"
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/feeds/{feed_id}/items:
+    get:
+      summary: Get feed items
+      description: |
+        Retrieve items (articles/entries) from a specific feed.
+
+        Items are returned in reverse chronological order (newest first).
+        Use `since` parameter to get only recent items.
+      tags:
+        - Feed Items
+      parameters:
+        - $ref: '#/components/parameters/FeedId'
+        - name: skip
+          in: query
+          description: Number of items to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of items to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: since
+          in: query
+          description: Only return items published after this datetime (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+            example: "2025-10-15T12:00:00Z"
+      responses:
+        '200':
+          description: List of feed items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedItem'
+        '404':
+          description: Feed not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "Feed 123e4567-e89b-12d3-a456-426614174000 not found"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/feeds/{feed_id}/items/{item_id}:
+    patch:
+      summary: Update feed item
+      description: |
+        Update a feed item (used by scraping service to store scraped content).
+
+        Note: This endpoint does NOT require JWT authentication.
+        It's designed for service-to-service communication and should use
+        X-Service-Key header for authentication (implementation pending).
+
+        Items are append-only, so only scraping-related fields can be updated.
+      tags:
+        - Feed Items
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/FeedId'
+        - $ref: '#/components/parameters/ItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedItemUpdate'
+            examples:
+              scraping_success:
+                summary: Successful content scraping
+                value:
+                  content: "<html><body>Full article content here...</body></html>"
+                  scrape_status: "success"
+                  scrape_word_count: 1234
+              scraping_paywall:
+                summary: Paywall detected
+                value:
+                  scrape_status: "paywall"
+      responses:
+        '200':
+          description: Item updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedItem'
+        '404':
+          description: Feed or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/feeds/{feed_id}/health:
+    get:
+      summary: Get feed health metrics
+      description: |
+        Get detailed health metrics for a specific feed.
+
+        Health metrics include:
+        - Overall health score (0-100)
+        - Success rate and uptime (24h, 7d, 30d)
+        - Average response time
+        - Consecutive failures count
+        - Last success/failure timestamps
+      tags:
+        - Feed Health
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/FeedId'
+      responses:
+        '200':
+          description: Feed health metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedHealth'
+              examples:
+                healthy_feed:
+                  summary: Healthy feed
+                  value:
+                    feed_id: "123e4567-e89b-12d3-a456-426614174000"
+                    health_score: 98
+                    consecutive_failures: 0
+                    is_healthy: true
+                    avg_response_time_ms: 342.5
+                    success_rate: 0.99
+                    uptime_24h: 1.0
+                    uptime_7d: 0.99
+                    uptime_30d: 0.98
+                    last_success_at: "2025-10-15T14:30:00Z"
+                    last_failure_at: "2025-10-10T08:15:00Z"
+                degraded_feed:
+                  summary: Degraded feed
+                  value:
+                    feed_id: "223e4567-e89b-12d3-a456-426614174000"
+                    health_score: 45
+                    consecutive_failures: 3
+                    is_healthy: false
+                    avg_response_time_ms: 8234.2
+                    success_rate: 0.45
+                    uptime_24h: 0.50
+                    uptime_7d: 0.60
+                    uptime_30d: 0.75
+                    last_success_at: "2025-10-14T10:00:00Z"
+                    last_failure_at: "2025-10-15T14:00:00Z"
+        '404':
+          description: Feed not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/feeds/{feed_id}/quality:
+    get:
+      summary: Get feed quality score
+      description: |
+        Get quality score and metrics for a specific feed.
+
+        Quality score (0-100) is calculated based on:
+        - **Freshness score**: How often new content is published
+        - **Consistency score**: Publishing regularity
+        - **Content score**: Content quality and length
+        - **Reliability score**: Feed uptime and response time
+
+        Includes actionable recommendations for improvement.
+      tags:
+        - Feed Quality
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/FeedId'
+      responses:
+        '200':
+          description: Feed quality metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedQuality'
+              example:
+                feed_id: "123e4567-e89b-12d3-a456-426614174000"
+                quality_score: 85.5
+                freshness_score: 90.0
+                consistency_score: 88.0
+                content_score: 82.0
+                reliability_score: 92.0
+                recommendations:
+                  - "Consider enabling content scraping to improve content quality"
+                  - "Feed publishes irregularly - monitor for consistency"
+                calculated_at: "2025-10-15T14:30:00Z"
+        '404':
+          description: Feed not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/feeds/bulk-fetch:
+    post:
+      summary: Bulk fetch feeds
+      description: |
+        Trigger fetch for multiple feeds or all active feeds.
+
+        If `feed_ids` is empty or null, all active feeds will be fetched.
+        Use `force: true` to fetch even recently fetched feeds (ignore rate limiting).
+
+        All fetches are performed asynchronously in background.
+      tags:
+        - Bulk Operations
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkFetchRequest'
+            examples:
+              fetch_specific:
+                summary: Fetch specific feeds
+                value:
+                  feed_ids:
+                    - "123e4567-e89b-12d3-a456-426614174000"
+                    - "223e4567-e89b-12d3-a456-426614174001"
+                  force: false
+              fetch_all:
+                summary: Fetch all active feeds
+                value:
+                  feed_ids: []
+                  force: false
+              force_fetch:
+                summary: Force fetch all feeds
+                value:
+                  feed_ids: []
+                  force: true
+      responses:
+        '200':
+          description: Bulk fetch scheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkFetchResponse'
+              example:
+                total_feeds: 15
+                successful_fetches: 0
+                failed_fetches: 0
+                total_new_items: 0
+                details:
+                  - feed_id: "123e4567-e89b-12d3-a456-426614174000"
+                    feed_name: "TechCrunch"
+                    status: "scheduled"
+                  - feed_id: "223e4567-e89b-12d3-a456-426614174001"
+                    feed_name: "Hacker News"
+                    status: "scheduled"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from Auth Service.
+
+        Token structure:
+        ```json
+        {
+          "sub": "user_id",
+          "exp": 1234567890,
+          "iat": 1234567890
+        }
+        ```
+
+  parameters:
+    FeedId:
+      name: feed_id
+      in: path
+      required: true
+      description: Feed UUID
+      schema:
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      description: Feed item UUID
+      schema:
+        type: string
+        format: uuid
+      example: "323e4567-e89b-12d3-a456-426614174002"
+
+  schemas:
+    Feed:
+      type: object
+      required:
+        - id
+        - name
+        - url
+        - fetch_interval
+        - is_active
+        - status
+        - health_score
+        - consecutive_failures
+        - total_items
+        - items_last_24h
+        - scrape_full_content
+        - scrape_method
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Feed UUID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Feed display name
+          example: "TechCrunch"
+        url:
+          type: string
+          format: uri
+          description: RSS/Atom feed URL
+          example: "https://techcrunch.com/feed/"
+        description:
+          type: string
+          nullable: true
+          description: Feed description
+          example: "Latest technology news and startup coverage"
+        fetch_interval:
+          type: integer
+          minimum: 5
+          maximum: 1440
+          description: Fetch interval in minutes (5 min to 24 hours)
+          example: 60
+        is_active:
+          type: boolean
+          description: Whether feed is active and should be fetched
+          example: true
+        status:
+          type: string
+          enum: [ACTIVE, PAUSED, ERROR, INACTIVE]
+          description: Feed status
+          example: "ACTIVE"
+        last_fetched_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of last successful fetch
+          example: "2025-10-15T14:30:00Z"
+        health_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Feed health score (0-100)
+          example: 95
+        consecutive_failures:
+          type: integer
+          minimum: 0
+          description: Number of consecutive fetch failures
+          example: 0
+        total_items:
+          type: integer
+          minimum: 0
+          description: Total number of items in feed
+          example: 1234
+        items_last_24h:
+          type: integer
+          minimum: 0
+          description: Number of new items in last 24 hours
+          example: 15
+        scrape_full_content:
+          type: boolean
+          description: Whether to scrape full article content
+          example: false
+        scrape_method:
+          type: string
+          enum: [auto, httpx, playwright]
+          description: Scraping method (auto-detect, HTTP client, or headless browser)
+          example: "auto"
+        enable_categorization:
+          type: boolean
+          description: Enable automatic article categorization (Stage 1)
+          example: false
+        enable_finance_sentiment:
+          type: boolean
+          description: Enable finance-specific sentiment analysis (Stage 2)
+          example: false
+        enable_geopolitical_sentiment:
+          type: boolean
+          description: Enable geopolitical sentiment analysis (Stage 2)
+          example: false
+        enable_osint_analysis:
+          type: boolean
+          description: Enable OSINT event analysis (Stage 3)
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          description: Feed creation timestamp
+          example: "2025-10-01T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Feed last update timestamp
+          example: "2025-10-15T14:30:00Z"
+        categories:
+          type: array
+          items:
+            type: string
+          description: Feed categories for organization
+          example: ["technology", "startup", "ai"]
+        legacy_id:
+          type: integer
+          nullable: true
+          description: Legacy integer ID for backward compatibility
+          example: null
+
+    FeedCreate:
+      type: object
+      required:
+        - name
+        - url
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Feed display name
+          example: "TechCrunch"
+        url:
+          type: string
+          format: uri
+          description: RSS/Atom feed URL
+          example: "https://techcrunch.com/feed/"
+        description:
+          type: string
+          nullable: true
+          description: Feed description
+          example: "Latest technology news and startup coverage"
+        fetch_interval:
+          type: integer
+          minimum: 5
+          maximum: 1440
+          default: 60
+          description: Fetch interval in minutes
+          example: 60
+        scrape_full_content:
+          type: boolean
+          default: false
+          description: Whether to scrape full article content
+          example: false
+        scrape_method:
+          type: string
+          enum: [auto, httpx, playwright]
+          default: "auto"
+          description: Scraping method
+          example: "auto"
+        enable_categorization:
+          type: boolean
+          default: false
+          description: Enable automatic categorization
+          example: false
+        enable_finance_sentiment:
+          type: boolean
+          default: false
+          description: Enable finance sentiment analysis
+          example: false
+        enable_geopolitical_sentiment:
+          type: boolean
+          default: false
+          description: Enable geopolitical sentiment analysis
+          example: false
+        enable_osint_analysis:
+          type: boolean
+          default: false
+          description: Enable OSINT analysis
+          example: false
+        categories:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Initial feed categories
+          example: ["technology", "startup"]
+
+    FeedUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          nullable: true
+          description: Feed display name
+          example: "TechCrunch (Updated)"
+        description:
+          type: string
+          nullable: true
+          description: Feed description
+          example: "Updated description"
+        fetch_interval:
+          type: integer
+          minimum: 5
+          maximum: 1440
+          nullable: true
+          description: Fetch interval in minutes
+          example: 30
+        is_active:
+          type: boolean
+          nullable: true
+          description: Whether feed is active
+          example: true
+        scrape_full_content:
+          type: boolean
+          nullable: true
+          description: Whether to scrape full content
+          example: true
+        scrape_method:
+          type: string
+          enum: [auto, httpx, playwright]
+          nullable: true
+          description: Scraping method
+          example: "playwright"
+        enable_categorization:
+          type: boolean
+          nullable: true
+          description: Enable categorization
+        enable_finance_sentiment:
+          type: boolean
+          nullable: true
+          description: Enable finance sentiment
+        enable_geopolitical_sentiment:
+          type: boolean
+          nullable: true
+          description: Enable geopolitical sentiment
+        enable_osint_analysis:
+          type: boolean
+          nullable: true
+          description: Enable OSINT analysis
+        categories:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Updated categories (replaces existing)
+          example: ["technology", "ai", "machine-learning"]
+
+    FeedItem:
+      type: object
+      required:
+        - id
+        - feed_id
+        - title
+        - link
+        - content_hash
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Item UUID
+          example: "323e4567-e89b-12d3-a456-426614174002"
+        feed_id:
+          type: string
+          format: uuid
+          description: Parent feed UUID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        title:
+          type: string
+          description: Item title
+          example: "OpenAI releases new GPT-5 model"
+        link:
+          type: string
+          format: uri
+          description: Link to original article
+          example: "https://techcrunch.com/2025/10/15/openai-gpt5/"
+        description:
+          type: string
+          nullable: true
+          description: Item description or summary
+          example: "OpenAI announced GPT-5 with breakthrough capabilities..."
+        content:
+          type: string
+          nullable: true
+          description: Full content (RSS content or scraped)
+          example: "<html><body>Full article content...</body></html>"
+        author:
+          type: string
+          nullable: true
+          description: Article author
+          example: "John Doe"
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Publication timestamp
+          example: "2025-10-15T12:00:00Z"
+        guid:
+          type: string
+          nullable: true
+          description: RSS GUID (unique identifier from feed)
+          example: "https://techcrunch.com/?p=12345"
+        content_hash:
+          type: string
+          description: SHA-256 hash for deduplication
+          example: "a7b9c3d1e5f7g9h1i3j5k7l9m1n3o5p7"
+        scraped_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when content was scraped
+          example: "2025-10-15T12:05:00Z"
+        scrape_status:
+          type: string
+          nullable: true
+          enum: [success, paywall, error, timeout]
+          description: Scraping status
+          example: "success"
+        scrape_word_count:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Word count of scraped content
+          example: 1234
+        created_at:
+          type: string
+          format: date-time
+          description: Item creation timestamp in database
+          example: "2025-10-15T12:02:00Z"
+        legacy_id:
+          type: integer
+          nullable: true
+          description: Legacy integer ID for backward compatibility
+        legacy_feed_id:
+          type: integer
+          nullable: true
+          description: Legacy feed integer ID
+
+    FeedItemUpdate:
+      type: object
+      properties:
+        content:
+          type: string
+          nullable: true
+          description: Full scraped content
+          example: "<html><body>Full article...</body></html>"
+        scraped_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Scraping timestamp
+        scrape_status:
+          type: string
+          nullable: true
+          enum: [success, paywall, error, timeout]
+          description: Scraping status
+        scrape_word_count:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Word count
+
+    FeedHealth:
+      type: object
+      required:
+        - feed_id
+        - health_score
+        - consecutive_failures
+        - is_healthy
+        - success_rate
+        - uptime_24h
+        - uptime_7d
+        - uptime_30d
+      properties:
+        feed_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        health_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Overall health score (0-100)
+          example: 95
+        consecutive_failures:
+          type: integer
+          minimum: 0
+          description: Number of consecutive failures
+          example: 0
+        is_healthy:
+          type: boolean
+          description: Whether feed is healthy (score > 70)
+          example: true
+        avg_response_time_ms:
+          type: number
+          format: float
+          nullable: true
+          description: Average response time in milliseconds
+          example: 342.5
+        success_rate:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Success rate (0.0-1.0)
+          example: 0.99
+        uptime_24h:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Uptime in last 24 hours (0.0-1.0)
+          example: 1.0
+        uptime_7d:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Uptime in last 7 days (0.0-1.0)
+          example: 0.99
+        uptime_30d:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Uptime in last 30 days (0.0-1.0)
+          example: 0.98
+        last_success_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last successful fetch timestamp
+          example: "2025-10-15T14:30:00Z"
+        last_failure_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last failed fetch timestamp
+          example: "2025-10-10T08:15:00Z"
+
+    FeedQuality:
+      type: object
+      required:
+        - feed_id
+        - quality_score
+        - freshness_score
+        - consistency_score
+        - content_score
+        - reliability_score
+        - recommendations
+        - calculated_at
+      properties:
+        feed_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        quality_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 100.0
+          description: Overall quality score (0-100)
+          example: 85.5
+        freshness_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 100.0
+          description: Content freshness score
+          example: 90.0
+        consistency_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 100.0
+          description: Publishing consistency score
+          example: 88.0
+        content_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 100.0
+          description: Content quality score
+          example: 82.0
+        reliability_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 100.0
+          description: Feed reliability score
+          example: 92.0
+        recommendations:
+          type: array
+          items:
+            type: string
+          description: Actionable recommendations
+          example:
+            - "Consider enabling content scraping to improve content quality"
+            - "Feed publishes irregularly - monitor for consistency"
+        calculated_at:
+          type: string
+          format: date-time
+          description: Calculation timestamp
+          example: "2025-10-15T14:30:00Z"
+
+    BulkFetchRequest:
+      type: object
+      properties:
+        feed_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+          description: Feed UUIDs to fetch (empty/null = all active feeds)
+          example:
+            - "123e4567-e89b-12d3-a456-426614174000"
+            - "223e4567-e89b-12d3-a456-426614174001"
+        force:
+          type: boolean
+          default: false
+          description: Force fetch even if recently fetched
+          example: false
+
+    BulkFetchResponse:
+      type: object
+      required:
+        - total_feeds
+        - successful_fetches
+        - failed_fetches
+        - total_new_items
+        - details
+      properties:
+        total_feeds:
+          type: integer
+          minimum: 0
+          description: Total number of feeds scheduled
+          example: 15
+        successful_fetches:
+          type: integer
+          minimum: 0
+          description: Number of successful fetches (updated by background tasks)
+          example: 0
+        failed_fetches:
+          type: integer
+          minimum: 0
+          description: Number of failed fetches (updated by background tasks)
+          example: 0
+        total_new_items:
+          type: integer
+          minimum: 0
+          description: Total new items fetched (updated by background tasks)
+          example: 0
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              feed_id:
+                type: string
+                format: uuid
+              feed_name:
+                type: string
+              status:
+                type: string
+                enum: [scheduled, success, failed]
+          description: Per-feed details
+          example:
+            - feed_id: "123e4567-e89b-12d3-a456-426614174000"
+              feed_name: "TechCrunch"
+              status: "scheduled"
+            - feed_id: "223e4567-e89b-12d3-a456-426614174001"
+              feed_name: "Hacker News"
+              status: "scheduled"
+
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Feed not found"
+        type:
+          type: string
+          description: Error type/code
+          example: "not_found"
+
+  responses:
+    UnauthorizedError:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Could not validate credentials"
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Feed 123e4567-e89b-12d3-a456-426614174000 not found"

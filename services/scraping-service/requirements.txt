@@ -1,0 +1,52 @@
+# Scraping Service Dependencies
+
+# Core Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+pydantic==2.8.0
+pydantic-settings==2.4.0
+
+# Database
+sqlalchemy==2.0.35
+alembic==1.13.0
+psycopg2-binary==2.9.9
+asyncpg==0.29.0  # Async PostgreSQL driver for SQLAlchemy
+
+# Redis
+redis==5.0.1
+redis[hiredis]==5.0.1  # Performance optimization
+
+# Message Queue
+aio-pika==9.4.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+
+# HTTP Client
+httpx==0.27.0
+
+# Testing
+
+# Logging
+structlog==24.4.0
+
+# Service-specific dependencies
+# Web scraping
+beautifulsoup4==4.12.3
+lxml==5.1.0
+playwright==1.41.0
+newspaper4k==0.9.3
+
+# Utilities
+python-dateutil==2.8.2
+
+# Phase 1 - Quick Wins (Enterprise Upgrade)
+trafilatura>=1.6.0          # Alternative content extractor
+fake-useragent>=1.4.0       # User-Agent rotation
+
+# Phase 3 - Anti-Detection
+playwright-stealth>=1.0.6   # Stealth patches for Playwright
+prometheus_client>=0.19.0
+
+# News Intelligence Common Library (EventEnvelope standardization)
+-e ../../libs/news-intelligence-common

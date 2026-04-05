@@ -1,0 +1,15 @@
+{
+  "article_id": "article-009",
+  "category": "B",
+  "title": "FTX Collapse: Tracing the Web of Crypto Exchange Relationships and Regulatory Failures",
+  "content": "The spectacular collapse of FTX, founded by Sam Bankman-Fried in 2019 and once valued at $32 billion, has exposed a complex network of relationships between cryptocurrency exchanges, venture capital firms, and offshore entities, according to bankruptcy filings examined by The Wall Street Journal. Bankman-Fried, who also founded trading firm Alameda Research, allegedly diverted billions in customer funds between the two companies, a practice that escaped detection by auditors at Prager Metis, the accounting firm that signed off on FTX's financial statements. The Bahamas-based exchange counted prominent investors including Sequoia Capital, led by partner Alfred Lin, and Tiger Global Management, whose founder Chase Coleman personally invested $38 million. Tom Brady, the former NFL quarterback, and his ex-wife Gisele Bündchen served as FTX brand ambassadors and received equity stakes, documents show. Kevin O'Leary, known from ABC's Shark Tank and a paid FTX spokesperson, testified before the Senate Banking Committee that he lost $15 million. The Securities and Exchange Commission, under Chair Gary Gensler, filed fraud charges in December 2022, while the Commodity Futures Trading Commission, led by Chairman Rostin Behnam, pursued parallel enforcement actions. Caroline Ellison, who ran Alameda Research and was romantically involved with Bankman-Fried, pleaded guilty to fraud charges and agreed to cooperate with federal prosecutors under US Attorney Damian Williams. FTX's new CEO, John J. Ray III, who previously oversaw Enron's bankruptcy, described the situation as the worst case of corporate mismanagement he had witnessed. Binance, the world's largest crypto exchange run by Changpeng Zhao, initially agreed to acquire FTX before backing out, a decision that Zhao defended in a blog post. The Bahamian Securities Commission, headed by Executive Director Christina Rolle, placed FTX's local subsidiary into liquidation. Meanwhile, BlockFi, a crypto lender that received a $400 million credit line from FTX, filed for bankruptcy under CEO Zac Prince, highlighting the contagion effects. Genesis Global Capital, a subsidiary of Digital Currency Group led by CEO Barry Silbert, suspended withdrawals after suffering losses from its FTX exposure.",
+  "source": "Wall Street Journal",
+  "published_at": "2023-01-15",
+  "metadata": {
+    "word_count": 340,
+    "expected_entities": 25,
+    "expected_relationships": 18,
+    "difficulty": "complex_dense",
+    "notes": "Investigative piece with corporate fraud, nested company relationships, celebrity endorsements, and regulatory enforcement. Tests handling of complex ownership structures, personal relationships, and legal actions."
+  }
+}

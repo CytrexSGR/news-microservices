@@ -1,0 +1,12 @@
+{
+  "article_id": "article-016",
+  "ground_truth_relationships": [],
+  "expected_metrics": {
+    "total_relationships_min": 0,
+    "total_relationships_max": 2,
+    "avg_confidence_max": 0.60,
+    "false_positives_max": 2,
+    "notes": "CRITICAL: System might infer works_for from parentheses. These are acceptable if confidence is low, but ideally system extracts nothing."
+  },
+  "notes": "NEGATIVE EXAMPLE: This is a pure list. While humans might infer (Mark Johnson works for Microsoft), the text doesn't explicitly state this. System should either extract nothing or have very low confidence."
+}

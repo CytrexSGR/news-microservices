@@ -1,0 +1,42 @@
+# Development Dockerfile for Scheduler Service
+# Fast rebuilds, hot-reload enabled, optimized for development workflow
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy shared database package first (needed for imports)
+COPY database/ database/
+
+# Copy dependency files
+COPY services/scheduler-service/requirements.txt* services/scheduler-service/requirements-dev.txt* ./
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Health check script
+
+# Copy and setup health check script
+COPY services/scheduler-service/healthcheck.sh /usr/local/bin/healthcheck.sh
+RUN chmod +x /usr/local/bin/healthcheck.sh
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+
+# Health check
+
+# Development command with hot-reload
+# Note: app/ directory will be mounted as volume, not copied
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8008", "--reload", "--log-level", "debug"]

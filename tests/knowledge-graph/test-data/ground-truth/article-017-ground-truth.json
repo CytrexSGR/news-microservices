@@ -1,0 +1,10 @@
+{
+  "article_id": "article-017",
+  "ground_truth_relationships": [],
+  "expected_metrics": {
+    "total_relationships_min": 0,
+    "total_relationships_max": 0,
+    "false_positives_max": 0
+  },
+  "notes": "NEGATIVE EXAMPLE: Pure weather data. Contains location entities but absolutely no relationships. System MUST extract nothing."
+}

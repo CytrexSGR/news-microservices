@@ -1,0 +1,1046 @@
+openapi: 3.1.0
+info:
+  title: OSINT Service API
+  version: 1.0.0
+  description: |
+    Open Source Intelligence (OSINT) monitoring and analysis service with 50+ pre-built templates,
+    scheduling, anomaly detection, and multi-level alerting.
+
+    ## Features
+    - 50+ pre-built OSINT templates across 9 categories
+    - APScheduler integration for recurring analysis jobs
+    - Z-score based anomaly detection
+    - Multi-level alerting (info, warning, critical, emergency)
+    - Template validation and management
+    - Execution history tracking
+
+  contact:
+    name: OSINT Service Team
+    email: osint@news-microservices.local
+
+servers:
+  - url: http://localhost:8004/api/v1
+    description: Development server
+  - url: http://localhost:8004
+    description: Root endpoints (health, docs)
+
+tags:
+  - name: health
+    description: Health check endpoints
+  - name: templates
+    description: OSINT template management
+  - name: schedules
+    description: Job scheduling and management
+  - name: anomalies
+    description: Anomaly detection and baselines
+  - name: alerts
+    description: Alert management
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Returns service health status and scheduler state
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /:
+    get:
+      summary: Service Information
+      description: Returns service metadata and feature flags
+      operationId: rootInfo
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceInfo'
+
+  /api/v1/templates/:
+    get:
+      summary: List Templates
+      description: List all available OSINT templates with optional filtering
+      operationId: listTemplates
+      tags:
+        - templates
+      parameters:
+        - name: category
+          in: query
+          description: Filter by template category
+          required: false
+          schema:
+            type: string
+            enum:
+              - social_media
+              - threat_intelligence
+              - domain_analysis
+              - data_breach
+              - network_analysis
+              - email_analysis
+              - dark_web
+              - cryptocurrency
+              - geolocation
+        - name: search
+          in: query
+          description: Search templates by name or description
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateList'
+
+  /api/v1/templates/categories:
+    get:
+      summary: List Template Categories
+      description: List all available template categories
+      operationId: listCategories
+      tags:
+        - templates
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryList'
+
+  /api/v1/templates/{template_name}:
+    get:
+      summary: Get Template
+      description: Get detailed information about a specific template
+      operationId: getTemplate
+      tags:
+        - templates
+      parameters:
+        - name: template_name
+          in: path
+          description: Template name
+          required: true
+          schema:
+            type: string
+            example: "Twitter Account Monitoring"
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/templates/reload:
+    post:
+      summary: Reload Templates
+      description: Reload all templates from disk
+      operationId: reloadTemplates
+      tags:
+        - templates
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Templates reloaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Templates reloaded"
+                  count:
+                    type: integer
+                    example: 50
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/templates/validate:
+    post:
+      summary: Validate Template
+      description: Validate a template configuration
+      operationId: validateTemplate
+      tags:
+        - templates
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Template data to validate
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/schedules/:
+    post:
+      summary: Schedule Template Execution
+      description: Schedule a template for periodic execution
+      operationId: scheduleTemplate
+      tags:
+        - schedules
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleRequest'
+      responses:
+        '200':
+          description: Template scheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '400':
+          description: Invalid request (template not found, invalid parameters, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    get:
+      summary: List Scheduled Jobs
+      description: List all scheduled jobs
+      operationId: listSchedules
+      tags:
+        - schedules
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of scheduled jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleList'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/schedules/{job_id}:
+    get:
+      summary: Get Schedule Details
+      description: Get information about a scheduled job
+      operationId: getSchedule
+      tags:
+        - schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          description: Job ID
+          required: true
+          schema:
+            type: string
+            example: "Twitter Account Monitoring_scheduled"
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobInfo'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      summary: Delete Schedule
+      description: Delete a scheduled job
+      operationId: deleteSchedule
+      tags:
+        - schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          description: Job ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Schedule deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Schedule deleted successfully"
+                  job_id:
+                    type: string
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/schedules/{job_id}/pause:
+    post:
+      summary: Pause Schedule
+      description: Pause a scheduled job
+      operationId: pauseSchedule
+      tags:
+        - schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          description: Job ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Schedule paused
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Schedule paused"
+                  job_id:
+                    type: string
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/schedules/{job_id}/resume:
+    post:
+      summary: Resume Schedule
+      description: Resume a paused job
+      operationId: resumeSchedule
+      tags:
+        - schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          description: Job ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Schedule resumed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Schedule resumed"
+                  job_id:
+                    type: string
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/anomalies/baselines:
+    get:
+      summary: Get Baselines
+      description: Get baseline statistics for all tracked metrics
+      operationId: getBaselines
+      tags:
+        - anomalies
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Baseline statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaselineStats'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/anomalies/baselines/{template}/{metric}:
+    get:
+      summary: Get Metric Baseline
+      description: Get baseline statistics for a specific metric
+      operationId: getMetricBaseline
+      tags:
+        - anomalies
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: template
+          in: path
+          description: Template name
+          required: true
+          schema:
+            type: string
+        - name: metric
+          in: path
+          description: Metric name
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Metric baseline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricBaseline'
+        '404':
+          description: Baseline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/anomalies/baselines/{template}:
+    delete:
+      summary: Reset Baseline
+      description: Reset baseline data for a template
+      operationId: resetBaseline
+      tags:
+        - anomalies
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: template
+          in: path
+          description: Template name
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Baseline reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Baseline reset successfully"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/alerts/:
+    get:
+      summary: List Alerts
+      description: List alerts with optional filtering
+      operationId: listAlerts
+      tags:
+        - alerts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: level
+          in: query
+          description: Filter by alert level
+          required: false
+          schema:
+            type: string
+            enum: [info, warning, critical, emergency]
+        - name: acknowledged
+          in: query
+          description: Filter by acknowledgement status
+          required: false
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          description: Maximum number of alerts to return
+          required: false
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertList'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/alerts/stats:
+    get:
+      summary: Get Alert Statistics
+      description: Get alert statistics (total, by level, acknowledged/unacknowledged)
+      operationId: getAlertStats
+      tags:
+        - alerts
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Alert statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertStats'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/alerts/{alert_id}:
+    get:
+      summary: Get Alert
+      description: Get specific alert details
+      operationId: getAlert
+      tags:
+        - alerts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: alert_id
+          in: path
+          description: Alert ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Alert details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '404':
+          description: Alert not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/alerts/{alert_id}/acknowledge:
+    post:
+      summary: Acknowledge Alert
+      description: Acknowledge an alert
+      operationId: acknowledgeAlert
+      tags:
+        - alerts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: alert_id
+          in: path
+          description: Alert ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Alert acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Alert acknowledged"
+        '404':
+          description: Alert not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from auth-service
+
+  responses:
+    UnauthorizedError:
+      description: Authentication failed (invalid/expired token)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: healthy
+        service:
+          type: string
+          example: osint-service
+        version:
+          type: string
+          example: "1.0.0"
+        scheduler:
+          type: boolean
+          description: Whether APScheduler is running
+          example: true
+
+    ServiceInfo:
+      type: object
+      properties:
+        service:
+          type: string
+          example: osint-service
+        version:
+          type: string
+          example: "1.0.0"
+        status:
+          type: string
+          example: running
+        features:
+          type: object
+          properties:
+            templates:
+              type: integer
+              example: 50
+            categories:
+              type: integer
+              example: 9
+            scheduler:
+              type: boolean
+              example: true
+            anomaly_detection:
+              type: boolean
+              example: true
+            alerting:
+              type: boolean
+              example: true
+        docs:
+          type: string
+          example: "/docs"
+        health:
+          type: string
+          example: "/health"
+
+    Template:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Twitter Account Monitoring"
+        category:
+          type: string
+          example: social_media
+        description:
+          type: string
+          example: "Monitor Twitter/X accounts for activity patterns"
+        version:
+          type: string
+          example: "1.0"
+        author:
+          type: string
+          example: "OSINT Service"
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateParameter'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateSource'
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateMetric'
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateAlert'
+        schedule:
+          type: object
+          properties:
+            interval:
+              type: string
+              example: "1h"
+            max_failures:
+              type: integer
+              example: 3
+        file_path:
+          type: string
+          example: "/app/templates/social_media/twitter_monitoring.yaml"
+        loaded_at:
+          type: string
+          format: date-time
+
+    TemplateParameter:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [string, integer, boolean, array, object]
+        required:
+          type: boolean
+        default:
+          oneOf:
+            - type: string
+            - type: integer
+            - type: boolean
+            - type: array
+            - type: object
+        description:
+          type: string
+        enum:
+          type: array
+          items:
+            type: string
+
+    TemplateSource:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+        method:
+          type: string
+          enum: [GET, POST, PUT, DELETE]
+        auth_required:
+          type: boolean
+        rate_limit:
+          type: integer
+
+    TemplateMetric:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [integer, float, string, boolean]
+        anomaly_detection:
+          type: boolean
+        unit:
+          type: string
+
+    TemplateAlert:
+      type: object
+      properties:
+        condition:
+          type: string
+          example: "follower_count > 1000"
+        level:
+          type: string
+          enum: [info, warning, critical, emergency]
+        message:
+          type: string
+
+    TemplateList:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Template'
+        count:
+          type: integer
+          example: 50
+        category:
+          type: string
+          description: Present if filtered by category
+        query:
+          type: string
+          description: Present if search query provided
+
+    CategoryList:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
+          example:
+            - social_media
+            - threat_intelligence
+            - domain_analysis
+        count:
+          type: integer
+          example: 9
+
+    ScheduleRequest:
+      type: object
+      required:
+        - template_name
+        - parameters
+        - trigger_type
+      properties:
+        template_name:
+          type: string
+          example: "Twitter Account Monitoring"
+        parameters:
+          type: object
+          example:
+            username: "example_user"
+            monitor_followers: true
+        trigger_type:
+          type: string
+          enum: [interval, cron]
+        interval:
+          type: string
+          description: Required for interval triggers (e.g., "5m", "1h", "30s", "2d")
+          example: "30m"
+        cron_minute:
+          type: string
+          description: Cron minute field (0-59, *, */N)
+          default: "*"
+        cron_hour:
+          type: string
+          description: Cron hour field (0-23, *, */N)
+          default: "*"
+        cron_day:
+          type: string
+          description: Cron day field (1-31, *, */N)
+          default: "*"
+        cron_month:
+          type: string
+          description: Cron month field (1-12, *, */N)
+          default: "*"
+        cron_day_of_week:
+          type: string
+          description: Cron day of week field (0-6, *, */N)
+          default: "*"
+
+    ScheduleResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Template scheduled successfully"
+        job_id:
+          type: string
+          example: "Twitter Account Monitoring_scheduled"
+        job_info:
+          $ref: '#/components/schemas/JobInfo'
+
+    JobInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        func:
+          type: string
+        trigger:
+          type: string
+        next_run_time:
+          type: string
+          format: date-time
+          nullable: true
+        pending:
+          type: boolean
+        misfire_grace_time:
+          type: integer
+        max_instances:
+          type: integer
+        coalesce:
+          type: boolean
+
+    ScheduleList:
+      type: object
+      properties:
+        schedules:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              next_run_time:
+                type: string
+                format: date-time
+                nullable: true
+              trigger:
+                type: string
+        count:
+          type: integer
+
+    BaselineStats:
+      type: object
+      additionalProperties:
+        type: object
+        additionalProperties:
+          $ref: '#/components/schemas/MetricBaseline'
+      example:
+        "Twitter Account Monitoring":
+          follower_count:
+            statistics:
+              mean: 15420.5
+              std: 342.8
+              min: 14800
+              max: 16200
+              count: 120
+            sample_count: 120
+
+    MetricBaseline:
+      type: object
+      properties:
+        statistics:
+          type: object
+          properties:
+            mean:
+              type: number
+            std:
+              type: number
+            min:
+              type: number
+            max:
+              type: number
+            count:
+              type: integer
+        sample_count:
+          type: integer
+
+    Alert:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        level:
+          type: string
+          enum: [info, warning, critical, emergency]
+        message:
+          type: string
+        template_name:
+          type: string
+        metric_name:
+          type: string
+          nullable: true
+        metric_value:
+          oneOf:
+            - type: number
+            - type: string
+          nullable: true
+        condition:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        acknowledged:
+          type: boolean
+        acknowledged_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AlertList:
+      type: object
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        count:
+          type: integer
+
+    AlertStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        by_level:
+          type: object
+          properties:
+            info:
+              type: integer
+            warning:
+              type: integer
+            critical:
+              type: integer
+            emergency:
+              type: integer
+        acknowledged:
+          type: integer
+        unacknowledged:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Template not found"

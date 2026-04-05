@@ -1,0 +1,2 @@
+aio-pika==9.3.0
+redis[hiredis]>=5.0.0  # Task 403: Async Redis caching with hiredis for performance

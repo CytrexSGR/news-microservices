@@ -1,0 +1,42 @@
+[
+  {
+    "title": "Artificial Intelligence Breakthrough in Natural Language Processing",
+    "url": "https://example.com/ai-nlp-breakthrough",
+    "content": "Researchers have made significant advances in natural language processing using transformer models. The new approach shows remarkable improvements in understanding context and generating human-like responses.",
+    "author": "Dr. Jane Smith",
+    "published_at": "2025-01-15T10:00:00Z",
+    "category": "AI"
+  },
+  {
+    "title": "Cybersecurity Threats in 2025: What You Need to Know",
+    "url": "https://example.com/cybersecurity-2025",
+    "content": "As technology evolves, so do cybersecurity threats. This article explores the top security challenges facing organizations in 2025 and how to protect against them.",
+    "author": "John Doe",
+    "published_at": "2025-01-14T15:30:00Z",
+    "category": "Security"
+  },
+  {
+    "title": "The Future of Quantum Computing",
+    "url": "https://example.com/quantum-future",
+    "content": "Quantum computing is no longer just theoretical. Major tech companies are making breakthroughs that could revolutionize computing as we know it.",
+    "author": "Alice Johnson",
+    "published_at": "2025-01-13T09:15:00Z",
+    "category": "Technology"
+  },
+  {
+    "title": "Blockchain Beyond Cryptocurrency",
+    "url": "https://example.com/blockchain-beyond-crypto",
+    "content": "While cryptocurrency gets most of the attention, blockchain technology has applications far beyond digital currency, from supply chain to healthcare.",
+    "author": "Bob Williams",
+    "published_at": "2025-01-12T14:20:00Z",
+    "category": "Blockchain"
+  },
+  {
+    "title": "5G Networks Transform IoT Landscape",
+    "url": "https://example.com/5g-iot-transform",
+    "content": "The rollout of 5G networks is enabling a new generation of IoT devices with unprecedented speed and reliability.",
+    "author": "Emily Chen",
+    "published_at": "2025-01-11T11:45:00Z",
+    "category": "IoT"
+  }
+]

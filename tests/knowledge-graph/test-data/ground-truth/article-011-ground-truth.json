@@ -1,0 +1,79 @@
+{
+  "article_id": "article-011",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Mark Zuckerberg", "works_for", "Meta"],
+      "evidence": "Mark Zuckerberg's Meta continues to face scrutiny",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Clear possessive indicates leadership/ownership"
+    },
+    {
+      "triplet": ["Elon Musk", "owns", "Twitter"],
+      "evidence": "Elon Musk's erratic management of Twitter",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Management context implies ownership"
+    },
+    {
+      "triplet": ["Sundar Pichai", "works_for", "Google"],
+      "evidence": "Sundar Pichai's Google has made genuine efforts",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive with company name"
+    },
+    {
+      "triplet": ["Tim Cook", "works_for", "Apple"],
+      "evidence": "Tim Cook's Apple merely hides behind privacy marketing",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Amy Klobuchar", "works_for", "Senate"],
+      "evidence": "Senator Amy Klobuchar, who chairs the Antitrust Subcommittee",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Senator role explicit"
+    },
+    {
+      "triplet": ["Lina Khan", "works_for", "FTC"],
+      "evidence": "Lina Khan's aggressive approach at the FTC",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "FTC role mentioned"
+    },
+    {
+      "triplet": ["Margrethe Vestager", "works_for", "European Commission"],
+      "evidence": "Margrethe Vestager's team at the European Commission",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive with organizational reference"
+    },
+    {
+      "triplet": ["Satya Nadella", "works_for", "Microsoft"],
+      "evidence": "Satya Nadella's Microsoft emerge as the most compliant",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive indicates leadership"
+    },
+    {
+      "triplet": ["Sam Altman", "works_for", "OpenAI"],
+      "evidence": "Sam Altman's OpenAI would become Washington's newest darling",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Possessive with company"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 7,
+    "total_relationships_max": 12,
+    "avg_confidence_min": 0.50,
+    "avg_confidence_max": 0.75,
+    "precision_min": 0.60,
+    "recall_min": 0.50,
+    "false_positives_max": 5,
+    "notes": "Opinion piece with speculative language. Most relationships are clear works_for/owns, but speculative statements ('might see', 'could inspire', 'may signal') should NOT generate low-confidence relationship extractions. System must distinguish between factual leadership roles and speculative future predictions."
+  },
+  "notes": "AMBIGUOUS EXAMPLE: Tests system's ability to extract factual relationships from opinion context while ignoring speculative/conditional statements. Many sentences use 'might', 'could', 'perhaps' which should NOT generate relationships. Only extract explicit current relationships."
+}

@@ -1,0 +1,793 @@
+openapi: 3.0.3
+info:
+  title: Knowledge Graph - Markets API
+  description: |
+    Financial market data integration API for the Knowledge Graph Service.
+
+    This API enables:
+    - Synchronizing market data from FMP Service to Neo4j graph database
+    - Querying market nodes and their relationships
+    - Managing MARKET, SECTOR nodes and TICKER relationships
+
+    **Integration:** FMP Service (Port 8113) → Knowledge-Graph Service (Port 8111)
+
+    **Phase 1 Scope:** 40 assets (10 stocks, 10 forex, 10 commodities, 10 crypto)
+  version: 1.0.0
+  contact:
+    name: Backend Architecture Team
+    email: backend@example.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8111
+    description: Development server
+  - url: http://knowledge-graph-service:8111
+    description: Docker internal network
+
+tags:
+  - name: Market Sync
+    description: Operations for synchronizing market data from FMP Service
+  - name: Market Query
+    description: Operations for querying market nodes and relationships
+  - name: Market Admin
+    description: Administrative operations for market management
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/v1/graph/markets/sync:
+    post:
+      tags:
+        - Market Sync
+      summary: Sync market data from FMP Service
+      description: |
+        Triggers synchronous sync of market data from FMP Service to Neo4j.
+
+        **Operation:**
+        1. Fetches asset metadata from FMP Service (HTTP GET)
+        2. Creates/updates MARKET nodes in Neo4j (idempotent MERGE)
+        3. Creates SECTOR nodes if needed
+        4. Establishes BELONGS_TO_SECTOR relationships
+
+        **Rate Limiting:** FMP API has 300 calls/day limit. This endpoint uses batch requests to minimize API usage.
+
+        **Permissions Required:** `markets:write`
+      operationId: syncMarkets
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketSyncRequest'
+            examples:
+              full_sync_all:
+                summary: Full sync all asset types
+                value:
+                  asset_types: ["STOCK", "FOREX", "COMMODITY", "CRYPTO"]
+                  full_sync: true
+                  force_refresh: false
+              incremental_sync:
+                summary: Incremental price update
+                value:
+                  full_sync: false
+                  force_refresh: false
+              specific_symbols:
+                summary: Sync specific symbols
+                value:
+                  symbols: ["AAPL", "GOOGL", "MSFT"]
+                  full_sync: true
+      responses:
+        '200':
+          description: Sync completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketSyncResponse'
+              examples:
+                success:
+                  summary: Successful sync
+                  value:
+                    sync_id: sync_20251116_143022_abc123
+                    status: completed
+                    assets_synced: 40
+                    assets_failed: 0
+                    nodes_created: 40
+                    nodes_updated: 0
+                    relationships_created: 35
+                    relationships_updated: 5
+                    duration_ms: 1245
+                    fmp_api_calls_used: 2
+                    errors: []
+                    timestamp: "2025-11-16T14:30:22Z"
+                partial_success:
+                  summary: Partial sync (some failures)
+                  value:
+                    sync_id: sync_20251116_143022_def456
+                    status: partial
+                    assets_synced: 38
+                    assets_failed: 2
+                    nodes_created: 38
+                    nodes_updated: 0
+                    relationships_created: 33
+                    relationships_updated: 5
+                    duration_ms: 1450
+                    fmp_api_calls_used: 2
+                    errors:
+                      - symbol: "INVALID1"
+                        error: "Symbol not found in FMP Service"
+                      - symbol: "INVALID2"
+                        error: "Validation failed: invalid asset_type"
+                    timestamp: "2025-11-16T14:30:22Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Rate limit exceeded"
+                detail: "FMP API daily quota exceeded (300 calls/day). Reset in 14352 seconds."
+                sync_id: null
+        '503':
+          description: FMP Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FMP Service unavailable"
+                detail: "Circuit breaker open. Service unreachable after 5 failures."
+                retry_after: 30
+
+  /api/v1/graph/markets:
+    get:
+      tags:
+        - Market Query
+      summary: Query market nodes
+      description: |
+        Query MARKET nodes from Neo4j graph with optional filters.
+
+        **Performance:**
+        - Response time: < 100ms (p95)
+        - Pagination supported (max 1000 results per page)
+
+        **Permissions Required:** `markets:read`
+      operationId: getMarkets
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: asset_type
+          in: query
+          description: Filter by asset type
+          required: false
+          schema:
+            $ref: '#/components/schemas/AssetType'
+          example: STOCK
+        - name: sector
+          in: query
+          description: Filter by sector (for stocks)
+          required: false
+          schema:
+            type: string
+            example: Technology
+        - name: is_active
+          in: query
+          description: Filter by active status
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: search
+          in: query
+          description: Text search on name or symbol
+          required: false
+          schema:
+            type: string
+            example: apple
+        - name: limit
+          in: query
+          description: Maximum results to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: offset
+          in: query
+          description: Pagination offset
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Markets retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketListResponse'
+              examples:
+                technology_stocks:
+                  summary: Technology sector stocks
+                  value:
+                    markets:
+                      - symbol: AAPL
+                        name: Apple Inc.
+                        asset_type: STOCK
+                        sector: Technology
+                        exchange: NASDAQ
+                        current_price: 178.45
+                        price_change: 2.34
+                        price_change_percent: 1.33
+                        volume: 45678900
+                        market_cap: 2800000000000
+                        is_active: true
+                        last_updated: "2025-11-16T14:30:00Z"
+                        relationships:
+                          organizations: 1
+                          sectors: 1
+                    total: 10
+                    limit: 50
+                    offset: 0
+                    query_time_ms: 23
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/graph/markets/{symbol}:
+    get:
+      tags:
+        - Market Query
+      summary: Get market details with relationships
+      description: |
+        Get detailed market data including graph relationships.
+
+        **Returns:**
+        - MARKET node properties
+        - ORGANIZATION entities with TICKER relationships
+        - SECTOR classifications
+        - Graph statistics (centrality, connection count)
+
+        **Performance:** < 50ms (p95)
+
+        **Permissions Required:** `markets:read`
+      operationId: getMarketBySymbol
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: symbol
+          in: path
+          description: Market symbol (e.g., AAPL, EURUSD, GC, BTCUSD)
+          required: true
+          schema:
+            type: string
+            example: AAPL
+      responses:
+        '200':
+          description: Market details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketDetailResponse'
+              example:
+                market:
+                  symbol: AAPL
+                  name: Apple Inc.
+                  asset_type: STOCK
+                  sector: Technology
+                  industry: Consumer Electronics
+                  exchange: NASDAQ
+                  currency: USD
+                  current_price: 178.45
+                  price_change: 2.34
+                  price_change_percent: 1.33
+                  volume: 45678900
+                  market_cap: 2800000000000
+                  is_active: true
+                  first_seen: "2025-11-16T10:00:00Z"
+                  last_updated: "2025-11-16T14:30:00Z"
+                  data_source: FMP
+                relationships:
+                  organizations:
+                    - name: Apple Inc.
+                      type: ORGANIZATION
+                      ticker:
+                        symbol: AAPL
+                        exchange: NASDAQ
+                        is_primary: true
+                        confidence: 1.0
+                  sectors:
+                    - sector_code: TECH
+                      sector_name: Technology
+                      classification_system: GICS
+                graph_stats:
+                  total_connections: 2
+                  centrality_score: 0.85
+        '404':
+          description: Market not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Market not found"
+                detail: "No MARKET node found with symbol: INVALID"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/graph/markets/{symbol}/history:
+    get:
+      tags:
+        - Market Query
+      summary: Get historical price data
+      description: |
+        Get historical price data for a market symbol.
+
+        **Note:** Historical data is stored in FMP Service PostgreSQL database.
+        This endpoint aggregates data from both services.
+
+        **Permissions Required:** `markets:read`
+      operationId: getMarketHistory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: symbol
+          in: path
+          description: Market symbol
+          required: true
+          schema:
+            type: string
+            example: AAPL
+        - name: from
+          in: query
+          description: Start date (YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2025-01-01"
+        - name: to
+          in: query
+          description: End date (YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2025-11-16"
+        - name: interval
+          in: query
+          description: Data interval
+          required: false
+          schema:
+            type: string
+            enum: [1d, 1w, 1mo]
+            default: 1d
+      responses:
+        '200':
+          description: Historical data retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketHistoryResponse'
+        '404':
+          description: Market not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/graph/markets/stats:
+    get:
+      tags:
+        - Market Admin
+      summary: Get market statistics
+      description: |
+        Get overall statistics for market nodes in the graph.
+
+        **Permissions Required:** `markets:admin`
+      operationId: getMarketStats
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketStatsResponse'
+              example:
+                total_markets: 40
+                markets_by_type:
+                  STOCK: 10
+                  FOREX: 10
+                  COMMODITY: 10
+                  CRYPTO: 10
+                active_markets: 39
+                inactive_markets: 1
+                total_sectors: 14
+                avg_price: 125.67
+                last_sync: "2025-11-16T14:30:22Z"
+
+components:
+  schemas:
+    AssetType:
+      type: string
+      enum:
+        - STOCK
+        - FOREX
+        - COMMODITY
+        - CRYPTO
+      description: Financial asset type
+
+    MarketSyncRequest:
+      type: object
+      properties:
+        asset_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetType'
+          description: Filter by asset types (optional)
+          example: ["STOCK", "FOREX"]
+        symbols:
+          type: array
+          items:
+            type: string
+          maxItems: 100
+          description: Specific symbols to sync (optional, max 100)
+          example: ["AAPL", "GOOGL", "MSFT"]
+        full_sync:
+          type: boolean
+          default: false
+          description: |
+            false = incremental (prices only)
+            true = full metadata sync
+        force_refresh:
+          type: boolean
+          default: false
+          description: Bypass cache and force FMP API call
+
+    MarketSyncResponse:
+      type: object
+      required:
+        - sync_id
+        - status
+        - assets_synced
+        - assets_failed
+        - duration_ms
+        - timestamp
+      properties:
+        sync_id:
+          type: string
+          description: Unique sync operation ID
+          example: sync_20251116_143022_abc123
+        status:
+          type: string
+          enum: [completed, in_progress, failed, partial]
+          description: Sync operation status
+        assets_synced:
+          type: integer
+          description: Number of successfully synced assets
+        assets_failed:
+          type: integer
+          description: Number of failed assets
+        nodes_created:
+          type: integer
+          description: New MARKET nodes created
+        nodes_updated:
+          type: integer
+          description: Existing MARKET nodes updated
+        relationships_created:
+          type: integer
+          description: New relationships created
+        relationships_updated:
+          type: integer
+          description: Existing relationships updated
+        duration_ms:
+          type: integer
+          description: Sync duration in milliseconds
+        fmp_api_calls_used:
+          type: integer
+          description: FMP API calls consumed (quota tracking)
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncError'
+        timestamp:
+          type: string
+          format: date-time
+
+    SyncError:
+      type: object
+      properties:
+        symbol:
+          type: string
+        error:
+          type: string
+
+    MarketNode:
+      type: object
+      required:
+        - symbol
+        - name
+        - asset_type
+        - is_active
+      properties:
+        symbol:
+          type: string
+          example: AAPL
+        name:
+          type: string
+          example: Apple Inc.
+        asset_type:
+          $ref: '#/components/schemas/AssetType'
+        sector:
+          type: string
+          nullable: true
+          example: Technology
+        industry:
+          type: string
+          nullable: true
+          example: Consumer Electronics
+        exchange:
+          type: string
+          nullable: true
+          example: NASDAQ
+        currency:
+          type: string
+          example: USD
+        current_price:
+          type: number
+          format: float
+          nullable: true
+          example: 178.45
+        price_change:
+          type: number
+          format: float
+          nullable: true
+          example: 2.34
+        price_change_percent:
+          type: number
+          format: float
+          nullable: true
+          example: 1.33
+        volume:
+          type: integer
+          nullable: true
+          example: 45678900
+        market_cap:
+          type: integer
+          nullable: true
+          example: 2800000000000
+        is_active:
+          type: boolean
+        first_seen:
+          type: string
+          format: date-time
+        last_updated:
+          type: string
+          format: date-time
+        data_source:
+          type: string
+          example: FMP
+        # Forex-specific
+        base_currency:
+          type: string
+          nullable: true
+          example: EUR
+        quote_currency:
+          type: string
+          nullable: true
+          example: USD
+        # Crypto-specific
+        blockchain:
+          type: string
+          nullable: true
+          example: Ethereum
+        contract_address:
+          type: string
+          nullable: true
+
+    MarketListResponse:
+      type: object
+      properties:
+        markets:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/MarketNode'
+              - type: object
+                properties:
+                  relationships:
+                    type: object
+                    properties:
+                      organizations:
+                        type: integer
+                      sectors:
+                        type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        query_time_ms:
+          type: integer
+
+    MarketDetailResponse:
+      type: object
+      properties:
+        market:
+          $ref: '#/components/schemas/MarketNode'
+        relationships:
+          type: object
+          properties:
+            organizations:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrganizationRelationship'
+            sectors:
+              type: array
+              items:
+                $ref: '#/components/schemas/SectorRelationship'
+        graph_stats:
+          type: object
+          properties:
+            total_connections:
+              type: integer
+            centrality_score:
+              type: number
+              format: float
+
+    OrganizationRelationship:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        ticker:
+          $ref: '#/components/schemas/TickerRelationship'
+
+    TickerRelationship:
+      type: object
+      properties:
+        symbol:
+          type: string
+        exchange:
+          type: string
+        is_primary:
+          type: boolean
+        confidence:
+          type: number
+          format: float
+
+    SectorRelationship:
+      type: object
+      properties:
+        sector_code:
+          type: string
+        sector_name:
+          type: string
+        classification_system:
+          type: string
+
+    MarketHistoryResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              open:
+                type: number
+                format: float
+              high:
+                type: number
+                format: float
+              low:
+                type: number
+                format: float
+              close:
+                type: number
+                format: float
+              volume:
+                type: integer
+              adj_close:
+                type: number
+                format: float
+        total_records:
+          type: integer
+        data_source:
+          type: string
+
+    MarketStatsResponse:
+      type: object
+      properties:
+        total_markets:
+          type: integer
+        markets_by_type:
+          type: object
+          additionalProperties:
+            type: integer
+        active_markets:
+          type: integer
+        inactive_markets:
+          type: integer
+        total_sectors:
+          type: integer
+        avg_price:
+          type: number
+          format: float
+        last_sync:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        detail:
+          type: string
+          description: Detailed error description
+        sync_id:
+          type: string
+          nullable: true
+        retry_after:
+          type: integer
+          nullable: true
+          description: Seconds to wait before retry
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - Missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Unauthorized"
+            detail: "Missing or invalid Authorization header"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Forbidden"
+            detail: "User lacks required permission: markets:write"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token from auth-service.
+
+        **Required scopes:**
+        - `markets:read` - Read market data
+        - `markets:write` - Trigger sync operations
+        - `markets:admin` - Administrative operations

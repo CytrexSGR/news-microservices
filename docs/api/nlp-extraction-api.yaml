@@ -1,0 +1,640 @@
+openapi: 3.1.0
+info:
+  title: NLP Extraction Service API
+  version: 1.0.0
+  description: |
+    High-performance NLP extraction API providing entity extraction, sentiment analysis,
+    and quote attribution for news articles. Built with spaCy for blazing-fast performance
+    (143x faster than traditional LLM-based analysis).
+
+    ## Features
+    - **Entity Extraction**: Named entities with types (PERSON, ORG, GPE, etc.)
+    - **Entity-Level Sentiment**: Sentiment analysis per entity with controversy detection
+    - **Entity Centrality**: Importance scoring (0.0-1.0) for entities
+    - **Quote-Sentiment Attribution**: Extracted quotes with speaker and sentiment
+    - **Batch Processing**: Efficiently fetch up to 100 articles in one request
+
+    ## Performance
+    - Single article: **< 50ms** (target)
+    - Batch (100 articles): **< 200ms** (target)
+    - Zero cost (vs $0.0023/article for LLM analysis)
+  contact:
+    name: News Microservices Team
+    email: andreas@test.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8115/api/v1
+    description: Development server
+  - url: http://localhost:8115/api/v1
+    description: Production server (TODO: Add production URL)
+
+tags:
+  - name: Extractions
+    description: NLP extraction endpoints for article analysis
+
+paths:
+  /extractions/{article_id}:
+    get:
+      tags:
+        - Extractions
+      summary: Get NLP extraction for a single article
+      description: |
+        Retrieve all NLP features for a specific article by UUID.
+        Returns 404 if article has not been processed yet.
+      operationId: getExtraction
+      parameters:
+        - name: article_id
+          in: path
+          required: true
+          description: UUID of the article
+          schema:
+            type: string
+            format: uuid
+          example: "0b121edf-2691-4745-b282-f3b73b2cf494"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionResponse'
+              examples:
+                full_article:
+                  summary: Complete extraction with all features
+                  value:
+                    article_id: "0b121edf-2691-4745-b282-f3b73b2cf494"
+                    language: "en"
+                    extractor_version: "base_v1"
+                    model_version: "en_core_web_lg"
+                    created_at: "2025-11-07T14:30:00Z"
+                    processing_time_ms: 56
+                    content_length: 1250
+                    entity_count: 35
+                    entity_density: 0.028
+                    entities:
+                      - text: "Elon Musk"
+                        label: "PERSON"
+                        start_char: 145
+                        end_char: 154
+                    entity_sentiments:
+                      - entity: "Elon Musk"
+                        entity_type: "PERSON"
+                        sentiment:
+                          label: "positive"
+                          score: 0.78
+                          confidence: 0.85
+                        mention_count: 5
+                        sentence_indices: [0, 3, 7]
+                        sentiment_variance: 0.12
+                    entity_centrality:
+                      - entity: "Elon Musk"
+                        entity_type: "PERSON"
+                        centrality:
+                          score: 0.87
+                          rank: 1
+                          in_title: true
+                          in_first_sentence: true
+                          mention_count: 5
+                          agent_count: 3
+                          position_first_mention: 0.05
+                    quote_sentiments:
+                      - quote: "The market is very bullish right now"
+                        speaker: "Elon Musk"
+                        speaker_type: "PERSON"
+                        sentiment:
+                          label: "positive"
+                          score: 0.82
+                          confidence: 0.90
+                        context_before: "Tesla CEO said: "
+                        context_after: " during the earnings call."
+                        position_in_text: 0.35
+                    sentiment_overall:
+                      label: "positive"
+                      score: 0.65
+                      confidence: 0.78
+                    keywords:
+                      - keyword: "Tesla"
+                        score: 0.95
+                      - keyword: "earnings"
+                        score: 0.82
+        '400':
+          description: Invalid UUID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "ValidationError"
+                message: "Invalid UUID format"
+                details:
+                  field: "article_id"
+                  value: "invalid-uuid"
+                timestamp: "2025-11-07T14:30:00Z"
+                path: "/api/v1/extractions/invalid-uuid"
+        '404':
+          description: Article not found or not yet processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NotFound"
+                message: "NLP extraction not found for article"
+                details:
+                  article_id: "0b121edf-2691-4745-b282-f3b73b2cf494"
+                timestamp: "2025-11-07T14:30:00Z"
+                path: "/api/v1/extractions/0b121edf-2691-4745-b282-f3b73b2cf494"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /extractions/batch:
+    post:
+      tags:
+        - Extractions
+      summary: Get NLP extractions for multiple articles (batch)
+      description: |
+        Efficiently fetch NLP extractions for multiple articles in a single request.
+        Uses optimized single-query database access for maximum performance.
+
+        **Limits:**
+        - Maximum 100 article IDs per request
+        - Target response time: < 200ms for 100 articles
+
+        **Behavior:**
+        - Missing articles are skipped (no error)
+        - Returns only found articles
+        - Order is not guaranteed
+      operationId: getExtractionsBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRequest'
+            examples:
+              small_batch:
+                summary: Small batch (3 articles)
+                value:
+                  article_ids:
+                    - "0b121edf-2691-4745-b282-f3b73b2cf494"
+                    - "b8f45c20-3ba0-4cd9-8d7b-be2471fb3e5c"
+                    - "c1234567-89ab-cdef-0123-456789abcdef"
+              large_batch:
+                summary: Large batch (100 articles)
+                value:
+                  article_ids:
+                    - "0b121edf-2691-4745-b282-f3b73b2cf494"
+                    # ... 98 more UUIDs
+                    - "z9876543-21fe-dcba-9876-543210fedcba"
+      responses:
+        '200':
+          description: Successful batch response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+              examples:
+                all_found:
+                  summary: All articles found
+                  value:
+                    total_requested: 3
+                    total_found: 3
+                    total_not_found: 0
+                    extractions:
+                      - article_id: "0b121edf-2691-4745-b282-f3b73b2cf494"
+                        entity_count: 35
+                        # ... full extraction data
+                      - article_id: "b8f45c20-3ba0-4cd9-8d7b-be2471fb3e5c"
+                        entity_count: 23
+                        # ... full extraction data
+                      - article_id: "c1234567-89ab-cdef-0123-456789abcdef"
+                        entity_count: 18
+                        # ... full extraction data
+                partial_found:
+                  summary: Some articles not found
+                  value:
+                    total_requested: 5
+                    total_found: 3
+                    total_not_found: 2
+                    not_found_ids:
+                      - "missing-uuid-1"
+                      - "missing-uuid-2"
+                    extractions:
+                      # Only 3 found articles
+        '400':
+          description: Invalid request (bad UUID, empty array, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                empty_array:
+                  summary: Empty article_ids array
+                  value:
+                    error: "ValidationError"
+                    message: "article_ids must contain at least 1 UUID"
+                    details:
+                      field: "article_ids"
+                      value: []
+                    timestamp: "2025-11-07T14:30:00Z"
+                    path: "/api/v1/extractions/batch"
+                too_many:
+                  summary: Too many articles requested
+                  value:
+                    error: "ValidationError"
+                    message: "Maximum 100 article IDs allowed per request"
+                    details:
+                      field: "article_ids"
+                      count: 150
+                    timestamp: "2025-11-07T14:30:00Z"
+                    path: "/api/v1/extractions/batch"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ExtractionResponse:
+      type: object
+      description: Complete NLP extraction for an article
+      required:
+        - article_id
+        - language
+        - extractor_version
+        - model_version
+        - created_at
+        - entities
+      properties:
+        article_id:
+          type: string
+          format: uuid
+          description: UUID of the analyzed article
+          example: "0b121edf-2691-4745-b282-f3b73b2cf494"
+        language:
+          type: string
+          description: Detected language code (ISO 639-1)
+          enum: ["en", "de"]
+          example: "en"
+        extractor_version:
+          type: string
+          description: NLP extractor version
+          example: "base_v1"
+        model_version:
+          type: string
+          description: spaCy model version used
+          example: "en_core_web_lg"
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when extraction was performed
+          example: "2025-11-07T14:30:00Z"
+        processing_time_ms:
+          type: integer
+          description: Processing time in milliseconds
+          example: 56
+        content_length:
+          type: integer
+          description: Length of analyzed content (characters)
+          example: 1250
+        entity_count:
+          type: integer
+          description: Total number of entities extracted
+          example: 35
+        entity_density:
+          type: number
+          format: float
+          description: Entity density (entities per 1000 characters)
+          example: 0.028
+        entities:
+          type: array
+          description: Extracted named entities
+          items:
+            $ref: '#/components/schemas/Entity'
+        entity_sentiments:
+          type: array
+          description: Entity-level sentiment analysis (Phase 2B.4)
+          items:
+            $ref: '#/components/schemas/EntitySentiment'
+        entity_centrality:
+          type: array
+          description: Entity importance/centrality scores (Phase 2B.5)
+          items:
+            $ref: '#/components/schemas/EntityCentrality'
+        quote_sentiments:
+          type: array
+          description: Extracted quotes with speakers and sentiment (Phase 2B.6)
+          items:
+            $ref: '#/components/schemas/QuoteSentiment'
+        sentiment_overall:
+          $ref: '#/components/schemas/Sentiment'
+          description: Overall article sentiment
+        keywords:
+          type: array
+          description: Extracted keywords with scores
+          items:
+            $ref: '#/components/schemas/Keyword'
+
+    Entity:
+      type: object
+      description: Named entity extracted from text
+      required:
+        - text
+        - label
+        - start_char
+        - end_char
+      properties:
+        text:
+          type: string
+          description: Entity text
+          example: "Elon Musk"
+        label:
+          type: string
+          description: Entity type (spaCy label)
+          enum: ["PERSON", "ORG", "GPE", "LOC", "DATE", "TIME", "MONEY", "PERCENT", "PRODUCT", "EVENT", "FAC", "LANGUAGE", "LAW", "NORP", "ORDINAL", "QUANTITY", "WORK_OF_ART"]
+          example: "PERSON"
+        start_char:
+          type: integer
+          description: Character offset where entity starts
+          example: 145
+        end_char:
+          type: integer
+          description: Character offset where entity ends
+          example: 154
+
+    EntitySentiment:
+      type: object
+      description: Sentiment analysis for a specific entity
+      required:
+        - entity
+        - entity_type
+        - sentiment
+        - mention_count
+      properties:
+        entity:
+          type: string
+          description: Entity text
+          example: "Elon Musk"
+        entity_type:
+          type: string
+          description: Entity type
+          example: "PERSON"
+        sentiment:
+          $ref: '#/components/schemas/Sentiment'
+        mention_count:
+          type: integer
+          description: Number of times entity is mentioned
+          example: 5
+        sentence_indices:
+          type: array
+          description: Indices of sentences containing this entity
+          items:
+            type: integer
+          example: [0, 3, 7, 12]
+        sentiment_variance:
+          type: number
+          format: float
+          description: Variance in sentiment across mentions (controversy indicator)
+          example: 0.12
+
+    EntityCentrality:
+      type: object
+      description: Importance/centrality score for an entity
+      required:
+        - entity
+        - entity_type
+        - centrality
+      properties:
+        entity:
+          type: string
+          description: Entity text
+          example: "Elon Musk"
+        entity_type:
+          type: string
+          description: Entity type
+          example: "PERSON"
+        centrality:
+          type: object
+          description: Centrality metrics
+          required:
+            - score
+            - rank
+          properties:
+            score:
+              type: number
+              format: float
+              description: Centrality score (0.0-1.0, higher = more important)
+              minimum: 0.0
+              maximum: 1.0
+              example: 0.87
+            rank:
+              type: integer
+              description: Rank among all entities (1 = most central)
+              minimum: 1
+              example: 1
+            in_title:
+              type: boolean
+              description: Whether entity appears in article title
+              example: true
+            in_first_sentence:
+              type: boolean
+              description: Whether entity appears in first sentence
+              example: true
+            mention_count:
+              type: integer
+              description: Number of mentions
+              example: 5
+            agent_count:
+              type: integer
+              description: Number of times entity is subject/agent
+              example: 3
+            position_first_mention:
+              type: number
+              format: float
+              description: Relative position of first mention (0.0 = start, 1.0 = end)
+              minimum: 0.0
+              maximum: 1.0
+              example: 0.05
+
+    QuoteSentiment:
+      type: object
+      description: Extracted quote with speaker attribution and sentiment
+      required:
+        - quote
+        - position_in_text
+      properties:
+        quote:
+          type: string
+          description: Extracted quote text
+          example: "The market is very bullish right now"
+        speaker:
+          type: string
+          nullable: true
+          description: Attributed speaker (null if unknown)
+          example: "Elon Musk"
+        speaker_type:
+          type: string
+          nullable: true
+          description: Speaker entity type (null if unknown)
+          example: "PERSON"
+        sentiment:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Sentiment'
+          description: Sentiment of the quote (not article sentiment)
+        context_before:
+          type: string
+          description: Context before quote (max 80 chars)
+          example: "Tesla CEO said: "
+        context_after:
+          type: string
+          description: Context after quote (max 80 chars)
+          example: " during the earnings call."
+        position_in_text:
+          type: number
+          format: float
+          description: Relative position in text (0.0 = start, 1.0 = end)
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.35
+
+    Sentiment:
+      type: object
+      description: Sentiment analysis result
+      required:
+        - label
+        - score
+        - confidence
+      properties:
+        label:
+          type: string
+          description: Sentiment label
+          enum: ["positive", "neutral", "negative"]
+          example: "positive"
+        score:
+          type: number
+          format: float
+          description: Sentiment score (-1.0 to 1.0, where -1 = very negative, 1 = very positive)
+          minimum: -1.0
+          maximum: 1.0
+          example: 0.78
+        confidence:
+          type: number
+          format: float
+          description: Confidence in sentiment prediction (0.0-1.0)
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.85
+
+    Keyword:
+      type: object
+      description: Extracted keyword with relevance score
+      required:
+        - keyword
+        - score
+      properties:
+        keyword:
+          type: string
+          description: Keyword text
+          example: "Tesla"
+        score:
+          type: number
+          format: float
+          description: Relevance score (0.0-1.0)
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.95
+
+    BatchRequest:
+      type: object
+      description: Request body for batch extraction
+      required:
+        - article_ids
+      properties:
+        article_ids:
+          type: array
+          description: Array of article UUIDs (max 100)
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+            format: uuid
+          example:
+            - "0b121edf-2691-4745-b282-f3b73b2cf494"
+            - "b8f45c20-3ba0-4cd9-8d7b-be2471fb3e5c"
+
+    BatchResponse:
+      type: object
+      description: Batch extraction response
+      required:
+        - total_requested
+        - total_found
+        - total_not_found
+        - extractions
+      properties:
+        total_requested:
+          type: integer
+          description: Number of articles requested
+          example: 3
+        total_found:
+          type: integer
+          description: Number of articles found
+          example: 3
+        total_not_found:
+          type: integer
+          description: Number of articles not found
+          example: 0
+        not_found_ids:
+          type: array
+          description: UUIDs of articles not found (only if total_not_found > 0)
+          items:
+            type: string
+            format: uuid
+          example: []
+        extractions:
+          type: array
+          description: Array of extraction responses
+          items:
+            $ref: '#/components/schemas/ExtractionResponse'
+
+    ErrorResponse:
+      type: object
+      description: Standard error response
+      required:
+        - error
+        - message
+        - timestamp
+        - path
+      properties:
+        error:
+          type: string
+          description: Error type
+          enum: ["ValidationError", "NotFound", "InternalError"]
+          example: "NotFound"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "NLP extraction not found for article"
+        details:
+          type: object
+          nullable: true
+          description: Additional error details
+          example:
+            article_id: "0b121edf-2691-4745-b282-f3b73b2cf494"
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+          example: "2025-11-07T14:30:00Z"
+        path:
+          type: string
+          description: Request path that caused error
+          example: "/api/v1/extractions/0b121edf-2691-4745-b282-f3b73b2cf494"

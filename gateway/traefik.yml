@@ -1,0 +1,194 @@
+# Traefik Static Configuration
+# Version: 2.10
+
+# API and Dashboard
+api:
+  dashboard: true
+  debug: false
+  insecure: false  # In production, use secure authentication
+
+# Entry Points
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "api.news-mcp.local"
+          - sans:
+            - "*.api.news-mcp.local"
+      middlewares:
+        - secure-headers@file
+        - rate-limit@file
+    forwardedHeaders:
+      trustedIPs:
+        - "10.0.0.0/8"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+
+  metrics:
+    address: ":8082"
+
+# Providers
+providers:
+  file:
+    directory: /etc/traefik/config
+    watch: true
+
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: news-microservices
+    watch: true
+
+  kubernetes:
+    endpoint: ""  # Use in-cluster config when deployed
+    token: ""
+    certAuthFilePath: ""
+    namespaces:
+      - default
+      - news-microservices
+    labelSelector: "environment=production"
+    ingressClass: traefik
+    allowCrossNamespace: false
+
+# Certificate Resolvers
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: admin@news-mcp.local
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+      # For production, use DNS challenge
+      # dnsChallenge:
+      #   provider: cloudflare
+      #   delayBeforeCheck: 0
+      #   resolvers:
+      #     - "1.1.1.1:53"
+      #     - "8.8.8.8:53"
+
+  # Development certificate resolver
+  selfsigned:
+    acme:
+      caServer: https://localhost:9000/acme/directory
+      email: dev@news-mcp.local
+      storage: /certs/acme-dev.json
+      httpChallenge:
+        entryPoint: web
+
+# Metrics
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.2
+      - 5.0
+
+  datadog:
+    address: "127.0.0.1:8125"
+    pushInterval: 10s
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+    prefix: "traefik"
+
+# Tracing
+tracing:
+  serviceName: api-gateway
+  spanNameLimit: 128
+
+  jaeger:
+    samplingServerURL: http://jaeger:5778/sampling
+    samplingType: const
+    samplingParam: 1.0
+    localAgentHostPort: jaeger:6831
+    gen128Bit: true
+    propagation: jaeger
+    traceContextHeaderName: uber-trace-id
+    collector:
+      endpoint: http://jaeger:14268/api/traces
+
+# Access Logs
+accessLog:
+  filePath: /var/log/traefik/access.json
+  format: json
+  filters:
+    statusCodes:
+      - "200-299"
+      - "400-599"
+    retryAttempts: true
+    minDuration: 10ms
+  fields:
+    defaultMode: keep
+    names:
+      StartUTC: drop
+    headers:
+      defaultMode: keep
+      names:
+        User-Agent: keep
+        Authorization: drop
+        X-Request-Id: keep
+
+# Logs
+log:
+  level: INFO
+  format: json
+  filePath: /var/log/traefik/traefik.json
+
+# Ping (Health Check)
+ping:
+  entryPoint: traefik
+  manualRouting: false
+
+# Pilot (Traefik Pilot - optional telemetry)
+pilot:
+  enabled: false
+  # token: "your-pilot-token"
+
+# Global configuration
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+# Server Transport
+serversTransport:
+  insecureSkipVerify: false
+  rootCAs: []
+  maxIdleConnsPerHost: 200
+  forwardingTimeouts:
+    dialTimeout: 30s
+    responseHeaderTimeout: 30s
+    idleConnTimeout: 90s
+
+# Entry point for Traefik
+hostResolver:
+  cnameFlattening: true
+  resolvConfig: /etc/resolv.conf
+  resolvDepth: 5
+
+# Experimental features
+experimental:
+  plugins:
+    jwt-validator:
+      moduleName: github.com/traefik-plugins/jwt-validator
+      version: v0.1.0
+
+  localPlugins:
+    jwt-forwardauth:
+      moduleName: github.com/news-mcp/jwt-forwardauth

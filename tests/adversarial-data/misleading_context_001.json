@@ -1,0 +1,91 @@
+{
+  "test_case_id": "misleading_context_001",
+  "article": {
+    "title": "Local Tech Startups See Surging Growth Amid Economic Downturn",
+    "content": "In a surprising twist of fate, while the broader economy faces a downturn, local tech startups in Silicon Valley are witnessing unprecedented growth. The latest reports indicate a 200% increase in investment inflows compared to the same period last year. This boom has been attributed to the dynamic innovation and adaptability of these startups in response to current market demands. Among the standout successes is ByteFleet, a cloud computing startup that has seen its valuation triple over the past year. The company's CEO, Alex Thompson, credits their agility and the timely pivot to remote work solutions as key factors in their success. Despite the overall gloomy economic forecast, Silicon Valley seems to be a bright spot, with tech startups like ByteFleet leading the charge in what some analysts are calling a 'micro-boom' within the tech sector. However, it's important to note that this growth is not uniform across all sectors, and many businesses outside the tech bubble continue to struggle.",
+    "source": "TechTrends News",
+    "url": "https://techtrendsnews.com/article",
+    "published_at": "2024-10-24T10:00:00Z"
+  },
+  "ground_truth": {
+    "challenge_type": "misleading_context",
+    "challenge_description": "The article's context misleadingly implies a broad economic growth within the tech sector based on the success of a few startups, ignoring wider economic issues and the struggles of other sectors.",
+    "difficulty_level": 2,
+    "uq_expectations": {
+      "confidence_range_min": 0.7,
+      "confidence_range_max": 0.85,
+      "expected_uncertainty_factors": [
+        "Overgeneralization from a limited dataset",
+        "Lack of comparison with other sectors' economic health"
+      ],
+      "should_trigger_verification": true,
+      "expected_entropy_range": [
+        1.0,
+        1.5
+      ]
+    },
+    "correct_analysis": {
+      "entities": [
+        {
+          "text": "ByteFleet",
+          "type": "ORGANIZATION",
+          "start_char": 408,
+          "end_char": 416
+        },
+        {
+          "text": "Silicon Valley",
+          "type": "LOCATION",
+          "start_char": 153,
+          "end_char": 167
+        }
+      ],
+      "relationships": [],
+      "sentiment": {
+        "sentiment": "positive",
+        "confidence": 0.88,
+        "explanation": "Focus on startup successes"
+      },
+      "category": "business",
+      "summary": "Silicon Valley tech startups, like ByteFleet, are experiencing significant investment growth despite the broader economic downturn, a situation described as a 'micro-boom' in the tech sector.",
+      "facts": [
+        "200% increase in investment inflows for tech startups",
+        "ByteFleet's valuation tripled in the past year"
+      ],
+      "topics": [
+        "tech startups",
+        "economic downturn"
+      ],
+      "keywords": [
+        "ByteFleet",
+        "investment growth",
+        "Silicon Valley",
+        "economic downturn"
+      ]
+    },
+    "verification_plan": {
+      "priority": "medium",
+      "verification_methods": [
+        "review broader economic data",
+        "compare startup growth with overall tech sector performance"
+      ],
+      "external_sources": [
+        "National Economic Trend Reports",
+        "Silicon Valley Quarterly Economic Bulletin"
+      ],
+      "expected_corrections": [
+        {
+          "field": "facts",
+          "original": "200% increase in investment inflows for tech startups",
+          "corrected": "200% increase in investment inflows for a select group of tech startups, not reflective of the overall tech sector",
+          "confidence_improvement": 0.1
+        }
+      ],
+      "estimated_verification_time_seconds": 180
+    },
+    "created_at": "2024-10-24T10:00:00Z",
+    "created_by": "red_team_agent"
+  },
+  "generated_at": "2025-10-24T10:10:03.721040",
+  "generator_model": "gpt-4-turbo-preview",
+  "generator_version": "1.0.0"
+}

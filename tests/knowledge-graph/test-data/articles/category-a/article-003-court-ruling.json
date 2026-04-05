@@ -1,0 +1,14 @@
+{
+  "article_id": "article-003",
+  "category": "A",
+  "title": "UK Court Rules Against Apple in App Store Monopoly Case",
+  "content": "The Competition Appeal Tribunal in London ruled today that Apple Inc. abused its monopoly in the UK App Store market. The tribunal found that Apple's 30% commission on app sales constitutes anticompetitive behavior. The ruling is a victory for Epic Games, which filed the lawsuit in 2020. Apple, headquartered in Cupertino, California, plans to appeal the decision. The Competition Appeal Tribunal is the UK's specialized court for competition law matters.",
+  "source": "Reuters",
+  "published_at": "2025-10-15",
+  "metadata": {
+    "word_count": 83,
+    "expected_entities": 6,
+    "expected_relationships": 4,
+    "difficulty": "easy"
+  }
+}

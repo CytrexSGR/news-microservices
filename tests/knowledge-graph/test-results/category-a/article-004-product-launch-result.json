@@ -1,0 +1,95 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "9c2dfbc0-4cfa-44bf-a4d4-8759ac03cf58",
+    "entities": [
+      {
+        "id": "12ac49f0-74c5-4fe4-8263-f63a074c3c6d",
+        "text": "Tesla",
+        "type": "ORGANIZATION",
+        "confidence": 0.95,
+        "mention_count": 3
+      },
+      {
+        "id": "35883a34-2561-4285-af45-9ef4f576c567",
+        "text": "Cybertruck",
+        "type": "PRODUCT",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "159b6927-fc50-42b9-91ed-e8d907da5ae5",
+        "text": "Austin",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 3
+      },
+      {
+        "id": "f5cefe52-10c7-456b-862a-93a0ba5b4c0c",
+        "text": "Texas",
+        "type": "LOCATION",
+        "confidence": 0.9,
+        "mention_count": 2
+      },
+      {
+        "id": "086a04d7-639a-4435-bd3a-6482171f985e",
+        "text": "Elon Musk",
+        "type": "PERSON",
+        "confidence": 0.95,
+        "mention_count": 2
+      },
+      {
+        "id": "7d909c4e-6308-4cc3-bbef-a02bb525c022",
+        "text": "Gigafactory",
+        "type": "ORGANIZATION",
+        "confidence": 0.8,
+        "mention_count": 2
+      },
+      {
+        "id": "dd1e631a-202c-46e8-8886-91ac95a8462c",
+        "text": "Austin Gigafactory",
+        "type": "ORGANIZATION",
+        "confidence": 0.85,
+        "mention_count": 2
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "Tesla",
+        "entity2": "Cybertruck",
+        "type": "related_to",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Tesla",
+        "entity2": "Austin",
+        "type": "located_in",
+        "confidence": 0.9
+      },
+      {
+        "entity1": "Tesla",
+        "entity2": "Gigafactory",
+        "type": "located_in",
+        "confidence": 0.85
+      },
+      {
+        "entity1": "Elon Musk",
+        "entity2": "Tesla",
+        "type": "works_for",
+        "confidence": 0.95
+      },
+      {
+        "entity1": "Tesla",
+        "entity2": "Austin Gigafactory",
+        "type": "located_in",
+        "confidence": 0.85
+      }
+    ],
+    "entity_count": 7,
+    "relationship_count": 5,
+    "processing_time_ms": 6543,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:06:58.495144"
+}

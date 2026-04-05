@@ -1,0 +1,134 @@
+{
+  "article_id": "article-008",
+  "ground_truth_relationships": [
+    {
+      "triplet": ["Jerome Powell", "works_for", "Federal Reserve"],
+      "evidence": "The Federal Reserve, under Chair Jerome Powell's leadership",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Chair role explicit"
+    },
+    {
+      "triplet": ["Sherrod Brown", "works_for", "Senate Banking Committee"],
+      "evidence": "Senate Banking Committee chaired by Senator Sherrod Brown",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Committee chair relationship"
+    },
+    {
+      "triplet": ["Martin Gruenberg", "works_for", "Federal Deposit Insurance Corporation"],
+      "evidence": "The Federal Deposit Insurance Corporation, led by Chairman Martin Gruenberg",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Chairman role"
+    },
+    {
+      "triplet": ["Janet Yellen", "works_for", "Treasury"],
+      "evidence": "coordinated with Treasury Secretary Janet Yellen",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Treasury Secretary role (Treasury implies US Treasury)"
+    },
+    {
+      "triplet": ["Jamie Dimon", "works_for", "JPMorgan Chase"],
+      "evidence": "JPMorgan Chase, the nation's largest bank led by CEO Jamie Dimon",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO relationship"
+    },
+    {
+      "triplet": ["JPMorgan Chase", "owns", "First Republic Bank"],
+      "evidence": "acquiring First Republic Bank's assets",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Acquisition relationship - tests owns type"
+    },
+    {
+      "triplet": ["UBS", "owns", "Credit Suisse"],
+      "evidence": "Credit Suisse's absorption by UBS",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Acquisition/merger relationship"
+    },
+    {
+      "triplet": ["Thomas Jordan", "works_for", "Swiss National Bank"],
+      "evidence": "Swiss National Bank President Thomas Jordan",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "President role"
+    },
+    {
+      "triplet": ["Karin Keller-Sutter", "works_for", "Switzerland"],
+      "evidence": "Swiss Finance Minister Karin Keller-Sutter",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Finance Minister role"
+    },
+    {
+      "triplet": ["Andrew Bailey", "works_for", "Bank of England"],
+      "evidence": "Bank of England Governor Andrew Bailey",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Governor role"
+    },
+    {
+      "triplet": ["Christine Lagarde", "works_for", "European Central Bank"],
+      "evidence": "European Central Bank President Christine Lagarde",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "President role"
+    },
+    {
+      "triplet": ["Bruno Le Maire", "works_for", "France"],
+      "evidence": "French Finance Minister Bruno Le Maire",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Finance Minister role"
+    },
+    {
+      "triplet": ["Jan Hatzius", "works_for", "Goldman Sachs"],
+      "evidence": "Goldman Sachs Chief Economist Jan Hatzius",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Chief Economist role"
+    },
+    {
+      "triplet": ["Larry Fink", "works_for", "BlackRock"],
+      "evidence": "BlackRock CEO Larry Fink",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "CEO role"
+    },
+    {
+      "triplet": ["Michael Wilson", "works_for", "Morgan Stanley"],
+      "evidence": "Morgan Stanley's strategist Michael Wilson",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Strategist role"
+    },
+    {
+      "triplet": ["Kristalina Georgieva", "works_for", "International Monetary Fund"],
+      "evidence": "The International Monetary Fund, led by Managing Director Kristalina Georgieva",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "Managing Director role"
+    },
+    {
+      "triplet": ["David Malpass", "works_for", "World Bank"],
+      "evidence": "World Bank President David Malpass",
+      "confidence_expectation": "high",
+      "mandatory": true,
+      "notes": "President role"
+    }
+  ],
+  "expected_metrics": {
+    "total_relationships_min": 14,
+    "total_relationships_max": 20,
+    "avg_confidence_min": 0.80,
+    "precision_min": 0.75,
+    "recall_min": 0.65,
+    "false_positives_max": 3,
+    "notes": "Financial sector analysis with many institutional relationships. Strong test of works_for and owns types. Two acquisition relationships (JPMorgan-First Republic, UBS-Credit Suisse) test owns extraction. High entity density."
+  },
+  "notes": "COMPLEX EXAMPLE: Tests financial sector relationship extraction with emphasis on works_for (17 expected) and owns (2 acquisitions). Tests system's ability to distinguish between institutional vs individual entities."
+}

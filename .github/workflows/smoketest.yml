@@ -1,0 +1,138 @@
+name: Smoke Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      test_level:
+        description: 'Test level to run'
+        required: false
+        default: 'quick'
+        type: choice
+        options:
+          - quick
+          - full
+          - e2e
+
+env:
+  COMPOSE_PROJECT_NAME: news-microservices-ci
+
+jobs:
+  smoke-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env << 'EOF'
+          POSTGRES_USER=news_user
+          POSTGRES_PASSWORD=news_password
+          POSTGRES_DB=news_db
+          REDIS_URL=redis://redis:6379
+          RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+          JWT_SECRET=ci-test-secret-key-do-not-use-in-prod
+          EOF
+
+      - name: Start infrastructure services
+        run: |
+          docker compose up -d postgres redis rabbitmq neo4j
+          echo "Waiting for infrastructure..."
+          sleep 30
+
+      - name: Start application services
+        run: |
+          docker compose up -d
+          echo "Waiting for services to be ready..."
+          sleep 60
+
+      - name: Check service status
+        run: |
+          docker compose ps
+          echo ""
+          echo "=== Container Health ==="
+          docker compose ps --format "table {{.Name}}\t{{.Status}}"
+
+      - name: Run Quick Smoke Test
+        id: quick_test
+        run: |
+          chmod +x ./scripts/quick_smoke_test.sh
+          ./scripts/quick_smoke_test.sh | tee smoke_test_output.txt
+
+          # Extract pass rate
+          PASS_RATE=$(grep "Success Rate" smoke_test_output.txt | grep -oP '\d+\.\d+')
+          echo "pass_rate=$PASS_RATE" >> $GITHUB_OUTPUT
+
+      - name: Run Infrastructure Test
+        if: always()
+        run: |
+          if [ -f ./scripts/infrastructure_test.sh ]; then
+            chmod +x ./scripts/infrastructure_test.sh
+            ./scripts/infrastructure_test.sh || true
+          else
+            echo "Infrastructure test script not found, skipping"
+          fi
+
+      - name: Run E2E Flow Test
+        if: ${{ github.event.inputs.test_level == 'e2e' || github.event.inputs.test_level == 'full' }}
+        run: |
+          chmod +x ./scripts/test_e2e_flow.sh
+          ./scripts/test_e2e_flow.sh
+
+      - name: Collect service logs on failure
+        if: failure()
+        run: |
+          mkdir -p logs
+          for container in $(docker compose ps -q); do
+            name=$(docker inspect --format '{{.Name}}' $container | sed 's/\///')
+            docker logs $container > logs/${name}.log 2>&1 || true
+          done
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-logs
+          path: logs/
+          retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: |
+            smoke_test_output.txt
+            reports/testing/
+          retention-days: 30
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## Smoke Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f smoke_test_output.txt ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat smoke_test_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  notify-on-failure:
+    needs: smoke-tests
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify on failure
+        run: |
+          echo "Smoke tests failed! Check the workflow run for details."
+          # Add Slack/Discord/Email notification here if needed

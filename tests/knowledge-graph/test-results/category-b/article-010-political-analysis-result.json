@@ -1,0 +1,424 @@
+{
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "article_id": "aa5ed300-e0d8-4017-acd8-41c5b89b2077",
+    "entities": [
+      {
+        "id": "02d3e49f-bd5d-44d5-b2b1-55de787226e9",
+        "text": "EU AI Act",
+        "type": "NOT_APPLICABLE",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "ecaa9247-8cc4-40b3-9f90-6520db0d431b",
+        "text": "European Union",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 3
+      },
+      {
+        "id": "30492ae3-e1ab-4dc7-a2b4-9317e6c2f093",
+        "text": "Thierry Breton",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "4427c73f-d25a-4580-8c4e-aeef0a9f05d7",
+        "text": "Ursula von der Leyen",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "85443009-21d1-4e3a-a63b-3e9041e86dfa",
+        "text": "Centre for European Policy Studies",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "8dcc7b04-816e-4b00-acaa-61b269285e26",
+        "text": "Brando Benifei",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "3cfd1497-7a37-4a3c-a611-6fc5236d8b0b",
+        "text": "European Parliament",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "9353680f-13fc-4a94-a176-ec8ade2bfc2e",
+        "text": "Germany",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "eb2ce7b9-623b-4848-b3fc-d15634a1be43",
+        "text": "Volker Wissing",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "4ea5e864-5ca7-44a2-bb64-86f0955bf53c",
+        "text": "Berlin",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "3f522c5a-873f-4419-9df0-2f0df0eefe70",
+        "text": "France",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "17be2f40-51ce-4da1-9ec8-d5d7dfa26703",
+        "text": "Jean-Noël Barrot",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "a49029f7-be54-48b7-b724-2e429a505f8d",
+        "text": "Mistral AI",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "7df17b2c-12ee-4e3a-a1c2-3e7366c9d562",
+        "text": "Arthur Mensch",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "f2aeb9d2-f9cb-4f08-91af-589cfeb4dccb",
+        "text": "Guillaume Lample",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "95ab0b08-933c-40a9-9ca7-7281c9306f15",
+        "text": "Microsoft",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "60cabeca-1a24-4e7e-8beb-4a22e0062c69",
+        "text": "Brad Smith",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "855ccf18-5bcd-4929-910c-217dfb71ea26",
+        "text": "Google",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "e070817f-a931-4897-8a28-fcdd26a4fdc4",
+        "text": "Sundar Pichai",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "ba8c4ff0-2d71-437a-921c-5271169add26",
+        "text": "OpenAI",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "b6d5cc3e-1ec9-4c4c-8e49-44e835b8adfb",
+        "text": "Sam Altman",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "2df58217-fdc0-4e2a-9036-c7e9da2d8d56",
+        "text": "Emmanuel Macron",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "2decfc4b-2644-4d2f-a8b7-046976da40e2",
+        "text": "Poland",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "66544b89-2ebf-4acc-b00c-1551bef4d632",
+        "text": "Mateusz Morawiecki",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "21e6b8ce-2377-4abe-be41-5efdc5091c31",
+        "text": "Sweden",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "627fb5d5-20bb-4330-b5d7-022522a86fc7",
+        "text": "Erik Slottner",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "5c99390c-d73d-47be-acde-b586ea254034",
+        "text": "Denmark",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 2
+      },
+      {
+        "id": "d9da0794-97bd-4bb9-9f82-24958bf0dcec",
+        "text": "Lars Aagaard",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "e67c2f0f-4f9b-42f9-9ea2-6db52827085e",
+        "text": "Access Now",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "76f3e9d9-0439-4057-ba71-d3af5088c2db",
+        "text": "Brett Solomon",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "a27f9421-d777-4ebc-90e8-8bb4d1004582",
+        "text": "AlgorithmWatch",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "a8da4535-67ad-4542-9a38-54b015abbf00",
+        "text": "Matthias Spielkamp",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "30bdbcf2-7d05-42e1-ac26-ee1b52e1fd32",
+        "text": "European Data Protection Board",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "52e3ef54-57e3-4c1a-a348-9f15b8273de9",
+        "text": "Andrea Jelinek",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "b809b061-6d2c-4d8a-9782-e84b6c5131f1",
+        "text": "Austria",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "525d42a5-8486-4475-a772-1db440bc3d8e",
+        "text": "Yann LeCun",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "9579c0bd-e1ee-4107-8d4e-c98b814704eb",
+        "text": "Meta",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "fd49610c-692c-416a-8f1f-74f73d0ca866",
+        "text": "X",
+        "type": "ORGANIZATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "49f90afe-5081-4013-8ce1-191679142596",
+        "text": "Helen Dixon",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "44d463ae-2b7a-4ebb-b24b-156dfc050503",
+        "text": "Dublin",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "aadd6832-d0c2-49a8-bfb7-045098edebcd",
+        "text": "Spain",
+        "type": "LOCATION",
+        "confidence": 1.0,
+        "mention_count": 1
+      },
+      {
+        "id": "990389dd-3eb8-4af6-b0c7-d7601db9d8e0",
+        "text": "Carme Artigas",
+        "type": "PERSON",
+        "confidence": 1.0,
+        "mention_count": 1
+      }
+    ],
+    "relationships": [
+      {
+        "entity1": "European Union",
+        "entity2": "Thierry Breton",
+        "type": "works_for",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "European Union",
+        "entity2": "Ursula von der Leyen",
+        "type": "works_for",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Centre for European Policy Studies",
+        "entity2": "European Union",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Brando Benifei",
+        "entity2": "European Parliament",
+        "type": "member_of",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Germany",
+        "entity2": "Berlin",
+        "type": "located_in",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "France",
+        "entity2": "Emmanuel Macron",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Mistral AI",
+        "entity2": "Arthur Mensch",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Mistral AI",
+        "entity2": "Guillaume Lample",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Microsoft",
+        "entity2": "Brad Smith",
+        "type": "works_for",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Google",
+        "entity2": "Sundar Pichai",
+        "type": "works_for",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "OpenAI",
+        "entity2": "Sam Altman",
+        "type": "works_for",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Poland",
+        "entity2": "Mateusz Morawiecki",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Sweden",
+        "entity2": "Erik Slottner",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Denmark",
+        "entity2": "Lars Aagaard",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Access Now",
+        "entity2": "Brett Solomon",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "AlgorithmWatch",
+        "entity2": "Matthias Spielkamp",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "European Data Protection Board",
+        "entity2": "Andrea Jelinek",
+        "type": "related_to",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Yann LeCun",
+        "entity2": "Meta",
+        "type": "works_for",
+        "confidence": 1.0
+      },
+      {
+        "entity1": "Carme Artigas",
+        "entity2": "Spain",
+        "type": "related_to",
+        "confidence": 1.0
+      }
+    ],
+    "entity_count": 42,
+    "relationship_count": 19,
+    "processing_time_ms": 33359,
+    "cached": false
+  },
+  "timestamp": "2025-10-24T06:09:23.078853"
+}
