@@ -90,8 +90,12 @@ A production-grade news intelligence platform that ingests RSS/Atom feeds, runs 
 - **Analytics Service** — Metrics APIs, production-optimized queries, Alembic migrations
 - **FMP Market Data** — Financial Modeling Prep integration for market context enrichment
 
+### Alerts & Delivery
+- **Telegram Alerts** — High-tension narrative alerts, breaking news bursts, SITREP delivery via n8n → Telegram Bot
+- **Multi-Channel** — Telegram, Slack, Discord, Email, Webhooks — all via n8n native integrations
+
 ### Workflow Automation
-- **n8n Integration** — Visual workflow engine for feed orchestration, content pipelines, and scheduled jobs
+- **n8n Integration** — Visual workflow engine for feed orchestration, content pipelines, alert routing, and scheduled jobs
 - **MediaStack Workflows** — Automated news discovery via n8n → MediaStack API → feed ingestion
 
 ### Platform & Integration
