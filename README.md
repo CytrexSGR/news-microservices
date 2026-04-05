@@ -1,36 +1,20 @@
 # News MCP – Microservices Platform
 
-![Test Pipeline](https://github.com/YOUR_USERNAME/news-microservices/workflows/Test%20Pipeline/badge.svg)
-![Lint Pipeline](https://github.com/YOUR_USERNAME/news-microservices/workflows/01%20Lint%20(Docker,%20Shell,%20Compose)/badge.svg)
-![Build Pipeline](https://github.com/YOUR_USERNAME/news-microservices/workflows/Build%20Pipeline/badge.svg)
-![Coverage](https://img.shields.io/badge/coverage-73.7%25-yellow)
-![Services](https://img.shields.io/badge/services-12-blue)
-![Production Ready](https://img.shields.io/badge/production%20ready-8%2F11-green)
+![Services](https://img.shields.io/badge/services-34-blue)
+![Python](https://img.shields.io/badge/Python-3.11+-blue)
+![React](https://img.shields.io/badge/React-18-61DAFB)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 
 News MCP is a modular news intelligence platform composed of independent FastAPI services, a React/Vite frontend, and an event-driven backbone built on RabbitMQ. The repository contains everything required to run the full stack locally (Docker Compose) or in Kubernetes (manifests + Tilt).
 
 ---
 
-## 📚 **Developer Documentation**
+## 📚 **Documentation**
 
-**🎯 START HERE:** [CLAUDE.md](CLAUDE.md) - Main development guide and index
-
-### Domain-Specific Guides
-
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** ⭐ **Read this first!** - Complete system architecture overview
-- **[CLAUDE.backend.md](CLAUDE.backend.md)** - Backend development (Docker, Services, Database, RabbitMQ)
-- **[CLAUDE.frontend.md](CLAUDE.frontend.md)** - Frontend development (React, Vite, UI Patterns)
-- **[CLAUDE.n8n.md](CLAUDE.n8n.md)** - Workflow automation (n8n integration)
-- **[CLAUDE.github.md](CLAUDE.github.md)** - GitHub workflows, branch strategy, collaboration
-
-### Quick Links
-
-- **Service Inventory:** [reports/phase-1-inventory/SERVICE_INVENTORY_SUMMARY.md](reports/phase-1-inventory/SERVICE_INVENTORY_SUMMARY.md)
-- **Known Issues:** [CLAUDE.md#known-issues](CLAUDE.md#known-issues)
-- **Critical Incidents:** [POSTMORTEMS.md](POSTMORTEMS.md)
-- **Documentation Consolidation:** [PHASE2_COMPLETION_REPORT.md](PHASE2_COMPLETION_REPORT.md)
-
-> **Note:** Root-level `CLAUDE*.md` files are symlinks to `news-microservices/CLAUDE*.md` (canonical versions)
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Complete system architecture overview
+- **[docs/](docs/)** — API docs, guides, service documentation
+- **[docs/guides/](docs/guides/)** — Deployment, security, scaling guides
 
 ---
 
