@@ -131,3 +131,14 @@ Key documentation:
 
 For questions or onboarding help, consult the runbooks under `docs/` or reach out to the platform team.
 
+
+
+---
+
+## Authors
+
+**Andreas** — Architecture, Design, Direction
+**[Claude Code](https://claude.ai/code)** (Anthropic) — Implementation Partner
+
+> This project was built using vibe coding — human vision and AI implementation working as equals.
+
