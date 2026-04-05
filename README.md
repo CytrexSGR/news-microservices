@@ -51,10 +51,11 @@ A production-grade news intelligence platform that ingests RSS/Atom feeds, runs 
 ## Key Features
 
 ### Feed Management & Ingestion
-- **RSS/Atom Feed Manager** — CRUD for 61+ feeds with health monitoring and quality scoring
-- **Intelligent Scheduling** — Per-feed fetch intervals with circuit breakers and exponential backoff
-- **Content Deduplication** — SHA-256 based dedup to prevent duplicate article processing
-- **Full-Content Scraping** — Headless browser extraction for truncated or paywalled articles
+- **RSS/Atom Feed Manager** — Full CRUD for 61+ feeds with health monitoring, quality scoring, and scheduling optimization
+- **Source Assessment** — Admiralty Code System (A-F reliability rating) with configurable thresholds and credibility scoring
+- **Intelligent Scheduling** — Per-feed fetch intervals with circuit breakers, exponential backoff, and schedule optimization
+- **Content Deduplication** — SHA-256 hash dedup + near-duplicate detection with HITL (Human-in-the-Loop) review queue
+- **Full-Content Scraping** — Headless browser extraction for truncated or paywalled articles via scraping-service
 - **Dead Letter Queue** — Failed messages preserved for investigation and replay
 - **MediaStack Integration** — Alternative news source via MediaStack API with n8n workflows
 
@@ -73,11 +74,19 @@ A production-grade news intelligence platform that ingests RSS/Atom feeds, runs 
 - **Ontology Proposals** — OSS (Ontology Suggestion System) for schema evolution with proposal/review workflow
 
 ### Intelligence & Clustering
-- **Dual-Mode Clustering** — Single-pass O(n) for real-time + UMAP/HDBSCAN batch for topic discovery
-- **Burst Detection** — Automatic breaking news identification based on growth rate (Welford's algorithm)
+- **Risk Scoring & Event Detection** — Real-time global risk calculation (0-100), automated event detection from text, intelligence overview dashboard
+- **Dual-Mode Clustering** — Single-pass O(n) for real-time article grouping + UMAP/HDBSCAN batch for semantic topic discovery
+- **Burst Detection** — Automatic breaking news identification based on growth rate (Welford's algorithm), with acknowledge/dismiss workflow
+- **Semantic Profiles** — Custom topic profiles with embedding-based matching against live clusters
+- **Escalation Analysis** — Aggregated escalation summaries across clusters
 - **21,000+ Active Clusters** — Story groupings with time-decay ranking
-- **Narrative Detection** — Frame analysis (victim/hero/threat/solution/conflict/economic), political bias scoring, propaganda detection
-- **SITREP Generation** — AI-powered situation reports with key developments, risk assessments, and sentiment analysis
+
+### Narrative Intelligence
+- **Frame Detection** — Identifies narrative frames per article: victim, hero, threat, solution, conflict, economic
+- **Political Bias Scoring** — Left-to-right spectrum analysis with confidence scores
+- **Propaganda Detection** — Automated propaganda pattern identification
+- **Narrative Gateway** — Aggregation layer across narrative analysis results
+- **SITREP Generation** — AI-powered situation reports (daily/weekly/breaking) with key developments, risk assessments, and sentiment analysis
 
 ### OSINT & Research
 - **OSINT Service** — 50+ investigation templates, APScheduler-driven monitoring, anomaly detection hooks
@@ -86,9 +95,16 @@ A production-grade news intelligence platform that ingests RSS/Atom feeds, runs 
 - **Geolocation Extraction** — Geographic entity resolution and mapping from article content
 
 ### Search & Analytics
-- **Full-Text Search** — Real-time indexing with saved searches and trend analytics
-- **Analytics Service** — Metrics APIs, production-optimized queries, Alembic migrations
-- **FMP Market Data** — Financial Modeling Prep integration for market context enrichment
+- **Full-Text + Semantic Search** — Real-time indexing, advanced queries (AND/OR/phrase), semantic similarity via embeddings, autocomplete
+- **Saved Searches** — Persistent search configurations with scheduled execution
+- **Entity Graph Search** — Neo4j-backed entity connections, relationship paths, article-entity linking
+- **Analytics Service** — Trend analytics, intelligence signals, dashboard metrics, production-optimized queries
+- **Search History** — Per-user search history with management API
+
+### Financial & Predictive Analytics
+- **FMP Service** — Financial Modeling Prep integration: macro indicators, market indices, sector data for context enrichment
+- **Prediction Service** — Predictive analytics engine with trading signals, consensus predictions, strategy backtesting
+- **Strategy Lab** — Frontend for exploring and debugging prediction strategies
 
 ### Alerts & Delivery
 - **Telegram Alerts** — High-tension narrative alerts, breaking news bursts, SITREP delivery via n8n → Telegram Bot
@@ -123,30 +139,39 @@ A production-grade news intelligence platform that ingests RSS/Atom feeds, runs 
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| auth-service | 8100 | JWT auth, API keys, RBAC |
-| feed-service | 8101 | RSS/Atom feed management and ingestion |
-| content-analysis-v3 | 8114 | 4-tier AI analysis pipeline |
-| entity-canonicalization | 8112 | 5-stage entity dedup + Wikidata |
-| knowledge-graph | 8111 | Neo4j entity graph + analytics |
-| intelligence-service | — | Clustering, dedup, story grouping |
-| clustering-service | 8122 | UMAP/HDBSCAN + single-pass clustering |
-| narrative-service | 8119 | Frame, bias, propaganda detection |
-| sitrep-service | 8123 | AI-generated intelligence briefings |
-| search-service | 8106 | Full-text search + saved searches |
-| analytics-service | 8107 | Trend analytics + metrics |
-| research-service | 8103 | Perplexity AI research automation |
-| osint-service | 8104 | OSINT monitoring + investigation |
-| scheduler-service | 8108 | Job scheduling for feeds + analysis |
-| scraping-service | — | Headless browser content extraction |
-| llm-orchestrator | 8109 | Multi-LLM orchestration + DIA |
-| notification-service | 8105 | Email/webhook delivery |
-| geolocation-service | — | Geographic entity resolution |
-| ontology-proposals | 8109 | Schema evolution proposals |
+| **Core** | | |
+| auth-service | 8100 | JWT auth, API keys, RBAC, key rotation |
+| feed-service | 8101 | RSS/Atom feed management, ingestion, HITL review, Admiralty codes |
+| search-service | 8106 | Full-text + semantic search, saved searches, entity graph queries |
+| scheduler-service | 8108 | Cron jobs, feed monitoring, entity dedup scheduling |
+| **Analysis & Intelligence** | | |
+| content-analysis-v3 | 8117 | 4-tier AI analysis pipeline (triage → foundation → specialist) |
+| intelligence-service | 8118 | Risk scoring, event detection, intelligence overview |
+| clustering-service | 8122 | Dual-mode clustering, burst detection, semantic profiles, escalation |
+| sitrep-service | 8123 | AI-generated intelligence briefings (daily/weekly/breaking) |
+| **Knowledge & Entities** | | |
+| entity-canonicalization | 8112 | 5-stage entity dedup, fuzzy matching, Wikidata, batch processing |
+| knowledge-graph | 8111 | Neo4j entity graph, analytics APIs, manual enrichment |
+| ontology-proposals | 8109 | Schema evolution proposals + review workflow |
 | oss-service | 8110 | Ontology Suggestion System |
-| mediastack-service | — | MediaStack news API wrapper |
-| nexus-agent | — | Autonomous cross-service agent |
-| narrative-intel-gateway | — | Narrative intelligence aggregation |
-| mcp-\*-server (x8) | 9001-9008 | Model Context Protocol servers |
+| **Financial & Predictive** | | |
+| fmp-service | 8113 | Financial Modeling Prep: macro indicators, market data |
+| prediction-service | 8116 | Predictive analytics, trading signals, consensus |
+| **Narrative & Geolocation** | | |
+| narrative-service | 8119 | Frame detection, bias analysis, propaganda detection |
+| narrative-intel-gateway | 8114 | Narrative analysis aggregation |
+| geolocation-service | 8115 | Geographic entity resolution + visualization |
+| **Data Acquisition** | | |
+| scraping-service | — | Headless browser full-content extraction |
+| research-service | 8103 | Perplexity AI research automation |
+| mediastack-service | 8120 | MediaStack news API wrapper |
+| **Analytics & Monitoring** | | |
+| analytics-service | 8107 | Trend analytics, dashboards, intelligence signals |
+| **Orchestration & Agents** | | |
+| llm-orchestrator | 8121 | Multi-LLM orchestration, DIA verification |
+| nexus-agent | 8124 | Autonomous AI co-pilot for cross-service tasks |
+| osint-service | 8104 | 50+ OSINT investigation templates, anomaly monitoring |
+| **MCP Servers** | 9001-9008 | 8 servers, 200+ tools for AI agent integration |
 
 ## Getting Started
 
@@ -190,7 +215,7 @@ DATABASE_URL=postgresql+asyncpg://news_user:your_db_password@postgres:5432/news_
 | Frontend | http://localhost:3000 |
 | Auth API | http://localhost:8100 |
 | Feed API | http://localhost:8101 |
-| Content Analysis | http://localhost:8114 |
+| Content Analysis | http://localhost:8117 |
 | Knowledge Graph | http://localhost:8111 |
 | Search | http://localhost:8106 |
 | Analytics | http://localhost:8107 |
