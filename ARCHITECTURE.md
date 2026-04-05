@@ -5,10 +5,10 @@
 **Status:** Production (News Intelligence System - Phase 2 Complete)
 
 > **📚 Quick Links:**
-> - [Development Guide](CLAUDE.md) - Start here for daily development
-> - [Backend Guide](CLAUDE.backend.md) - Docker, Services, Database
-> - [Frontend Guide](CLAUDE.frontend.md) - React, Vite, UI
-> - [Service Inventory](reports/phase-1-inventory/SERVICE_INVENTORY_SUMMARY.md) - Detailed metrics
+> - [README](README.md) - Project overview and getting started
+> - [API Documentation](docs/api/API_LANDSCAPE.md) - Complete API reference
+> - [Service Documentation](docs/services/) - Per-service guides
+> - [Deployment Guide](docs/guides/DEPLOYMENT_GUIDE.md) - Production deployment
 
 ---
 
@@ -574,7 +574,7 @@ cluster.* events → sitrep-service → sitrep.generated
 **See Also:**
 - [services/content-analysis-v3/README.md](services/content-analysis-v3/README.md) - V3 Pipeline Documentation
 - [services/feed-service/README.md](services/feed-service/README.md) - V3 Analysis API
-- [POSTMORTEMS.md - Incident #17](POSTMORTEMS.md) - V3 Production Issues & Fixes
+- the incident postmortem (archived) - V3 Production Issues & Fixes
 
 #### Flow 2: Knowledge Graph Extraction
 
@@ -963,7 +963,7 @@ docker-compose.prod.yml (Optimized Builds - No Volume Mounts)
 
 7. **V3 Schema Drift — Intelligence Analytics** ✅ **RESOLVED (2026-02-24)**
    - **Was:** 6 bugs across analytics/search/intelligence services — V2 JSONB field names in queries, wrong sentiment path, missing feed_items JOIN, auth on internal calls, outdated risk normalization, missing trending_entities
-   - **Resolution:** All 6 bugs fixed, 11 files changed. See [POSTMORTEMS.md — Incident #38](POSTMORTEMS.md)
+   - **Resolution:** All 6 bugs fixed, 11 files changed. See the incident postmortem (archived)
    - **Root Cause:** V2→V3 schema change not propagated to downstream consumers (silent failures, no errors logged)
    - **Prevention:** Schema migration checklist, silent failure metrics, integration smoke tests
 
@@ -1117,17 +1117,13 @@ docker-compose.prod.yml (Optimized Builds - No Volume Mounts)
 
 ### Development Guides
 
-- **Main Guide:** [CLAUDE.md](CLAUDE.md) - Start here for daily development
-- **Backend:** [CLAUDE.backend.md](CLAUDE.backend.md) - Docker, Services, Database, RabbitMQ
-- **Frontend:** [CLAUDE.frontend.md](CLAUDE.frontend.md) - React, Vite, UI Patterns
-- **n8n:** [CLAUDE.n8n.md](CLAUDE.n8n.md) - Workflow Automation
+- **Getting Started:** [README.md](README.md)
+- **Guides:** [docs/guides/](docs/guides/) — Deployment, security, scaling, backup
 
 ### Operational
 
-- **Health Check:** `./scripts/health_check.sh` - Check all services
-- **Metrics Collection:** `./scripts/collect_performance_metrics.sh`
-- **Baseline Report:** [reports/baseline-metrics-20251030.md](reports/baseline-metrics-20251030.md)
-- **Postmortems:** [POSTMORTEMS.md](POSTMORTEMS.md) - Critical incidents & lessons learned
+- **Health Check:** `./scripts/health_check.sh` — Check all services
+- **API Reference:** [docs/api/API_LANDSCAPE.md](docs/api/API_LANDSCAPE.md) — All 250+ endpoints
 
 ---
 
