@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688)
 ![React](https://img.shields.io/badge/React-18-61DAFB)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-AGPL--3.0-blue)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 
 A production-grade news intelligence platform that ingests RSS/Atom feeds, runs them through a multi-stage AI analysis pipeline, resolves and deduplicates entities against Wikidata, builds a knowledge graph, clusters stories in real-time, detects narratives and bias, and produces automated intelligence briefings — all as independently deployable microservices connected via RabbitMQ.
@@ -377,7 +377,11 @@ See individual service READMEs for service-specific development instructions.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+**Dual Licensed:**
+- **AGPL v3** — Open source, copyleft. If you run this as a service, you must publish your modifications.
+- **Commercial License** — For proprietary use without AGPL obligations, [contact CytrexSGR](https://github.com/CytrexSGR).
+
+See [LICENSE](LICENSE) for details.
 
 ---
 
